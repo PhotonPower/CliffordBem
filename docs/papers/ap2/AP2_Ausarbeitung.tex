@@ -1,0 +1,356 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[ngerman]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb, amsfonts, amsthm}
+\usepackage{geometry}
+\geometry{a4paper, left=2.5cm, right=2.5cm, top=3cm, bottom=3cm}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{booktabs}
+\setstretch{1.15}
+\titleformat{\section}{\large\bfseries\sffamily}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries\sffamily}{\thesubsection}{1em}{}
+\newcommand{\mvec}[1]{\boldsymbol{#1}}
+\newcommand{\clc}{\mathcal{C}\ell_{3}(\mathbb{C})}
+\newcommand{\n}{\mvec{n}}
+\newcommand{\EG}{\mathcal{E}_\Gamma}
+
+\begin{document}
+\begin{center}
+  \sffamily
+  {\Large\textbf{Clifford-BEM: Ausarbeitung zu AP 2}}\\[0.3cm]
+  {\large Teil I: 3D-Galerkin-Prototyp, Kugel, Würfel, Vorkonditionierung}\\[0.3cm]
+  {\small Arbeitsstand, Version 0.3}
+\end{center}
+
+\section*{Überblick}
+Dieses Dokument behandelt die Schritte 2.1 und 2.2 des AP-2-Plans, den ersten Teil
+von 2.3 sowie die Schritte 2.4 und 2.5 am Würfel (Abschnitte~\ref{sec:wuerfel}
+und~\ref{sec:vorkond3d}). Gegenstand ist ein Python-Prototyp, der die Formulierung
+$T_1 = E_2^+ + E_1^-J$ aus AP~1 in 3D mit dem Galerkin-Verfahren diskretisiert.
+Die Skripte liegen in \texttt{ap2/}. Grundlage sind die Konventionen und die
+Standardwahl der Hilfsparameter aus dem AP-1-Arbeitspapier.
+
+\paragraph{Ergebnisse.} Der Randoperator trennt innere und äußere Spuren mit
+Konvergenz erster Ordnung. Die Extinktion konvergiert für Glas, Gold und nahe der
+Plasmonresonanz gegen Mie; nach Extrapolation beträgt die Abweichung $0{,}2$ bis
+$0{,}7\,\%$. Der kleinste Singulärwert von $T_1$ bleibt bei Verfeinerung beschränkt. Die
+GMRES-Iterationen sind für Glas konstant (12 bis 14) und wachsen für Gold nur schwach
+(29 bis 37). Am Würfel bestätigt sich die Kantenvorhersage aus AP~1 in 3D quantitativ:
+Für $\kappa=-3+0{,}3i$ fällt $\sigma_{\min}$ mit der Rate $0{,}31$, vorhergesagt ist
+$0{,}32$. Gold und Glas bleiben stabil. Für $\kappa=-4+0{,}3i$ dominieren die Ecken. Mit einer Kanten- und
+Eck-Blockvorkonditionierung sind die GMRES-Iterationen am Würfel unabhängig von der
+Eckauflösung, für alle getesteten Kontraste (Abschnitt~\ref{sec:vorkond3d}).
+
+\section{Diskretisierung (Schritt 2.1)}
+
+\paragraph{Ansatzraum.} Ebene Dreiecke $\tau_i$ einer Ikosaeder-Kugel mit $n$-facher
+Kantenunterteilung ($20n^2$ Dreiecke, Normalen nach außen). Die Dichten sind
+stückweise konstant und $\clc$-wertig, mit der orthonormalen Basis
+$\chi_{\tau_i}/\sqrt{|\tau_i|}$ und 8 Komponenten je Dreieck. Die Galerkin-Testung erfolgt
+im $L^2$-Skalarprodukt $\langle A^\dagger B\rangle_0$; in dieser Basis ist die
+Massenmatrix die Identität. $J$ wirkt dreiecksweise mit der Dreiecksnormalen und ist
+blockdiagonal exakt darstellbar.
+
+\paragraph{Galerkin-Einträge.} Für $\EG h=-2\,\mathrm{p.v.}\!\int\mvec\Phi_k(x-y)\n(y)h(y)\,dS_y$ ist
+\[
+  (E)_{ij} = -\frac{2}{\sqrt{|\tau_i||\tau_j|}}\;L\Big(\Big[\int_{\tau_i}\!\int_{\tau_j}\mvec\Phi_k(x-y)\,dS_y\,dS_x\Big]\,\n_j\Big)\ \in\mathbb{C}^{8\times8},
+\]
+mit der Linksmultiplikation $L(\cdot)$. Der Kern wird zerlegt in
+\[
+  \mvec\Phi_k(z) = \underbrace{\frac{z}{4\pi|z|^3}}_{\mvec\Phi_0}\ \underbrace{-\,\frac{ik}{4\pi|z|}}_{\text{schwach singulär}}\ +\ \mathrm{Rem}_k(z),
+\]
+wobei $\mathrm{Rem}_k$ beschränkt ist (AP~1, Lemma~3.1).
+
+\paragraph{Behandlung der Singularitäten.}
+\begin{itemize}[leftmargin=*]
+  \item \emph{Fernpaare:} Gauß-Produktregel $7\times7$ (Dunavant, Grad 5) für den
+    vollen Kern.
+  \item \emph{Nahpaare} (Schwerpunktabstand unter $2{,}5\,h$): Das innere Integral über
+    $\tau_j$ wird für $\mvec\Phi_0$ und $1/|z|$ analytisch berechnet. Für den
+    Vektoranteil gilt
+    \[
+      \int_{\tau_j}\frac{x-y}{|x-y|^3}\,dS_y = \sum_{e}\mvec{m}_e f_e + \operatorname{sign}(w)\sum_e\beta_e\,\n_j,
+      \qquad f_e=\ln\frac{R_e^++l_e^+}{R_e^-+l_e^-},
+    \]
+    mit äußeren Kantennormalen $\mvec{m}_e$, Höhe $w$ und den Winkeln $\beta_e$ der
+    Wilton-Formeln. Die Normalkomponente ist der vorzeichenbehaftete Raumwinkel.
+    Außen wird mit $4^2\cdot7=112$ Punkten integriert; $\mathrm{Rem}_k$ ist glatt genug für
+    die Gauß-Regel. Kontrolle gegen feine Quadratur: relativer Fehler
+    $10^{-15}$ bis $10^{-12}$ (\texttt{analytic.py}).
+  \item \emph{Selbstterm:} Der $\mvec\Phi_0$-Anteil verschwindet exakt, weil
+    $\int_\tau\int_\tau (x-y)/|x-y|^3$ antisymmetrisch ist. Der Hauptwert ist damit ohne
+    Quadratur erledigt.
+\end{itemize}
+Die Assemblierung ist vektorisiert. Für $N=500$ Dreiecke (4000 Unbekannte) dauert sie
+etwa 11\,s je Wellenzahl (\texttt{assemble.py}).
+
+\section{Validierung (Schritt 2.2)}
+
+\paragraph{Spurtrennung.} Für Spuren innerer bzw.\ äußerer Dirac-Lösungen
+$\mvec\Phi_k(x-x_s)c$ (Quelle außen bzw.\ innen, $c$ zufällig) muss $Eh=\pm h$ gelten.
+Auf dem Polyeder gilt die Cauchy-Formel exakt, der Test prüft also nur die
+Diskretisierung (\texttt{test\_plemelj.py}):
+\begin{center}\small
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{2}{c}{$k=0$} & \multicolumn{2}{c}{$k=1{,}5$} & \multicolumn{2}{c}{$k=1{,}2+0{,}4i$}\\
+$N$ & innen & außen & innen & außen & innen & außen\\
+\midrule
+80 & $4{,}6\cdot10^{-2}$ & $4{,}6\cdot10^{-2}$ & $5{,}0\cdot10^{-2}$ & $3{,}1\cdot10^{-2}$ & $5{,}4\cdot10^{-2}$ & $3{,}8\cdot10^{-2}$\\
+180 & $2{,}3\cdot10^{-2}$ & $2{,}2\cdot10^{-2}$ & $2{,}5\cdot10^{-2}$ & $1{,}5\cdot10^{-2}$ & $2{,}6\cdot10^{-2}$ & $1{,}8\cdot10^{-2}$\\
+320 & $1{,}4\cdot10^{-2}$ & $1{,}4\cdot10^{-2}$ & $1{,}5\cdot10^{-2}$ & $0{,}9\cdot10^{-2}$ & $1{,}6\cdot10^{-2}$ & $1{,}1\cdot10^{-2}$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Das ist Konvergenz erster Ordnung in $h$, wie für stückweise konstante Ansätze zu
+erwarten. Vorzeichen, Orientierung und Singularitätsbehandlung stimmen.
+
+\paragraph{Streuung gegen Mie.} Gelöst wird $T_1h=h^{\mathrm{inc}}$ für eine ebene Welle,
+mit dichtem LU. $Q_{\mathrm{ext}}$ folgt über das optische Theorem aus dem Fernfeld
+\[
+  F_\infty(\hat{\mvec x}) = -\frac{ik_2}{4\pi}\int_\Gamma e^{-ik_2\hat{\mvec x}\cdot y}(1+\hat{\mvec x})\,\n\,h^s\,dS
+\]
+(\texttt{scatter3d.py}). Die Extrapolation nimmt $Q(n)=Q_\infty-Cn^{-p}$ an und bestimmt
+$p$ aus $n=3,4,5$:
+\begin{center}\small
+\begin{tabular}{lccccccc}
+\toprule
+Fall & $N=80$ & 180 & 320 & 500 & $p$ & extrapoliert & Mie\\
+\midrule
+Glas, $\omega a=1$ & 0,1707 & 0,1940 & 0,2029 & 0,2072 & 1,85 & 0,2156 & 0,2151\\
+Gold, $\omega a=0{,}5$ & 0,8053 & 0,7107 & 0,6692 & 0,6473 & 1,51 & 0,5928 & 0,5900\\
+$-2{,}2+0{,}3i$, $\omega a=0{,}3$ & 7,00 & 8,89 & 9,75 & 10,20 & 1,50 & 11,34 & 11,26\\
+\bottomrule
+\end{tabular}
+\end{center}
+Die Abweichung nach Extrapolation beträgt $0{,}24\,\%$, $0{,}47\,\%$ bzw.\ $0{,}73\,\%$. Der
+größte Teil des Fehlers vor der Extrapolation ist geometrisch: Das eingeschriebene
+Polyeder hat bei $N=80$ nur $93\,\%$ der Kugeloberfläche, und plasmonische Antworten
+reagieren empfindlich auf die Form. Die beobachteten Ordnungen $p\approx1{,}5$ bis $1{,}9$
+liegen zwischen der $L^2$-Ordnung~1 der Dichten und der Ordnung~2 des
+Geometriefehlers.
+
+\paragraph{Hilfskomponenten.} Ihr Anteil an der Lösung sinkt mit $h$: für Glas von
+$2{,}8\cdot10^{-3}$ ($N=80$) auf $5{,}6\cdot10^{-4}$ ($N=500$), für Gold von $5{,}3\cdot10^{-3}$ auf
+$1{,}1\cdot10^{-3}$. Das passt zur Eindeutigkeit mit Standardwahl (AP~1, Satz~10.2): Die
+Hilfsanteile sind Diskretisierungsfehler und verschwinden im Grenzwert.
+
+\section{Diskrete Stabilität auf der Kugel (Schritt 2.3, erster Teil)}
+GMRES ohne Neustart bis $10^{-8}$, ohne und mit der punktweisen Vorkonditionierung
+$2(1+J)^{-1}$, sowie der kleinste Singulärwert von $T_1$ in der orthonormalen Basis
+(\texttt{stability3d.py}):
+\begin{center}\small
+\begin{tabular}{lcccc}
+\toprule
+$N$ & 80 & 180 & 320 & 500\\
+\midrule
+Glas: GMRES ohne / mit & 13 / 12 & 13 / 12 & 13 / 12 & 14 / 12\\
+Glas: $\sigma_{\min}(T_1)$ & 0,457 & 0,450 & 0,448 & --\\
+Gold: GMRES ohne / mit & 34 / 29 & 36 / 32 & 37 / 34 & 37 / 35\\
+Gold: $\sigma_{\min}(T_1)$ & 0,223 & 0,216 & 0,213 & --\\
+\bottomrule
+\end{tabular}
+\end{center}
+Der kleinste Singulärwert ist in beiden Fällen gleichmäßig beschränkt, die
+Galerkin-Diskretisierung ist auf der Kugel also stabil. Für Glas sind die
+Iterationszahlen konstant. Für Gold wachsen sie schwach und scheinbar
+sättigend. Die punktweise Vorkonditionierung spart nur wenige Iterationen, und ihr
+Vorteil schrumpft bei Gold mit $N$. Eine plausible Ursache sind die Kanten des Polyeders:
+Ihre Diederwinkel nähern sich mit $N$ zwar $\pi$, sind aber nicht glatt. Nach AP~1
+liegt Gold für Winkel nahe $\pi$ weit außerhalb der kritischen Mengen, eine
+Instabilität ist also nicht zu erwarten. Das Spektrum wird durch die Kanten aber
+aufgefächert, wie im 2D-Prototyp.
+
+\section{Würfel mit Kanten und Ecken (Schritt 2.4)}\label{sec:wuerfel}
+
+\paragraph{Netz.} Würfel $[-1,1]^3$. Jede Seitenfläche trägt ein Tensornetz, das
+geometrisch zu den Kanten hin gradiert ist. Die Knoten je Halbseite sind
+$0;\ 0{,}5;\ 1-2^{-2};\dots;\ 1-2^{-L};\ 1$, der kleinste Kantenabstand ist also $2^{-L}$.
+Die Quadrate werden so in Dreiecke geteilt, dass das Netz unter allen drei
+Koordinatenspiegelungen invariant ist. Das ergibt $48(L+1)^2$ Dreiecke, für $L=5$ also
+1728 Dreiecke und 13\,824 Unbekannte (\texttt{cube\_mesh.py}). Die Elemente an den Kanten
+sind anisotrop.
+
+\paragraph{Symmetriereduktion.} Die Spiegelungen $x_i\mapsto-x_i$ wirken auf
+Multivektorfelder als $(U_ih)(x)=\mvec{e}_i\,\hat h(S_ix)\,\mvec{e}_i$, mit der
+Hauptinvolution $\hat h$. Physikalisch transformiert der Vektoranteil ($\mvec{E}$) polar und
+der Bivektoranteil ($I\mvec{H}$) axial. $E_k$ und $J$ kommutieren mit $U_i$; der Kommutator
+ist $2\cdot10^{-15}$ relativ, bei $J$ exakt null. Die acht Charaktere der Gruppe
+$\{\pm1\}^3$ zerlegen $T_1$ in acht Sektoren,
+\[
+  T_\chi[s,t]=\sum_{g}\chi(g)\,T[s,g\,t]\,A_g,\qquad s,t\in\mathcal{F},
+\]
+wobei $\mathcal{F}$ die Dreiecke im Oktanten $x,y,z>0$ sind und $A_g$ die $8\times8$-Wirkung
+von $g$. Assembliert werden nur die Zeilen zu $\mathcal{F}$, also $1/8$ der Matrix. Für
+$L=1$ stimmt $\min_\chi\sigma_{\min}(T_\chi)$ mit $\sigma_{\min}$ der vollen Matrix auf
+alle Stellen überein (\texttt{cube\_sym.py}).
+
+\paragraph{Nahfeld bei starker Gradierung.} Bei Paaren sehr ungleich großer Dreiecke
+wird über das kleinere Dreieck außen integriert und über das größere innen analytisch
+($\mvec\Phi_0$ ist ungerade, der skalare Anteil gerade). Für $L=5$ gibt es in den
+assemblierten Zeilen 70\,570 Nahpaare; die Assemblierung beider Wellenzahlen dauert
+etwa 65\,s.
+
+\paragraph{Ergebnisse} ($\omega a=0{,}5$, $a=1$ halbe Kantenlänge; $\min$ über alle
+Sektoren; gewichtet heißt Ähnlichkeit mit $r^{0{,}35}$, $r$ = Abstand zur nächsten
+Kante; GMRES bis $10^{-8}$, ohne Vorkonditionierer, Maximum über die Sektoren;
+\texttt{cube\_run.py}):
+\begin{center}\small
+\begin{tabular}{llccccc}
+\toprule
+$\kappa$ & & $L=1$ & 2 & 3 & 4 & 5\\
+\midrule
+Glas $2{,}25$ & $\sigma_{\min}$, $L^2$ & 0,584 & 0,582 & 0,581 & 0,581 & 0,580\\
+ & GMRES & 11 & 11 & 11 & 11 & 12\\
+\midrule
+Gold $-11+1{,}2i$ & $\sigma_{\min}$, $L^2$ & 0,117 & 0,099 & 0,090 & 0,085 & 0,082\\
+ & $\sigma_{\min}$, gewichtet & 0,118 & 0,102 & 0,094 & 0,090 & 0,087\\
+ & GMRES & 43 & 48 & 50 & 54 & 56\\
+\midrule
+$-4+0{,}3i$ & $\sigma_{\min}$, $L^2$ & 0,087 & 0,061 & 0,048 & 0,040 & 0,033\\
+ & $\sigma_{\min}$, gewichtet & 0,086 & 0,063 & 0,055 & 0,051 & 0,048\\
+ & GMRES & 42 & 49 & 55 & 62 & 67\\
+\midrule
+$-3+0{,}3i$ & $\sigma_{\min}$, $L^2$ & 0,096 & 0,078 & 0,061 & 0,048 & 0,039\\
+ & $\sigma_{\min}$, gewichtet & 0,096 & 0,082 & 0,069 & 0,058 & 0,051\\
+ & GMRES & 41 & 50 & 58 & 65 & 72\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Vergleich mit den Vorhersagen aus AP~1.} Die $L^2$-Rate
+$\sigma_{\min}\propto h_{\min}^{\gamma}$ ergibt sich an Kanten aus
+$\gamma=\tfrac12-\operatorname{Re}a_{\min}$. An der Ecke ist als grober Vergleich der Kegel
+mit gleichem Raumwinkel ($41{,}4^\circ$) herangezogen, mit $\gamma=-\operatorname{Re}\nu$:
+\begin{center}\small
+\begin{tabular}{lcccc}
+\toprule
+$\kappa$ & Kante: $\gamma$ & Vergleichskegel: $\gamma$ & beobachtet ($L=4\to5$) & Kante in $L^2$-Schleife?\\
+\midrule
+Glas & -- & -- & $0{,}001$ & nein\\
+Gold & -- (Exp.\ $0{,}59>\tfrac12$) & -- (kein Exp.) & $0{,}06$, fallend & nein\\
+$-4+0{,}3i$ & $0{,}12$ & $0{,}39$ & $0{,}28$ & ja\\
+$-3+0{,}3i$ & $0{,}32$ & $0{,}34$ & $0{,}31$ & ja\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{itemize}[leftmargin=*]
+  \item \emph{Glas und Gold} sind stabil. Für Gold nimmt die Abnahme von Stufe zu Stufe ab
+    (Quotienten $0{,}85$; $0{,}91$; $0{,}94$; $0{,}96$), verträglich mit einem positiven
+    Grenzwert. Weder an der Kante noch am Vergleichskegel gibt es für Gold einen
+    Singulärexponenten im kritischen Streifen.
+  \item \emph{$-3+0{,}3i$:} Die beobachtete Rate $0{,}31$ stimmt mit der Kantenvorhersage
+    $0{,}32$ überein (Kegel $0{,}34$). Das ist die erste quantitative Bestätigung der
+    Kantentheorie in 3D.
+  \item \emph{$-4+0{,}3i$:} Die Rate $0{,}28$ liegt deutlich über der Kantenvorhersage
+    $0{,}12$, aber unter dem Vergleichskegel $0{,}39$. Die Ecken dominieren hier also. Der
+    Vergleichskegel ist nur eine Näherung der echten Würfelecke, und bei $h_{\min}=2^{-5}$
+    ist die Rechnung noch präasymptotisch.
+  \item \emph{Gewichtet} ($r^{0{,}35}$ mit dem Kantenabstand): Für $-4+0{,}3i$ flacht die
+    Abnahme deutlich ab (Quotienten $0{,}73$; $0{,}87$; $0{,}93$; $0{,}94$), der
+    $L^2$-Wert fällt dagegen gleichmäßig weiter. Für $-3+0{,}3i$ ist der Effekt schwächer.
+    Das Gewicht wirkt also, reicht aber an den Ecken nicht: Diese verlangen nach dem
+    Vergleichskegel $\beta_{\mathrm{Ecke}}>0{,}39$ im \emph{Eckabstand}. Ein kombiniertes
+    Kanten-Ecken-Gewicht ist der nächste Schritt.
+  \item \emph{GMRES:} Für Glas konstant; für die plasmonischen Kontraste etwa $+6$
+    Iterationen je Gradierungsstufe, wie im 2D-Prototyp ohne Eckblöcke. Erwartet ist, dass
+    eine Kanten- und Eck-Blockvorkonditionierung (Schritt 2.5) dieses Wachstum beseitigt.
+\end{itemize}
+
+\paragraph{Grenzen.} $L\le5$ ($h_{\min}\approx0{,}03$) wegen 3\,GB Arbeitsspeicher. Die
+Raten sind deshalb präasymptotisch, und die Aussage „beschränkt“ für Gold und für die
+gewichteten Werte ist eine Tendenz, kein Nachweis. Die Anregung (ebene Welle) regt nicht
+alle Sektoren an; die GMRES-Zahlen beziehen sich auf die angeregten.
+
+\section{Kanten- und Eck-Block-Vorkonditionierung (Schritt 2.5)}\label{sec:vorkond3d}
+
+\paragraph{Konstruktion.} Die Vorkonditionierung arbeitet je Sektor mit Block-Jacobi.
+Im Fundamentaloktanten gibt es eine Ecke $(1,1,1)$ und drei Kantenstücke. Alle Dreiecke
+mit Abstand $<R$ zur Ecke bilden einen Block. Die übrigen Dreiecke mit Abstand $<R$ zu
+einer Kante bilden je Kante einen Block. Für alle anderen Dreiecke wird der eigene
+$8\times8$-Diagonalblock invertiert. Die Blöcke werden exakt per LU invertiert, und
+GMRES läuft rechtsvorkonditioniert (\texttt{cube\_precond.py}).
+
+\paragraph{Iterationen} (bis $10^{-8}$, Maximum über die angeregten Sektoren):
+\begin{center}\small
+\begin{tabular}{llccccc}
+\toprule
+$\kappa$ & Vorkonditionierung & $L=1$ & 2 & 3 & 4 & 5\\
+\midrule
+Glas $2{,}25$ & ohne / $R=0{,}25$ / $R=0{,}5$ & 11/10/9 & -- & 11/10/9 & -- & 12/10/9\\
+Gold $-11+1{,}2i$ & ohne & 43 & 48 & 50 & 54 & 56\\
+ & nur Diagonalblöcke & 33 & 42 & 48 & 53 & 57\\
+ & $R=0{,}25$ & 29 & 32 & 33 & 33 & 33\\
+ & $R=0{,}5$ & 24 & 26 & 27 & 27 & 27\\
+$-4+0{,}3i$ & ohne & 42 & 49 & 55 & 62 & 67\\
+ & $R=0{,}25$ & 30 & 34 & 36 & 36 & 36\\
+ & $R=0{,}5$ & 25 & 27 & 27 & 27 & 27\\
+$-3+0{,}3i$ & ohne & 41 & 50 & 58 & 65 & 72\\
+ & nur Diagonalblöcke & 35 & 46 & 56 & 65 & 74\\
+ & $R=0{,}25$ & 30 & 35 & 36 & 36 & 36\\
+ & $R=0{,}5$ & 25 & 27 & 28 & 28 & 28\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Mit Kanten- und Eckblöcken sind die Iterationszahlen ab $L=3$ konstant, für alle
+Kontraste. Das gilt auch innerhalb der $L^2$-kritischen Kurve ($-3+0{,}3i$, $-4+0{,}3i$),
+wo $\sigma_{\min}$ in $L^2$ gegen null geht (Abschnitt~\ref{sec:wuerfel}). Die
+punktweisen Diagonalblöcke allein helfen dagegen nicht, und das Wachstum bleibt. Wie
+im 2D-Prototyp ist das Wachstum also ein lokaler Kanten- und Eckeffekt.
+
+\paragraph{Wahl des Radius} ($\kappa=-3+0{,}3i$):
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+$R$ & $L=3$ & 4 & 5\\
+\midrule
+$0{,}0625$ & 50 & 54 & 55\\
+$0{,}125$ & 45 & 45 & 45\\
+$0{,}25$ & 36 & 36 & 36\\
+$0{,}5$ & 28 & 28 & 28\\
+\bottomrule
+\end{tabular}
+\end{center}
+Nötig ist ein \emph{fester physikalischer} Radius, hier ab etwa $R=2^{-3}$ der
+Kantenlänge. Er darf nicht mit den Elementgrößen schrumpfen; bei $R=0{,}0625$ steigen
+die Zahlen noch leicht. Größere Radien senken die absolute Iterationszahl.
+
+\paragraph{Kosten.} Weil das Tensornetz auch entlang der Kanten verfeinert, wachsen die
+Blöcke mit $L$. Für $R=0{,}25$ hat der größte Block 32, 64, 144, 384 und 720
+Unbekannte; bei $L=5$ sind das $42\,\%$ eines Sektors. Für realistische Netze sind
+deshalb anisotrope Kantennetze nötig, die entlang der Kante nicht verfeinern. Die
+Kantenblöcke sollten dann über die $\mathcal{H}$-LU aus AP~3.4 invertiert werden. Bei
+großen Streuern ist der Anteil der Blöcke an allen Unbekannten klein, weil er mit der
+Kantenlänge und nicht mit der Fläche wächst.
+
+\paragraph{Folgerung für H1.} In der Form „mit Kanten- und Eck-Blockvorkonditionierung“
+ist H1 am Würfel für alle getesteten Kontraste numerisch gestützt: Die Iterationszahlen
+hängen nicht von der Eckauflösung ab. Das gilt für die Iterationszahlen; die
+Genauigkeit im Resonanzfenster (AP~1) ist davon unberührt.
+
+\section{Grenzen und nächste Schritte}
+\begin{itemize}[leftmargin=*]
+  \item \emph{Speicher:} Mit 3\,GB Arbeitsspeicher sind dichte Matrizen bis etwa
+    $N=500$ (4000 Unbekannte) möglich. Größere Studien brauchen die Kompression aus AP~3
+    oder den Rust-Kern (Schritt 2.7).
+  \item \emph{Quadratur:} Die Außenintegration der Nahpaare mit fester Unterteilung
+    konvergiert an gemeinsamen Kanten nur langsam (logarithmische Singularität).
+    Für höhere Genauigkeit ist Sauter-Schwab-Quadratur vorzusehen.
+  \item \emph{Schritt 2.3, zweiter Teil:} Die analytische Frage nach einer
+    Gårding-Ungleichung für $T_1$, die über die hier beobachtete Stabilität hinaus
+    Galerkin-Konvergenz garantieren würde.
+  \item \emph{Schritt 2.4, Fortsetzung:} kombiniertes Kanten-Ecken-Gewicht, Gradierung
+    auch zu den Ecken hin, und die Mellin-Theorie der echten Würfelecke (AP~1), um die
+    beobachtete Rate für $-4+0{,}3i$ zu erklären.
+  \item \emph{Schritt 2.5, Fortsetzung:} Anisotrope, nichtkonforme Kantennetze sind
+    umgesetzt und mit der Kompression aus AP~3 kombiniert (AP-3-Arbeitspapier,
+    Abschnitt 5): Die Iterationszahlen bleiben konstant (47 bis 50). Offen ist die
+    $\mathcal{H}$-LU für große Blöcke.
+\end{itemize}
+
+\end{document}

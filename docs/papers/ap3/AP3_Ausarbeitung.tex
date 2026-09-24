@@ -1,0 +1,243 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[ngerman]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{geometry}
+\geometry{a4paper, left=2.5cm, right=2.5cm, top=3cm, bottom=3cm}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{booktabs}
+\setstretch{1.15}
+\titleformat{\section}{\large\bfseries\sffamily}{\thesection}{1em}{}
+\newcommand{\mvec}[1]{\boldsymbol{#1}}
+\newcommand{\n}{\mvec{n}}
+
+\begin{document}
+\begin{center}
+  \sffamily
+  {\Large\textbf{Clifford-BEM: Ausarbeitung zu AP 3}}\\[0.3cm]
+  {\large Teil I: $\mathcal{H}$-Matrix mit Adaptiver Kreuzapproximation;\\ kombinierter Löser am Würfel}\\[0.3cm]
+  {\small Arbeitsstand, Version 0.2}
+\end{center}
+
+\section*{Überblick}
+Grundlage ist der Galerkin-Prototyp aus AP~2 mit stückweise konstanten
+Multivektor-Dichten auf ebenen Dreiecken. Der Randoperator $E_k$ wird hierarchisch
+komprimiert (\texttt{hmat.py}), und die Formulierung $T_1$ wird mit GMRES über das
+komprimierte Matrix-Vektor-Produkt gelöst (\texttt{scatter\_h.py}).
+
+\paragraph{Ergebnisse.}
+\begin{itemize}[leftmargin=*]
+  \item Der Fehler des Matrix-Vektor-Produkts folgt der Toleranz: $\approx0{,}1\,\varepsilon$.
+  \item Bei 3920 Dreiecken (31\,360 Unbekannte) braucht der Operator 270\,MB statt 15\,GB
+    für die dichte Matrix.
+  \item Die Streurechnung auf der Kugel ist jetzt bis 23\,040 Unbekannte möglich. Für Glas
+    ergibt die Extrapolation $Q_{\mathrm{ext}}=0{,}21511$ gegenüber Mie $0{,}21510$.
+  \item Die gemeinsame Kreuzapproximation aller Kernkomponenten spart gegenüber der
+    komponentenweisen 10 bis 19\,\% Speicher bei gleicher Genauigkeit (H3, erster Teil).
+  \item Nahezu lineare Komplexität (H3, zweiter Teil) ist im untersuchten Bereich noch
+    nicht erreicht: Der Speicher wächst wie $N^{1{,}39}$.
+  \item Am Würfel arbeiten Kompression und Kanten-/Eck-Vorkonditionierung zusammen: Die
+    GMRES-Iterationen sind von der Kantenauflösung unabhängig (Abschnitt~\ref{sec:kombi}).
+\end{itemize}
+
+\section{Konzept}
+
+\paragraph{Was komprimiert wird.} Für ein Dreieckspaar ist der Galerkin-Block
+\[
+  E_{ij} = -\frac{2}{\sqrt{|\tau_i||\tau_j|}}\,L\big((s_{ij}+\mvec{v}_{ij})\,\n_j\big),\qquad
+  (s_{ij},\mvec{v}_{ij}) = \int_{\tau_i}\!\int_{\tau_j}\mvec\Phi_k(x-y)\,dS_y\,dS_x .
+\]
+Gespeichert werden nur die vier Kernkomponenten $K_c(i,j)$, also $s$ und die drei Komponenten
+von $\mvec v$, nicht die $8\times8$-Blöcke. Weil $E_{ij}$ linear in $K_c$ ist, lässt sich das
+Matrix-Vektor-Produkt schreiben als
+\[
+  (Ex)_i = -\frac{2}{\sqrt{|\tau_i|}}\sum_{c=0}^{3}\sum_j K_c(i,j)\,z^c_j,\qquad
+  z^c_j = \frac{L(\mvec{e}_c\n_j)\,x_j}{\sqrt{|\tau_j|}},\quad \mvec{e}_0=1 .
+\]
+Das spart gegenüber den Blöcken den Faktor 16, schon bevor komprimiert wird.
+
+\paragraph{Clusterbaum und Zulässigkeit.} Der Clusterbaum entsteht durch Halbierung
+entlang der längsten Achse der Schwerpunkte, mit höchstens 32 Dreiecken je Blatt. Ein
+Blockpaar $(\tau,\sigma)$ ist zulässig, wenn
+$\min(\operatorname{diam}\tau,\operatorname{diam}\sigma)\le\eta\operatorname{dist}(\tau,\sigma)$
+mit $\eta=1$ gilt. Außerdem muss $\operatorname{dist}>3h_{\max}$ sein, damit alle Paare im
+Fernfeld der Gauß-Regel liegen, und $k\operatorname{diam}\le20$. Unzulässige Blätter werden
+dicht mit der Nahfeldbehandlung aus AP~2 assembliert; diese ist jetzt über die
+Nachbardreiecke vektorisiert.
+
+\paragraph{Kreuzapproximation.} Verwendet wird ACA mit partieller Pivotisierung und
+Abbruch bei $\|u_k\|\|v_k\|\le\varepsilon\|S_k\|_F$, danach eine QR/SVD-Nachkompression.
+Bei komplexen Faktoren muss es in der Nachkompression $V=Q_VZ^{T}$ heißen und nicht
+$Q_VZ^{H}$; die konjugierte Variante erzeugte Blockfehler von 20 bis 75\,\%.
+
+\paragraph{Zwei Varianten.}
+\begin{itemize}[leftmargin=*]
+  \item \emph{komponentenweise:} vier getrennte ACAs für die vier Kernkomponenten. Speicher
+    $\sum_c r_c(|\tau|+|\sigma|)$.
+  \item \emph{gemeinsam:} eine ACA auf der gestapelten Matrix $|\tau|\times4|\sigma|$. Die
+    Zeilenfaktoren und Pivots werden also über die Grade geteilt. Speicher
+    $r(|\tau|+4|\sigma|)$.
+\end{itemize}
+Eine echte Block-ACA mit $8\times8$-Pivotblöcken ist noch nicht umgesetzt.
+
+\section{Genauigkeit und Variantenvergleich}
+Kugel mit 1280 Dreiecken, $k=1{,}5$. Der Fehler ist der relative Fehler des
+Matrix-Vektor-Produkts gegenüber 40 exakt assemblierten Zeilen
+(\texttt{test\_hmat\_large.py}):
+\begin{center}\small
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{3}{c}{gemeinsam} & \multicolumn{3}{c}{komponentenweise}\\
+$\varepsilon$ & Fehler & Niedrigrang & Aufbau & Fehler & Niedrigrang & Aufbau\\
+\midrule
+$10^{-3}$ & $9{,}4\cdot10^{-5}$ & 18,8\,MB & 35\,s & $9{,}5\cdot10^{-5}$ & 20,9\,MB & 53\,s\\
+$10^{-4}$ & $1{,}1\cdot10^{-5}$ & 25,1\,MB & 37\,s & $9{,}8\cdot10^{-6}$ & 31,1\,MB & 62\,s\\
+$10^{-5}$ & $1{,}1\cdot10^{-6}$ & 35,0\,MB & 40\,s & $1{,}0\cdot10^{-6}$ & 41,8\,MB & 72\,s\\
+\bottomrule
+\end{tabular}
+\end{center}
+Bei gleicher Genauigkeit spart die gemeinsame Variante 10, 19 bzw.\ 16\,\% Speicher in den
+Niedrigrangblöcken. Sie ist beim Aufbau schneller, und ihr Matrix-Vektor-Produkt
+ebenfalls (0,14\,s gegenüber 0,20--0,24\,s). Das stützt den ersten Teil von H3 in mäßigem
+Umfang. Die dichten Nahblöcke (29\,MB) sind bei beiden Varianten gleich.
+
+\section{Skalierung}
+Gemeinsame Variante, $\varepsilon=10^{-4}$, $k=1{,}5$:
+\begin{center}\small
+\begin{tabular}{rrrrrrr}
+\toprule
+$N$ & Unbekannte & $\mathcal{H}$ gesamt & davon Niedrigrang & dichter Kern & Aufbau & Mat-Vek\\
+\midrule
+720 & 5\,760 & 25,6\,MB & 4,7\,MB & 32\,MB & 17\,s & 0,07\,s\\
+1280 & 10\,240 & 53,7\,MB & 25,1\,MB & 100\,MB & 37\,s & 0,14\,s\\
+2000 & 16\,000 & 114,4\,MB & 37,8\,MB & 244\,MB & 55\,s & 0,25\,s\\
+2880 & 23\,040 & 166,7\,MB & 89,9\,MB & 506\,MB & 93\,s & 0,35\,s\\
+3920 & 31\,360 & 269,9\,MB & 120,9\,MB & 938\,MB & 124\,s & 0,53\,s\\
+\bottomrule
+\end{tabular}\\[2pt]
+{\footnotesize Die dichte $E$-Matrix mit $8\times8$-Blöcken hätte bei $N=3920$ etwa 15\,GB.
+Fehler in allen Fällen $0{,}85$ bis $1{,}1\cdot10^{-5}$.}
+\end{center}
+Der Kompressionsfaktor gegenüber dem dichten Kern steigt von $1{,}2$ auf $3{,}5$. Eine
+Ausgleichsgerade ergibt Speicher $\propto N^{1{,}39}$ und Aufbauzeit $\propto N^{1{,}18}$;
+$\text{Speicher}/(N\log N)$ steigt noch leicht an. Der Bereich ist also präasymptotisch:
+Mit wachsendem $N$ werden immer größere Blöcke zulässig, und die strenge Bedingung
+$\operatorname{dist}>3h$ hält viele Blätter dicht (bei $N=3920$ sind 55\,\% des Speichers
+dichte Nahblöcke). Nahezu lineare Komplexität (H3, zweiter Teil) ist damit weder
+gezeigt noch widerlegt. Nötig sind größere $N$ und eine Abstimmung von Blattgröße und
+Zulässigkeit.
+
+\section{Streuung jenseits der dichten Grenze}
+Gelöst wird $T_1h=h^{\mathrm{inc}}$ mit GMRES (Neustart 200, Toleranz $10^{-6}$) und der
+punktweisen Vorkonditionierung $2(1+J)^{-1}$. Beide Operatoren $E_{k_1}$ und $E_{k_2}$ sind
+als $\mathcal{H}$-Matrizen gespeichert. Die Werte für $N\le500$ stammen aus der dichten
+Rechnung in AP~2.
+\begin{center}\small
+\begin{tabular}{rrcccc}
+\toprule
+& & \multicolumn{2}{c}{Glas, $\omega a=1$} & \multicolumn{2}{c}{Gold, $\omega a=0{,}5$}\\
+$N$ & Unbekannte & $Q_{\mathrm{ext}}$ & GMRES & $Q_{\mathrm{ext}}$ & GMRES\\
+\midrule
+500 (dicht) & 4\,000 & 0,20721 & 12 & 0,64732 & 35\\
+720 & 5\,760 & 0,20959 & 10 & 0,63429 & 26\\
+1280 & 10\,240 & 0,21198 & 10 & 0,61987 & 25\\
+2000 & 16\,000 & 0,21310 & 10 & 0,61226 & 25\\
+2880 & 23\,040 & 0,21371 & 10 & 0,60764 & 25\\
+\midrule
+\multicolumn{2}{l}{extrapoliert ($N$ = 1280, 2000, 2880)} & 0,21511 & & 0,59247 & \\
+\multicolumn{2}{l}{Mie} & 0,21510 & & 0,59002 & \\
+\bottomrule
+\end{tabular}
+\end{center}
+Die GMRES-Zahlen der dichten Zeile bei $N=500$ sind ohne Neustart und mit Toleranz
+$10^{-8}$ ermittelt und daher nicht direkt vergleichbar. Mit $\mathcal{H}$-Matrizen und
+gleicher Einstellung sind die Iterationszahlen von $N$ unabhängig.
+
+Für Glas ist die Konvergenz sauber zweiter Ordnung ($p=1{,}99$), und die Extrapolation
+trifft Mie auf $4\cdot10^{-5}$. Für Gold ist die beobachtete Ordnung $p\approx1{,}46$
+geringer, und die Extrapolation liegt $0{,}4\,\%$ über Mie. Die Ursache ist noch offen.
+Plausibel sind die Kanten des Polyeders, auf die plasmonische Antworten empfindlich
+reagieren, sowie die langsam konvergente Nahfeldquadratur (AP~2). Die Komprimierung ist
+nicht die Ursache, denn ihr Fehler liegt bei $10^{-5}$.
+
+\section{Würfel: Kompression und Kanten-/Eck-Vorkonditionierung kombiniert}\label{sec:kombi}
+
+\paragraph{Netz.} Damit die Kantenblöcke aus AP~2.5 nicht entlang der Kante wachsen, wird
+jede Seitenfläche in drei Zonen zerlegt (\texttt{cube\_aniso.py}): ein grobes Innenquadrat
+($4\times4$), vier Kantenstreifen, die nur \emph{quer} zur Kante geometrisch gradiert sind
+(Breite $0{,}5$, $L$ Schichten, entlang der Kante 4 Elemente), und vier Eckquadrate, die in
+beiden Richtungen gradiert sind. An den Zonengrenzen entstehen hängende Knoten; für
+stückweise konstante $L^2$-Ansätze ist das zulässig. Die Spurtrennung gilt auf dem
+nichtkonformen Netz mit 2 bis 7\,\% Fehler bei 432 Dreiecken. Das ergibt 768, 1200, 1728
+und 2352 Dreiecke für $L=2,\dots,5$.
+
+\paragraph{Löser.} $E_{k_1}$ und $E_{k_2}$ werden als $\mathcal{H}$-Matrizen gespeichert
+($\varepsilon=10^{-4}$, ohne Symmetriezerlegung). Die Kanten- und Eckblöcke (Radius
+$R=0{,}25$) werden exakt mit Nahfeld assembliert und dicht per LU invertiert. Außerhalb der
+Blöcke wird $\big(\tfrac12(1+J)\big)^{-1}$ verwendet. GMRES läuft rechtsvorkonditioniert,
+mit Neustart 300 und Toleranz $10^{-6}$ (\texttt{cube\_h.py}), bei $\omega a=0{,}5$.
+\begin{center}\small
+\begin{tabular}{rrcccccc}
+\toprule
+& & \multicolumn{3}{c}{$\kappa=-3+0{,}3i$} & \multicolumn{3}{c}{Gold $-11+1{,}2i$}\\
+$L$ & $N$ & ohne & Blöcke & $\sigma_{\mathrm{ext}}$ & ohne & Blöcke & $\sigma_{\mathrm{ext}}$\\
+\midrule
+2 & 768 & 73 & 49 & 18,235 & 64 & 45 & 19,909\\
+3 & 1200 & 84 & 50 & 18,686 & 67 & 47 & 19,651\\
+4 & 1728 & 96 & 49 & 18,593 & 69 & 47 & 19,404\\
+5 & 2352 & 106 & 49 & 18,326 & 71 & 47 & 19,243\\
+\bottomrule
+\end{tabular}\\[2pt]
+{\footnotesize $\mathcal{H}$-Speicher beider Operatoren: 50, 99, 169, 254\,MB. Größter Block:
+192, 416, 608, 800 Unbekannte. Nur mit $2(1+J)^{-1}$: 66 bzw.\ 75 ($-3+0{,}3i$) und 57 bzw.\ 61
+(Gold) für $L=2,3$. $\sigma_{\mathrm{ext}}$ mit und ohne Vorkonditionierung auf 6 Stellen
+gleich.}
+\end{center}
+
+\paragraph{Befunde.}
+\begin{itemize}[leftmargin=*]
+  \item \emph{Iterationen:} Mit Kanten- und Eckblöcken sind sie konstant (49 bzw.\ 47), auch
+    mit komprimierten Operatoren und über alle Symmetriesektoren zugleich. Ohne Blöcke
+    wachsen sie um etwa 11 ($-3+0{,}3i$) bzw.\ 2--3 (Gold) je Stufe. Damit ist AP~2.5 mit AP~3
+    kombiniert.
+  \item \emph{Genauigkeit:} Für Gold fällt $\sigma_{\mathrm{ext}}$ monoton (Differenzen
+    $0{,}26$; $0{,}25$; $0{,}16$). Für $-3+0{,}3i$ schwankt der Wert
+    ($18{,}24\to18{,}69\to18{,}59\to18{,}33$). Das entspricht qualitativ der Vorhersage aus
+    AP~1: Gold liegt außerhalb des Resonanzfensters, $-3+0{,}3i$ nahe daran. Da nur die
+    Kantenzonen verfeinert werden (Innen- und Längsauflösung sind fest), konvergiert die
+    Folge gegen die Lösung eines Netzes mit fester grober Restauflösung, nicht gegen die
+    exakte Lösung. Ein Referenzwert für den Würfel fehlt.
+  \item \emph{Blockanteil:} Bei $L=5$ decken die Blöcke $82\,\%$ der Unbekannten ab, weil in
+    diesem Netz fast alle Elemente in den verfeinerten Zonen liegen. Die Blöcke selbst sind
+    klein (höchstens 800 Unbekannte), die Vorkonditionierung ist hier aber nahezu ein
+    blockweiser Direktlöser. Bei feinerem Innenbereich sinkt der Anteil. Eine
+    $\mathcal{H}$-LU der Blöcke (AP~3.4 im engeren Sinn) war bei diesen Größen nicht nötig
+    und ist nicht umgesetzt.
+  \item \emph{Aufbauzeit:} Bei $L=5$ etwa 215\,s je Wellenzahl, mit 3216 dichten gegenüber
+    2590 Niedrigrangblöcken. Ursache ist die Zulässigkeitsbedingung
+    $\operatorname{dist}>3h_{\max}$: Die gestreckten Kantendreiecke haben lange Kanten (0,25)
+    und machen viele Blöcke unzulässig. Nötig ist eine Nahfeldquadratur, die auch für
+    gestreckte Elemente in kleinerem Abstand genau ist, oder eine Zulässigkeit nach der
+    kurzen Elementausdehnung mit angepasster Fernfeldquadratur.
+\end{itemize}
+
+\section{Einordnung und nächste Schritte}
+\begin{itemize}[leftmargin=*]
+  \item \emph{H3, erster Teil:} Gemeinsame Pivotisierung über die Grade spart
+    10--19\,\%. Eine echte Block-ACA mit $8\times8$- bzw.\ Multivektor-Pivots
+    (AP~3.2) kann das verbessern; zu testen.
+  \item \emph{H3, zweiter Teil:} Skalierung bisher $N^{1{,}39}$. Nächste Schritte sind
+    größere $N$, optimierte Blattgröße und Zulässigkeit (die Bedingung
+    $\operatorname{dist}>3h$ ist konservativ) und $\mathcal{H}^2$-artige Basen als Option.
+  \item \emph{Laufzeit:} Der Aufbau in Python (124\,s bei $N=3920$) dominiert. Der
+    Rust-Kern aus AP~2.7 ist für realistische Größen nötig.
+  \item \emph{AP~3.4:} Kompression und Kanten-/Eck-Vorkonditionierung sind am Würfel
+    kombiniert (Abschnitt~\ref{sec:kombi}). Offen sind die $\mathcal{H}$-LU für große Blöcke und
+    eine Zulässigkeit, die gestreckte Kantendreiecke nicht bestraft.
+\end{itemize}
+
+\end{document}

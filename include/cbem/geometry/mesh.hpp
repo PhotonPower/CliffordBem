@@ -1,0 +1,24 @@
+#pragma once
+// Dreiecksnetze (ebene Dreiecke, nach aussen orientiert) und Netzgeneratoren.
+#include <array>
+#include <vector>
+#include "cbem/core/types.hpp"
+
+namespace cbem {
+
+struct TriangleMesh {
+    std::vector<Vec3> P;                    // Knoten
+    std::vector<std::array<int, 3>> T;      // Dreiecke (gegen den Uhrzeigersinn um die Aussennormale)
+    // abgeleitete Groessen (compute_geometry)
+    std::vector<Vec3> normal, centroid;
+    std::vector<real> area, hmax;
+    std::size_t size() const { return T.size(); }
+    std::array<Vec3, 3> vertices(std::size_t t) const { return {P[T[t][0]], P[T[t][1]], P[T[t][2]]}; }
+    void compute_geometry();
+    void orient_outward(const Vec3& center = {0, 0, 0});   // fuer sternfoermige Gebiete um center
+};
+
+TriangleMesh make_icosphere(int n, real radius = 1.0);        // 20 n^2 Dreiecke
+TriangleMesh make_cube_graded(int L);                         // Wuerfel [-1,1]^3, zu den Kanten gradiert, 48 (L+1)^2 Dreiecke
+
+}  // namespace cbem

@@ -1,0 +1,304 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[ngerman]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{geometry}
+\geometry{a4paper, left=2.5cm, right=2.5cm, top=3cm, bottom=3cm}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{booktabs}
+\setstretch{1.15}
+\titleformat{\section}{\large\bfseries\sffamily}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries\sffamily}{\thesubsection}{1em}{}
+\newcommand{\mvec}[1]{\boldsymbol{#1}}
+\newcommand{\clc}{\mathcal{C}\ell_{3}(\mathbb{C})}
+\newcommand{\st}[1]{{\small\sffamily[#1]}}
+
+\begin{document}
+\begin{center}
+  \sffamily
+  {\Large\textbf{Clifford-BEM: Zusammenfassung der Vorarbeiten}}\\[0.3cm]
+  {\large Ergebnisse zu AP 1 (Theorie), AP 2 (Diskretisierung) und AP 3 (Kompression)}\\[0.3cm]
+  {\small Stand: Arbeitspapiere AP1 v0.17, AP2 v0.3, AP3 v0.2}
+\end{center}
+
+\section*{Vorbemerkung}
+Dieses Dokument fasst die Ergebnisse der drei Arbeitspapiere zusammen. Die Statusmarken
+bedeuten:
+\begin{itemize}[leftmargin=*]
+  \item \st{bewiesen}: vollständiger Beweis im Arbeitspapier.
+  \item \st{exakt}: symbolische Identität, maschinell auf null gekürzt.
+  \item \st{numerisch}: durch Rechnungen belegt.
+  \item \st{Vermutung}: offen.
+\end{itemize}
+Alle Beweise sind vorläufig und vor einer Veröffentlichung unabhängig zu prüfen. Die
+Literaturangaben in den Arbeitspapieren sind ungeprüft. Die numerischen Ergebnisse stammen
+aus Python-Prototypen mit 3\,GB Arbeitsspeicher; das begrenzt die erreichbaren Netzgrößen.
+
+\paragraph{Die wichtigsten Ergebnisse.}
+\begin{enumerate}[leftmargin=*]
+  \item Die Formulierung $T_1=E_2^++E_1^-J$ ist für alle passiven Medien frei von
+    künstlichen Resonanzen, auch für verlustfreie Metalle. Die naheliegende Alternative
+    $E_2^++J^{-1}E_1^-J$ ist es nicht.
+  \item Mit der \glqq Standardwahl\grqq{} der Hilfsparameter ist das Problem auf dem vollen
+    Multivektorraum eindeutig lösbar, für alle passiven Medien mit
+    $\operatorname{Im}(\varepsilon\mu)\ge0$, chiral unter $\operatorname{Im}k_\pm^2\ge0$.
+  \item An Kanten verliert jede $L^2$-Formulierung die Stabilität für Kontraste innerhalb
+    zweier explizit bekannter komplexer Schleifen. Das Symbol von $T_1$ faktorisiert dort
+    exakt in physikalische und triviale Hilfsblöcke. Gewichtete Räume stellen die
+    Stabilität her, außer im Resonanzfenster.
+  \item Am Würfel bestätigt der 3D-Prototyp die Kantenvorhersage quantitativ: beobachtete
+    Rate $0{,}31$, vorhergesagt $0{,}32$. Mit Kanten- und Eck-Blockvorkonditionierung
+    sind die Iterationszahlen von der Kantenauflösung unabhängig, auch mit
+    $\mathcal{H}$-Matrix-Kompression.
+  \item Auf der Kugel stimmt die Extinktion nach Extrapolation mit Mie überein: für Glas
+    auf $4\cdot10^{-5}$ (bis 23\,040 Unbekannte), für Gold auf $0{,}4\,\%$.
+\end{enumerate}
+
+%=====================================================================
+\section{AP 1: Theorie}
+%=====================================================================
+
+\subsection{Grundlagen}
+\begin{itemize}[leftmargin=*]
+  \item Die Maxwell-Gleichungen sind für Felder in den Graden 1 und 2 äquivalent zu
+    $(\nabla-ik)\mvec{F}=0$ mit $\mvec{F}=\sqrt\varepsilon\mvec{E}+I\sqrt\mu\mvec{H}$.
+    Beidseitige Fundamentallösung, Cauchy-Darstellung innen und außen. Die
+    Strahlungsbedingung ergibt sich aus dem Beweis als Projektion
+    $(1-\hat{\mvec{x}})\mvec{F}=o(1/r)$; es gilt $\mathcal{E}_\Gamma^2=1$. \st{bewiesen}
+  \item Kontrollen: Cauchy-Formel auf der Kugel auf $10^{-15}$; Transmissionsabbildung $J$
+    an exakten Fresnel-Lösungen auf $10^{-16}$, auch für Gold. \st{numerisch}
+\end{itemize}
+
+\subsection{Formulierung und Stabilität auf glatten Rändern}
+\begin{itemize}[leftmargin=*]
+  \item \emph{Hauptsymbol:} Fredholm vom Index 0 genau dann, wenn
+    $\varepsilon_1\neq-\varepsilon_2$ und $\mu_1\neq-\mu_2$. Die Ausnahme ist das
+    quasistatische Oberflächenplasmon. Der Operator ist elliptisch nullter Ordnung, aber
+    für Kontrast $\neq1$ \emph{nicht} Identität plus kompakt. \st{bewiesen}
+  \item \emph{Falsche Resonanzen der naheliegenden Gleichung:} Die Variante mit
+    $W=J^{-1}$ hat Kerne bei Hohlraumplasmonen der komplementären Geometrie (Kugel:
+    $\varepsilon_1^*\approx-0{,}6935$, Stabilitätswert $\to6\cdot10^{-5}$). \st{numerisch}
+  \item \emph{Resonanzfreiheit von $T_1$:} Eine Flussidentität für Dirac-Felder macht das
+    duale Problem für alle passiven Medien eindeutig lösbar. $T_1$ ist daher genau dann
+    invertierbar, wenn das physikalische Problem eindeutig lösbar ist. Für
+    verlustbehaftete Medien liegt das Symbolspektrum in der rechten Halbebene (Gold:
+    $0{,}18+3{,}32i$ und $0{,}10+1{,}51i$). \st{bewiesen}
+  \item \emph{Niederfrequenz:} kein Zusammenbruch auf Kugel und Torus bis $\omega a=10^{-6}$.
+    Auf dem Torus springt der Modus $m=0$ bei exakt $\omega=0$; das ist der topologische
+    Sektor der harmonischen Felder. \st{numerisch}
+\end{itemize}
+
+\subsection{Eindeutigkeit im vollen Multivektorraum}
+\begin{itemize}[leftmargin=*]
+  \item \emph{Standardwahl} ($a_{\mathrm H}=\sqrt{r_\mu}$, $b_{\mathrm H}=\sqrt{r_\varepsilon}$):
+    Die Hilfspotentiale $\alpha/\sqrt\mu$, $\beta/\sqrt\varepsilon$ werden stetig. Die
+    Maxwell-Struktur erzwingt stetige Normalableitungen, und die Hilfsanteile verschwinden
+    per Rellich. Die Eindeutigkeit gilt für $\operatorname{Im}(\varepsilon_1\mu_1)\ge0$, also für
+    alle nichtmagnetischen passiven Medien. \st{bewiesen, reguläre Lösungen}
+  \item \emph{Chirale Innenmedien:} Dasselbe helizitätsweise, mit einer über die
+    Helizitäten gewichteten Randform, unter $\operatorname{Im}k_\pm^2\ge0$. Das schließt
+    Gold mit $|\chi|\lesssim0{,}18$ ein, nicht aber stark chirale Metalle. \st{bewiesen}
+  \item Die alternative \glqq Energiewahl\grqq{} hat ebenfalls einen Eindeutigkeitsbeweis,
+    ist aber an Kanten mit den nötigen gewichteten Räumen unverträglich (siehe 1.4).
+    Empfohlen wird daher die Standardwahl.
+  \item Numerische Bestätigung: Bei Streuung im vollen Raum liegen die Hilfsanteile auf
+    Residuumsniveau, und die Extinktion stimmt auf 5 Stellen mit Mie überein.
+\end{itemize}
+
+\subsection{Kanten}
+\begin{itemize}[leftmargin=*]
+  \item \emph{Kritische Menge:} Das Konormalsymbol an einer Kante mit Winkel $\alpha$ ist
+    genau dann singulär, wenn $(1+\kappa)/(1-\kappa)=\pm S(a)$ gilt, mit
+    $S(a)=\sin((\pi-\alpha)a)/\sin(\pi a)$ und $\operatorname{Re}a=c$ ($c=\tfrac12$: $L^2$). Für
+    $\alpha=\pi/2$ sind das in $L^2$ zwei komplexe Schleifen zwischen $-5{,}83$ und
+    $-0{,}17$, die bis $\operatorname{Im}\kappa\approx2{,}1$ reichen. Die Endpunkte sind
+    $-\cot^2(\alpha/4)$ und $-\tan^2(\alpha/4)$; im Energie-Grenzfall ergibt sich das
+    bekannte Intervall $[-3,-\tfrac13]$. Innerhalb der Schleifen ist der Index $\neq0$.
+    \st{exakt}
+  \item \emph{Blockfaktorisierung:}
+    $\det\sigma_M(T_1)=\tfrac1{256}\,\hat g(r_\varepsilon;a)\,\hat g(r_\mu;a)\,
+    \hat g\big(\tfrac{a_{\mathrm H}}{\sqrt{r_\mu}};a-1\big)\,\hat g\big(\tfrac{b_{\mathrm H}}{\sqrt{r_\varepsilon}};a-1\big)$
+    mit $\hat g(c;a)=(1-c)^2S(a)^2-(1+c)^2$,
+    mit einem TM-, einem TE- und zwei Hilfsblöcken, exakt für allgemeines $\alpha$. Bei
+    Standardwahl sind die Hilfsblöcke für jedes Gewicht trivial. Bei Energiewahl trägt ein
+    Hilfsblock die Windung $-1$; in $L^2$ kompensiert das die physikalische Windung $+1$,
+    im gewichteten Raum ist die Gesamtwindung dagegen $-1$. \st{exakt}
+  \item \emph{Gewichte:} $L^2(r^{2\beta})$ mit $\beta>\tfrac12-\min_j\operatorname{Re}a_j$, mit den
+    Singulärexponenten $a_j$. Einordnung für $\alpha=\pi/2$:
+\end{itemize}
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+$\kappa$ & in $L^2$-Schleife & $\min\operatorname{Re}a_j$ & nötiges $\beta$\\
+\midrule
+Gold/Vakuum $-11+1{,}2i$ & nein & 0,59 & 0\\
+Silber/Vakuum $-15+0{,}5i$ & nein & -- & 0\\
+Gold/Wasser $-6{,}2+0{,}68i$ & knapp nein & 0,52 & 0\\
+$-4$ (verlustfrei) & ja & 0,37 & $\ge0{,}13$\\
+$-3+0{,}3i$ & ja & 0,19 & $\ge0{,}32$\\
+$\kappa\in[-3,-\tfrac13]$ verlustfrei & ja & 0 & keines\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Kegelspitzen}
+\begin{itemize}[leftmargin=*]
+  \item Physikalische kritische Kontraste
+    $\kappa(\nu,m)=-P_\nu^{m\prime}(-c)P_\nu^m(c)/(P_\nu^{m\prime}(c)P_\nu^m(-c))$ mit
+    $c=\cos\theta_0$; der Randwert in $L^2$ ist $-\cot^2(\theta_0/2)$. \st{exakt}
+  \item Das Konormalsymbol von $T_1$ reproduziert diese Kontraste in 54 Fällen auf
+    $9\cdot10^{-13}$; die Hilfsgrade erzeugen keine weiteren. \st{numerisch}
+  \item An spitzen Kegeln ($\theta_0=20^\circ$) reicht die $L^2$-Menge bis $-32$. Gold und
+    Silber in Vakuum liegen dann innerhalb und brauchen $\beta\approx0{,}39$ bzw. $0{,}47$,
+    nahe der Muckenhoupt-Grenze $\tfrac12$.
+\end{itemize}
+
+\subsection{Chirale Grenzflächen}
+\begin{itemize}[leftmargin=*]
+  \item $J$ mischt über die Materialmatrix $C_j$ den vektoriellen und den bivektoriellen
+    Normalanteil; an Fresnel-Lösungen auf $6\cdot10^{-16}$ verifiziert. \st{numerisch}
+  \item \emph{Glatter Rand:} kritisch ist $(\varepsilon_1+1)(\mu_1+1)=\chi_1^2$ (Vakuum außen);
+    mit chiralem Außenmedium $(\varepsilon_1+\varepsilon_2)(\mu_1+\mu_2)=(\chi_1+\chi_2)^2$. \st{exakt / numerisch}
+  \item \emph{Kanten:}
+    $\det=\frac{\varepsilon\mu}{16(\varepsilon\mu-\chi^2)^2}(\mathcal A-\mathcal BS^2+\mathcal CS^4)$
+    mit ganzzahligen Polynomkoeffizienten, auf 40 Stellen bestätigt. Die Verschiebung ist
+    von der Ordnung $\chi^2$; für starke Chiralität reicht die kritische Menge bis zu
+    positiven $\varepsilon$. \st{numerisch}
+\end{itemize}
+
+\subsection{2D-Prototyp (Quadrat)}
+\begin{itemize}[leftmargin=*]
+  \item In $L^2$ fällt der kleinste Singulärwert innerhalb der Schleifen mit der
+    vorhergesagten Rate (gemessen $0{,}111$, vorhergesagt $0{,}127$). Auf geometrischen Netzen
+    bleibt er in $L^2(r^{2\beta})$ beschränkt. \st{numerisch}
+  \item Eck-Blockvorkonditionierung: etwa 14 GMRES-Iterationen, unabhängig von der
+    Eckauflösung, statt bis zu 60.
+  \item \emph{Resonanzfenster:} Resonanzen in $[-3,-\tfrac13]$ mit
+    $\operatorname{Im}\kappa\lesssim1$ konvergieren nicht. Ein Eigenwert der Eckschichten läuft
+    periodisch nahe an null. Weder Eckanreicherung noch Extrapolation noch künstliche
+    Dämpfung helfen; Letztere verschiebt nur die Reflexion.
+\end{itemize}
+
+%=====================================================================
+\section{AP 2: 3D-Galerkin-Diskretisierung}
+%=====================================================================
+\begin{itemize}[leftmargin=*]
+  \item \emph{Verfahren:} ebene Dreiecke, stückweise konstante $\clc$-Dichten, orthonormale
+    Basis. Das Nahfeld wird analytisch integriert; der Selbstterm des Cauchy-Anteils ist
+    wegen Antisymmetrie exakt null.
+  \item \emph{Spurtrennung:} Konvergenz erster Ordnung (Fehler $4{,}6\,\%\to1{,}4\,\%$ von 80 auf
+    320 Dreiecke), für reelles und komplexes $k$.
+  \item \emph{Kugel gegen Mie} (dicht, bis 500 Dreiecke, extrapoliert): Glas $0{,}24\,\%$, Gold
+    $0{,}47\,\%$, nahe Plasmonresonanz $0{,}73\,\%$. Der Hilfsanteil sinkt mit $h$.
+  \item \emph{Stabilität auf der Kugel:} $\sigma_{\min}(T_1)$ ist beschränkt (Glas $\approx0{,}45$,
+    Gold $\approx0{,}21$). GMRES: Glas 12--14, Gold 29--37 mit sättigendem Anstieg.
+  \item \emph{Würfel} (Netz geometrisch zu den Kanten gradiert, Zerlegung in 8
+    Symmetriesektoren, bis 13\,824 Unbekannte):
+\end{itemize}
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+$\kappa$ & beobachtete $L^2$-Rate von $\sigma_{\min}$ & Vorhersage Kante / Vergleichskegel & Bewertung\\
+\midrule
+Glas & $0{,}001$ & -- & stabil\\
+Gold & $0{,}06$, fallend & -- / -- & stabil (Tendenz)\\
+$-3+0{,}3i$ & $0{,}31$ & $0{,}32$ / $0{,}34$ & Kante bestätigt\\
+$-4+0{,}3i$ & $0{,}28$ & $0{,}12$ / $0{,}39$ & Ecken dominieren\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{itemize}[leftmargin=*]
+  \item \emph{Gewichtete Norm am Würfel:} Das Kantengewicht bremst den Abfall deutlich. An
+    den Ecken reicht es nicht; dort ist ein eigenes Eckgewicht nötig.
+  \item \emph{Kanten- und Eck-Blockvorkonditionierung:} Die Iterationen sind ab $L=3$
+    konstant, für alle Kontraste:
+\end{itemize}
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+$\kappa$ & ohne ($L=1\to5$) & $R=0{,}25$ & $R=0{,}5$\\
+\midrule
+Glas & $11\to12$ & 10 & 9\\
+Gold & $43\to56$ & 33 & 27\\
+$-4+0{,}3i$ & $42\to67$ & 36 & 27\\
+$-3+0{,}3i$ & $41\to72$ & 36 & 28\\
+\bottomrule
+\end{tabular}
+\end{center}
+Nötig ist ein fester physikalischer Radius $R\gtrsim\tfrac18$; punktweise Diagonalblöcke
+allein helfen nicht.
+
+%=====================================================================
+\section{AP 3: Kompression}
+%=====================================================================
+\begin{itemize}[leftmargin=*]
+  \item \emph{Ansatz:} Gespeichert werden die vier Kernkomponenten je Dreieckspaar statt der
+    $8\times8$-Blöcke, was schon Faktor 16 spart. Dazu kommen ein Clusterbaum, ACA mit
+    partieller Pivotisierung und QR/SVD-Nachkompression. Der Fehler des
+    Matrix-Vektor-Produkts ist $\approx0{,}1\,\varepsilon$.
+  \item \emph{Gemeinsame gegen komponentenweise ACA} (H3, erster Teil): 10--19\,\% weniger
+    Speicher bei gleicher Genauigkeit, dazu schnellerer Aufbau und schnelleres
+    Matrix-Vektor-Produkt.
+  \item \emph{Skalierung} (H3, zweiter Teil): Speicher $\propto N^{1{,}39}$ im Bereich 720 bis 3920
+    Dreiecke, also präasymptotisch; bei 3920 Dreiecken 270\,MB gegenüber 15\,GB dicht.
+  \item \emph{Kugel jenseits der dichten Grenze} (bis 23\,040 Unbekannte):
+\end{itemize}
+\begin{center}\small
+\begin{tabular}{lcccc}
+\toprule
+& GMRES & $Q_{\mathrm{ext}}$ bei 2880 Dreiecken & extrapoliert & Mie\\
+\midrule
+Glas, $\omega a=1$ & 10 (konstant) & 0,21371 & 0,21511 & 0,21510\\
+Gold, $\omega a=0{,}5$ & 25 (konstant) & 0,60764 & 0,59247 & 0,59002\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{itemize}[leftmargin=*]
+  \item \emph{Kombinierter Löser am Würfel:} anisotropes, nichtkonformes Kantennetz,
+    $\mathcal{H}$-Operatoren und Kanten-/Eckblöcke. Die Iterationen bleiben konstant (49 für
+    $-3+0{,}3i$, 47 für Gold, $L=2\dots5$), ohne Blöcke wachsen sie ($73\to106$ bzw.\ $64\to71$).
+    Die Extinktion fällt für Gold monoton und schwankt für $-3+0{,}3i$, passend zum
+    Resonanzfenster.
+\end{itemize}
+
+%=====================================================================
+\section{Stand der Hypothesen}
+%=====================================================================
+\begin{description}[font=\normalfont\bfseries, style=nextline, leftmargin=1.2em]
+  \item[H1 (Stabilität):] Auf glatten Rändern gestützt: beschränktes $\sigma_{\min}$,
+    Iterationen konstant bzw.\ schwach und sättigend wachsend. Die punktweise
+    Vorkonditionierung $2(1+J)^{-1}$ bringt dabei wenig. An Kanten und Ecken gestützt in der
+    revidierten Form mit Kanten- und Eck-Blockvorkonditionierung. Ausdrücklich ausgenommen
+    ist das Resonanzfenster.
+  \item[H2 (Diskretisierung):] Auf der Kugel stabil. Am Würfel verhält sich die Diskretisierung
+    wie vorhergesagt: instabil in $L^2$ innerhalb der Schleifen, in der gewichteten Norm
+    teilweise stabilisiert, wobei ein Eckgewicht fehlt. Ein Stabilitätsbeweis
+    (Gårding-Ungleichung) fehlt.
+  \item[H3 (Kompression):] Der erste Teil ist mäßig gestützt (10--19\,\%). Der zweite Teil
+    ($\mathcal{O}(N\log^\alpha N)$) ist im erreichbaren Bereich nicht entschieden.
+\end{description}
+
+%=====================================================================
+\section{Offene Punkte}
+%=====================================================================
+\begin{itemize}[leftmargin=*]
+  \item \emph{Theorie:} Fredholm-Theorie auf Lipschitz-Rändern (Kantenoperatoren entlang der
+    Kante, Spurregularität); echte Würfelecke (Mellin-Symbol auf dem sphärischen Dreieck);
+    Beweis der Übereinstimmung an Kegelspitzen; stark chirale Metalle; Tellegen-Medien.
+  \item \emph{Resonanzfenster:} reflexionsfreier Eckabschluss (komplexe Streckung in
+    $\log r$ oder transparenter Abschluss); Theorie der diskreten Eckmoden.
+  \item \emph{Diskretisierung:} Gårding-Ungleichung für $T_1$; ein kombiniertes Gewicht für Kanten und Ecken;
+    Sauter-Schwab-Quadratur; Ursache der langsameren Konvergenzordnung bei Gold
+    ($p\approx1{,}5$).
+  \item \emph{Kompression:} echte Block-ACA mit Multivektor-Pivots; Zulässigkeit für
+    gestreckte Elemente; $\mathcal{H}$-LU für große Kanten- und Eckblöcke.
+  \item \emph{Umsetzung:} Rust- bzw.\ C++-Kern für realistische Größen, der auch H3 (zweiter
+    Teil) und die Asymptotik an Ecken erst zugänglich macht.
+  \item \emph{Formales:} unabhängige Prüfung aller Beweise; Prüfung der Literatur.
+\end{itemize}
+
+\end{document}
