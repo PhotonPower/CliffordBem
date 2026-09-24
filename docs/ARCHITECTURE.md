@@ -26,9 +26,10 @@
 | kernel | Dirac-Kern, Wilton-Integrale | chirale Kerne (k±), Helizitätsprojektoren |
 | assembly | Fern-/Nahfeld, Selbstterm | Sauter-Schwab, adaptive Nahfeldkriterien für gestreckte Elemente |
 | hmatrix | Clusterbaum, ACA (joint/comp), Nachkompression | Block-ACA mit 8×8-Pivots, ACA+, H-LU, complex64-Speicher, parallele Mat-Vek |
-| operators | Cauchy-Operator E_k | Transmissionsoperator T₁ mit Standardwahl von J, Projektion ebener Wellen, Fernfeld/Q_ext |
-| solvers | – | GMRES, punktweise 2(1+J)⁻¹, Kanten-/Eck-Blockvorkonditionierung (AP 2.5), H-LU-Blöcke |
-| apps | Kompressionsbenchmark | Mie-Validierung, Würfel-Studien, Parameterstudien |
+| operators | Cauchy-Operator E_k, Transmissionsoperator T₁ (Standardwahl von J) | chirale Transmission, Mehrkörperprobleme |
+| solvers | GMRES (Neustart, Rechtsvorkonditionierung), punktweise 2(1+J)⁻¹ | Kanten-/Eck-Blockvorkonditionierung (AP 2.5), H-LU-Blöcke |
+| sources | ebene Welle, Fernfeld, Extinktion | Dipolquellen, Nahfeldauswertung, Streumatrix |
+| apps | Kompressionsbenchmark, Kugelstreuung | Würfel-Studien, Parameterstudien |
 | bindings | – | pybind11-Modul für Skripting und Vergleich mit dem Prototyp |
 
 ## Bekannte Grenzen

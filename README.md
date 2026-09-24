@@ -5,8 +5,10 @@ komplexifizierten Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulier
 Maxwell-Gleichungen mit dem Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der
 resonanzfreien Transmissionsgleichung T₁ = E₂⁺ + E₁⁻ J (siehe `docs/papers`).
 
-Stand 0.1: Kern für den **Cauchy-Randoperator E_k** mit H-Matrix-Kompression (ACA), gebaut
-für den Asymptotiktest der Kompression (Hypothese H3 des Antrags). Die Architektur ist auf den
+Stand 0.2: **Cauchy-Randoperator E_k** mit H-Matrix-Kompression (ACA) und **Streulöser** für die
+resonanzfreie Gleichung T₁ h = h_inc (Transmissionsabbildung J mit Standardwahl, ebene Welle,
+Fernfeld/Extinktion, GMRES mit punktweiser Vorkonditionierung). Validiert gegen Mie bis
+92 160 Unbekannte (`docs/results_scattering.md`). Die Architektur ist auf den
 Ausbau zu einem vollständigen BEM-Löser ausgelegt (siehe `docs/ARCHITECTURE.md`).
 
 ## Bauen und Testen
@@ -27,8 +29,23 @@ Tests:
 - `test_aca`: Kreuzapproximation eines getrennten Blocks, Fehler ∼ ε.
 - `test_hmatrix`: H-Matrix-Produkt gegen dichtes Produkt, Fehler < 10 ε (beide ACA-Varianten).
 - `test_plemelj`: Spurtrennung E h = ±h für innere und äußere Dirac-Lösungen (Konvergenz erster Ordnung).
+- `test_gmres`: GMRES mit und ohne Vorkonditionierung, mit Neustart.
+- `test_scattering`: Kugelstreuung, identisch mit der dichten Lösung des Python-Prototyps.
 
 Die Kerneinträge stimmen mit dem Python-Prototyp (`prototype/ap2`) auf 10⁻¹³ überein.
+
+## Streurechnung an der Kugel
+
+```bash
+./build/scatter_sphere --n 8,12,16 --omega 1.0 --eps1 2.25,0 --csv results/scatter_glass.csv
+./build/scatter_sphere --n 8,12,16 --omega 0.5 --eps1 -11,1.2 --csv results/scatter_gold.csv
+cd tools && python3 analyze_scattering.py ../results/scatter_glass.csv   # Vergleich mit Mie
+```
+
+| Fall | Unbekannte | Q_ext | Mie | GMRES |
+|---|---:|---:|---:|---:|
+| Glas, ωa = 1 | 92 160 | 0,214752 (extrapoliert 0,215111) | 0,215098 | 10 |
+| Gold, ωa = 0,5 | 92 160 | 0,597669 (extrapoliert 0,590837) | 0,590018 | 24 |
 
 ## Kompressions-Benchmark
 
@@ -79,7 +96,9 @@ include/cbem/kernel      Dirac-Fundamentallösung, analytische Dreiecksintegrale
 include/cbem/assembly    Eintragsauswertung (Fern-/Nahfeld) = Schnittstelle zu H-Matrix und Lösern
 include/cbem/linalg      kleine dichte Matrizen: QR, Jacobi-SVD
 include/cbem/hmatrix     Clusterbaum, Blockpartition, ACA, H-Matrix
-include/cbem/operators   Randoperatoren (Cauchy-Operator E_k)
+include/cbem/operators   Randoperatoren (Cauchy-Operator E_k, Transmissionsoperator T_1)
+include/cbem/solvers     GMRES
+include/cbem/sources     ebene Wellen, Fernfeld, Extinktion
 apps/                    Benchmarks
 tests/                   Tests (CTest)
 tools/                   Auswertungsskripte
@@ -90,9 +109,8 @@ docs/                    Architektur, Arbeitspapiere (AP 1-3), Zusammenfassung, 
 
 ## Status und Ausbauplan
 
-Siehe `docs/ARCHITECTURE.md`. Kurz: Als Nächstes folgen der Transmissionsoperator T₁ mit
-Standardwahl von J, rechte Seiten und Fernfeld, GMRES und die Kanten-/Eck-Blockvorkonditionierung.
-Danach Sauter-Schwab-Quadratur, Block-ACA mit Multivektor-Pivots, Netzimport (Gmsh) und
+Siehe `docs/ARCHITECTURE.md`. Kurz: Als Nächstes folgen die Kanten-/Eck-Blockvorkonditionierung
+(mit H-LU für große Blöcke) und Kriterien für gestreckte Elemente, danach Sauter-Schwab-Quadratur, Block-ACA mit Multivektor-Pivots, Netzimport (Gmsh) und
 Python-Anbindung.
 
 Die Beweise und Aussagen in den Arbeitspapieren sind vorläufig und nicht unabhängig geprüft.

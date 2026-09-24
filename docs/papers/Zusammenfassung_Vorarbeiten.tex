@@ -22,7 +22,7 @@
   \sffamily
   {\Large\textbf{Clifford-BEM: Zusammenfassung der Vorarbeiten}}\\[0.3cm]
   {\large Ergebnisse zu AP 1 (Theorie), AP 2 (Diskretisierung) und AP 3 (Kompression)}\\[0.3cm]
-  {\small Stand: Arbeitspapiere AP1 v0.17, AP2 v0.3, AP3 v0.3; C++-Kern v0.1}
+  {\small Stand: Arbeitspapiere AP1 v0.17, AP2 v0.3, AP3 v0.3; C++-Kern v0.2}
 \end{center}
 
 \section*{Vorbemerkung}
@@ -261,6 +261,9 @@ Gold, $\omega a=0{,}5$ & 25 (konstant) & 0,60764 & 0,59247 & 0,59002\\
 \end{tabular}
 \end{center}
 \begin{itemize}[leftmargin=*]
+  \item \emph{C++-Streulöser} (v0.2): $T_1$ mit $\mathcal{H}$-Operatoren und GMRES bis 92\,160 Unbekannte.
+    Glas trifft Mie nach Extrapolation auf $6\cdot10^{-5}$, Gold auf $1{,}4\cdot10^{-3}$. Die Iterationen
+    sind von $N$ unabhängig (10 bzw.\ 24).
   \item \emph{Kombinierter Löser am Würfel:} anisotropes, nichtkonformes Kantennetz,
     $\mathcal{H}$-Operatoren und Kanten-/Eckblöcke. Die Iterationen bleiben konstant (49 für
     $-3+0{,}3i$, 47 für Gold, $L=2\dots5$), ohne Blöcke wachsen sie ($73\to106$ bzw.\ $64\to71$).

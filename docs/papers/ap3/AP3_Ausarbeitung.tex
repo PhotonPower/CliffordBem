@@ -263,6 +263,22 @@ Kugel, $k=n/4$ & 1\,280 & 10\,240 & 55\,MB & 0,83 & 6\,s\\
     bezogenen Nahfeld- und Zulässigkeitskriterien und ist mit einer Fernfeldquadratur für
     gestreckte Elemente zu beheben.
 \end{itemize}
+\paragraph{Streulöser.} Der C++-Kern (v0.2) löst $T_1h=h^{\mathrm{inc}}$ mit beiden Operatoren als
+$\mathcal{H}$-Matrizen und GMRES (\texttt{docs/results\_scattering.md}). Bei 320 Dreiecken
+reproduziert er die dichte Lösung des Prototyps auf alle Stellen. Bis 92\,160 Unbekannte:
+\begin{center}\small
+\begin{tabular}{lcccc}
+\toprule
+& $Q_{\mathrm{ext}}$ (11\,520 Dreiecke) & extrapoliert & Mie & GMRES\\
+\midrule
+Glas, $\omega a=1$ & 0,214752 & 0,215111 ($p=1{,}96$) & 0,215098 & 10\\
+Gold, $\omega a=0{,}5$ & 0,597669 & 0,590837 ($p=1{,}29$) & 0,590018 & 24\\
+\bottomrule
+\end{tabular}
+\end{center}
+Die Iterationszahlen sind von $N$ unabhängig. Bei Gold sinkt die beobachtete Ordnung mit
+$N$ ($1{,}42\to1{,}29$), die Extrapolation nähert sich Mie ($3{,}2\to1{,}4\cdot10^{-3}$).
+
 Damit ist H3 (zweiter Teil) im Bereich bis etwa 160\,000 Unbekannte und $kD\lesssim16$ numerisch
 gestützt: Der Aufwand ist $\mathcal{O}(N\log^\alpha N)$ mit $\alpha\approx2$ für den Speicher.
 

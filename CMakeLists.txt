@@ -21,7 +21,10 @@ add_library(cbem
   src/cluster_tree.cpp
   src/aca.cpp
   src/hmatrix.cpp
-  src/cauchy_operator.cpp)
+  src/cauchy_operator.cpp
+  src/transmission_operator.cpp
+  src/gmres.cpp
+  src/fields.cpp)
 target_include_directories(cbem PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(cbem PRIVATE -Wall -Wextra)
 if(CBEM_NATIVE)
@@ -38,11 +41,13 @@ endif()
 if(CBEM_BUILD_APPS)
   add_executable(bench_compression apps/bench_compression.cpp)
   target_link_libraries(bench_compression PRIVATE cbem)
+  add_executable(scatter_sphere apps/scatter_sphere.cpp)
+  target_link_libraries(scatter_sphere PRIVATE cbem)
 endif()
 
 if(CBEM_BUILD_TESTS)
   enable_testing()
-  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj)
+  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE cbem)
     add_test(NAME ${t} COMMAND ${t})
