@@ -22,7 +22,7 @@
   \sffamily
   {\Large\textbf{Clifford-BEM: Zusammenfassung der Vorarbeiten}}\\[0.3cm]
   {\large Ergebnisse zu AP 1 (Theorie), AP 2 (Diskretisierung) und AP 3 (Kompression)}\\[0.3cm]
-  {\small Stand: Arbeitspapiere AP1 v0.17, AP2 v0.3, AP3 v0.2}
+  {\small Stand: Arbeitspapiere AP1 v0.17, AP2 v0.3, AP3 v0.3; C++-Kern v0.1}
 \end{center}
 
 \section*{Vorbemerkung}
@@ -243,8 +243,11 @@ allein helfen nicht.
   \item \emph{Gemeinsame gegen komponentenweise ACA} (H3, erster Teil): 10--19\,\% weniger
     Speicher bei gleicher Genauigkeit, dazu schnellerer Aufbau und schnelleres
     Matrix-Vektor-Produkt.
-  \item \emph{Skalierung} (H3, zweiter Teil): Speicher $\propto N^{1{,}39}$ im Bereich 720 bis 3920
-    Dreiecke, also präasymptotisch; bei 3920 Dreiecken 270\,MB gegenüber 15\,GB dicht.
+  \item \emph{Skalierung} (H3, zweiter Teil): Im Python-Prototyp (bis 3920 Dreiecke) noch
+    präasymptotisch ($N^{1{,}39}$). Mit dem C++-Kern bis 20\,480 Dreiecke (163\,840 Unbekannte):
+    Speicher $\mathcal{O}(N\log^2N)$ für Kugel und Würfel mit Kanten, der Quotient ist auf
+    $\pm7\,\%$ konstant. Die Frequenz kostet bei fester Auflösung je Wellenlänge bis $kD\approx16$ nur
+    $10\,\%$. Stark gradierte Netze sind wegen der Nahfeldkriterien derzeit dicht-dominiert.
   \item \emph{Kugel jenseits der dichten Grenze} (bis 23\,040 Unbekannte):
 \end{itemize}
 \begin{center}\small
@@ -278,8 +281,10 @@ Gold, $\omega a=0{,}5$ & 25 (konstant) & 0,60764 & 0,59247 & 0,59002\\
     wie vorhergesagt: instabil in $L^2$ innerhalb der Schleifen, in der gewichteten Norm
     teilweise stabilisiert, wobei ein Eckgewicht fehlt. Ein Stabilitätsbeweis
     (Gårding-Ungleichung) fehlt.
-  \item[H3 (Kompression):] Der erste Teil ist mäßig gestützt (10--19\,\%). Der zweite Teil
-    ($\mathcal{O}(N\log^\alpha N)$) ist im erreichbaren Bereich nicht entschieden.
+  \item[H3 (Kompression):] Der erste Teil ist mäßig gestützt (etwa 19\,\% weniger
+    Niedrigrang-Speicher). Der zweite Teil ist bis etwa 160\,000 Unbekannte und $kD\lesssim16$
+    gestützt: $\mathcal{O}(N\log^2N)$. Offen sind stark gradierte Netze und elektrisch große
+    Streuer.
 \end{description}
 
 %=====================================================================
@@ -296,8 +301,8 @@ Gold, $\omega a=0{,}5$ & 25 (konstant) & 0,60764 & 0,59247 & 0,59002\\
     ($p\approx1{,}5$).
   \item \emph{Kompression:} echte Block-ACA mit Multivektor-Pivots; Zulässigkeit für
     gestreckte Elemente; $\mathcal{H}$-LU für große Kanten- und Eckblöcke.
-  \item \emph{Umsetzung:} Rust- bzw.\ C++-Kern für realistische Größen, der auch H3 (zweiter
-    Teil) und die Asymptotik an Ecken erst zugänglich macht.
+  \item \emph{Umsetzung:} Ausbau des C++-Kerns (Repository \texttt{PhotonPower/CliffordBem}) zum
+    vollständigen Löser: $T_1$, GMRES, Kanten-/Eck-Vorkonditionierung, Sauter-Schwab.
   \item \emph{Formales:} unabhängige Prüfung aller Beweise; Prüfung der Literatur.
 \end{itemize}
 

@@ -68,6 +68,16 @@ TriangleMesh make_icosphere(int n, real radius) {
     return m;
 }
 
+namespace {
+TriangleMesh cube_from_nodes(const std::vector<real>& s);
+}
+
+TriangleMesh make_cube_uniform(int n) {
+    std::vector<real> s(n + 1);
+    for (int i = 0; i <= n; ++i) s[i] = -1.0 + 2.0 * i / n;
+    return cube_from_nodes(s);
+}
+
 TriangleMesh make_cube_graded(int L) {
     std::vector<real> half = {0.0, 0.5};
     for (int k = 2; k <= L; ++k) half.push_back(1.0 - std::pow(0.5, k));
@@ -76,6 +86,11 @@ TriangleMesh make_cube_graded(int L) {
     std::vector<real> s;
     for (auto it = half.rbegin(); it != half.rend(); ++it) s.push_back(-*it);
     for (std::size_t i = 1; i < half.size(); ++i) s.push_back(half[i]);
+    return cube_from_nodes(s);
+}
+
+namespace {
+TriangleMesh cube_from_nodes(const std::vector<real>& s) {
     TriangleMesh m; std::map<std::array<long long, 3>, int, KeyCmp> ids;
     auto vid = [&](const Vec3& p) {
         auto k = key_of(p); auto it = ids.find(k); if (it != ids.end()) return it->second;
@@ -96,5 +111,6 @@ TriangleMesh make_cube_graded(int L) {
     m.orient_outward();
     return m;
 }
+}  // namespace
 
 }  // namespace cbem

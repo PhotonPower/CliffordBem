@@ -37,7 +37,8 @@ Die Kerneinträge stimmen mit dem Python-Prototyp (`prototype/ap2`) auf 10⁻¹�
 python3 tools/analyze_compression.py results/results_sphere.csv
 ```
 
-Optionen: `--geometry sphere|cube`, `--n` Liste (Kugel: 20 n² Dreiecke, Würfel: Gradierungsstufen),
+Optionen: `--geometry sphere|cube|cube_uniform`, `--n` Liste (Kugel: 20 n² Dreiecke, `cube`:
+Gradierungsstufen L mit 48 (L+1)² Dreiecken, `cube_uniform`: 12 n² Dreiecke), `--k-per-n c` (k = c·n),
 `--k`/`--ki` Wellenzahl, `--eps` ACA-Toleranz, `--mode joint|comp`, `--leaf`, `--eta`, `--sep`,
 `--check` Zahl der exakt geprüften Zeilen.
 
@@ -57,6 +58,12 @@ Der Quotient Speicher/(N log² N) ist ab 2 880 Dreiecken innerhalb von ±7 % kon
 Speicher wächst also wie O(N log² N). Die lokalen Exponenten schwanken wegen der diskreten
 Blockstruktur zwischen 0,9 und 1,5, im Mittel 1,23. Die Aufbauzeit wächst mit Exponent ≈ 1,15.
 Eine dichte Systemmatrix hätte bei 20 480 Dreiecken etwa 430 GB.
+
+Weitere Studien (gleichmäßiger Würfel mit Kanten und Ecken, Frequenzabhängigkeit bis kD = 48,
+feste Elementzahl je Wellenlänge, gradierter Würfel) in `docs/results_compression.md`. Kurz:
+Kanten und Ecken ändern das O(N log² N)-Wachstum nicht; bei konstanter Auflösung je Wellenlänge
+kostet die Frequenz bis kD ≈ 16 nur etwa 10 %; stark gradierte Netze sind derzeit durch die
+Nahfeldkriterien dicht-dominiert.
 
 Gemeinsame (`joint`) gegen komponentenweise (`comp`) ACA, Niedrigrang-Speicher bei gleicher
 Genauigkeit: 25/31 MB (N = 1 280), 221/273 MB (5 120), 644/793 MB (11 520); das sind etwa

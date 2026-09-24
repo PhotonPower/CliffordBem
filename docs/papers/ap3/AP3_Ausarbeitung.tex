@@ -20,7 +20,7 @@
   \sffamily
   {\Large\textbf{Clifford-BEM: Ausarbeitung zu AP 3}}\\[0.3cm]
   {\large Teil I: $\mathcal{H}$-Matrix mit Adaptiver Kreuzapproximation;\\ kombinierter Löser am Würfel}\\[0.3cm]
-  {\small Arbeitsstand, Version 0.2}
+  {\small Arbeitsstand, Version 0.3}
 \end{center}
 
 \section*{Überblick}
@@ -38,8 +38,9 @@ komprimierte Matrix-Vektor-Produkt gelöst (\texttt{scatter\_h.py}).
     ergibt die Extrapolation $Q_{\mathrm{ext}}=0{,}21511$ gegenüber Mie $0{,}21510$.
   \item Die gemeinsame Kreuzapproximation aller Kernkomponenten spart gegenüber der
     komponentenweisen 10 bis 19\,\% Speicher bei gleicher Genauigkeit (H3, erster Teil).
-  \item Nahezu lineare Komplexität (H3, zweiter Teil) ist im untersuchten Bereich noch
-    nicht erreicht: Der Speicher wächst wie $N^{1{,}39}$.
+  \item Nahezu lineare Komplexität (H3, zweiter Teil): Im Python-Bereich (bis 3920
+    Dreiecke) wuchs der Speicher noch wie $N^{1{,}39}$. Mit dem C++-Kern bis 20\,480 Dreiecke
+    zeigt sich $\mathcal{O}(N\log^2N)$ (Abschnitt~\ref{sec:cpp}).
   \item Am Würfel arbeiten Kompression und Kanten-/Eck-Vorkonditionierung zusammen: Die
     GMRES-Iterationen sind von der Kantenauflösung unabhängig (Abschnitt~\ref{sec:kombi}).
 \end{itemize}
@@ -225,16 +226,57 @@ gleich.}
     kurzen Elementausdehnung mit angepasster Fernfeldquadratur.
 \end{itemize}
 
+\section{Asymptotik mit dem C++-Rechenkern}\label{sec:cpp}
+Der Kern aus dem Repository \texttt{PhotonPower/CliffordBem} (v0.1) implementiert dieselben
+Kernkomponenten, Nahfeldregeln und ACA-Varianten. Die Einträge stimmen mit dem Prototyp auf
+$10^{-13}$ überein, und er ist etwa 6-mal schneller. Einstellungen wie oben ($\varepsilon=10^{-4}$,
+gemeinsame ACA). Details und Rohdaten: \texttt{docs/results\_compression.md} im Repository.
+\begin{center}\small
+\begin{tabular}{lrrrrr}
+\toprule
+Geometrie & Dreiecke & Unbekannte & Speicher & $10^3\cdot\mathrm{MB}/(N\log^2N)$ & Aufbau\\
+\midrule
+Kugel, $k=1{,}5$ & 1\,280 & 10\,240 & 55\,MB & 0,83 & 6\,s\\
+ & 5\,120 & 40\,960 & 340\,MB & 0,91 & 33\,s\\
+ & 11\,520 & 92\,160 & 959\,MB & 0,95 & 80\,s\\
+ & 20\,480 & 163\,840 & 1\,881\,MB & 0,93 & 156\,s\\
+Würfel (gleichm.), $k=1{,}5$ & 1\,200 & 9\,600 & 51\,MB & 0,84 & 7\,s\\
+ & 6\,912 & 55\,296 & 488\,MB & 0,90 & 53\,s\\
+ & 19\,200 & 153\,600 & 1\,651\,MB & 0,88 & 171\,s\\
+Kugel, $k=n/4$ & 1\,280 & 10\,240 & 55\,MB & 0,83 & 6\,s\\
+ & 20\,480 & 163\,840 & 2\,075\,MB & 1,03 & 192\,s\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{itemize}[leftmargin=*]
+  \item Der Quotient Speicher$/(N\log^2N)$ ist für Kugel und Würfel ab etwa 3000 Dreiecken
+    innerhalb von $\pm7\,\%$ konstant. Die Aufbauzeit wächst mit Exponent $1{,}1$ bis
+    $1{,}2$. Die frühere Beobachtung $N^{1{,}39}$ (Abschnitt~3) war präasymptotisch.
+  \item Kanten und Ecken ändern das Wachstum nicht.
+  \item Bei fester Auflösung je Wellenlänge (etwa 10 Elemente) kostet die Frequenz bis
+    $kD\approx16$ nur etwa $10\,\%$ Speicher. Bei festem Netz wächst der Niedrigrang-Speicher
+    bis $kD=48$ um $62\,\%$, und der mittlere Rang steigt von 7,0 auf 9,0.
+  \item Gemeinsame gegen komponentenweise ACA: etwa $19\,\%$ weniger
+    Niedrigrang-Speicher, konstant über $N=1280$ bis $11\,520$, bei halber Aufbauzeit.
+  \item Zu den Kanten gradierte Tensornetze sind dicht-dominiert (bei 3072 Dreiecken $84\,\%$
+    dichte Nahblöcke, 293\,MB gegenüber 170\,MB gleichmäßig). Das liegt an den auf $h_{\max}$
+    bezogenen Nahfeld- und Zulässigkeitskriterien und ist mit einer Fernfeldquadratur für
+    gestreckte Elemente zu beheben.
+\end{itemize}
+Damit ist H3 (zweiter Teil) im Bereich bis etwa 160\,000 Unbekannte und $kD\lesssim16$ numerisch
+gestützt: Der Aufwand ist $\mathcal{O}(N\log^\alpha N)$ mit $\alpha\approx2$ für den Speicher.
+
 \section{Einordnung und nächste Schritte}
 \begin{itemize}[leftmargin=*]
   \item \emph{H3, erster Teil:} Gemeinsame Pivotisierung über die Grade spart
     10--19\,\%. Eine echte Block-ACA mit $8\times8$- bzw.\ Multivektor-Pivots
     (AP~3.2) kann das verbessern; zu testen.
-  \item \emph{H3, zweiter Teil:} Skalierung bisher $N^{1{,}39}$. Nächste Schritte sind
-    größere $N$, optimierte Blattgröße und Zulässigkeit (die Bedingung
-    $\operatorname{dist}>3h$ ist konservativ) und $\mathcal{H}^2$-artige Basen als Option.
-  \item \emph{Laufzeit:} Der Aufbau in Python (124\,s bei $N=3920$) dominiert. Der
-    Rust-Kern aus AP~2.7 ist für realistische Größen nötig.
+  \item \emph{H3, zweiter Teil:} Mit dem C++-Kern bis 163\,840 Unbekannte gestützt:
+    $\mathcal{O}(N\log^2N)$ für Kugel und Würfel (Abschnitt~\ref{sec:cpp}). Offen sind stark
+    gradierte Netze (Kriterien für gestreckte Elemente) und elektrisch große Streuer
+    ($kD\gg50$).
+  \item \emph{Laufzeit:} Der C++-Kern ist etwa 6-mal schneller als der Python-Prototyp
+    (ein Rechenkern); die Assemblierung ist für OpenMP vorbereitet.
   \item \emph{AP~3.4:} Kompression und Kanten-/Eck-Vorkonditionierung sind am Würfel
     kombiniert (Abschnitt~\ref{sec:kombi}). Offen sind die $\mathcal{H}$-LU für große Blöcke und
     eine Zulässigkeit, die gestreckte Kantendreiecke nicht bestraft.

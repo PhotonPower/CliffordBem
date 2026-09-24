@@ -19,7 +19,7 @@ static std::vector<int> parse_list(const std::string& s) {
 int main(int argc, char** argv) {
     std::string geometry = "sphere", mode = "joint", csv = "";
     std::vector<int> ns = {6, 8, 10};
-    double kr = 1.5, ki = 0.0, eps = 1e-4, eta = 1.0, sep = 3.0; int leaf = 32, check_rows = 40;
+    double kr = 1.5, ki = 0.0, eps = 1e-4, eta = 1.0, sep = 3.0, k_per_n = 0.0; int leaf = 32, check_rows = 40;
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
         if (o == "--geometry") geometry = nxt(); else if (o == "--n") ns = parse_list(nxt());
@@ -28,18 +28,19 @@ int main(int argc, char** argv) {
         else if (o == "--sep") sep = std::stod(nxt()); else if (o == "--leaf") leaf = std::stoi(nxt());
         else if (o == "--mode") mode = nxt(); else if (o == "--check") check_rows = std::stoi(nxt());
         else if (o == "--csv") csv = nxt();
+        else if (o == "--k-per-n") k_per_n = std::stod(nxt());   // k = k_per_n * n (feste Elemente je Wellenlaenge)
         else { std::printf("unbekannte Option %s\n", o.c_str()); return 1; }
     }
-    cplx k(kr, ki);
     std::ofstream out;
     if (!csv.empty()) {
         out.open(csv, std::ios::app);
         out.seekp(0, std::ios::end);
         if (out.tellp() == 0) out << "geometry,n,N,unknowns,mode,eps,eta,leaf,sep,k_re,k_im,n_dense,n_lowrank,MB_dense,MB_lowrank,MB_total,MB_dense_kernel_ref,mean_rank,max_rank,t_build_s,t_matvec_s,rel_err\n";
     }
-    std::printf("%-7s %8s %9s %10s %10s %10s %7s %9s %9s %9s\n", "Geom.", "N", "Unbek.", "MB dicht", "MB NR", "MB ges.", "Rang", "Aufbau s", "MatVec s", "Fehler");
+    std::printf("%-12s %6s %8s %9s %10s %10s %10s %7s %9s %9s %9s\n", "Geom.", "k", "N", "Unbek.", "MB dicht", "MB NR", "MB ges.", "Rang", "Aufbau s", "MatVec s", "Fehler");
     for (int n : ns) {
-        TriangleMesh m = geometry == "cube" ? make_cube_graded(n) : make_icosphere(n);
+        cplx k = k_per_n > 0 ? cplx(k_per_n * n, ki) : cplx(kr, ki);
+        TriangleMesh m = geometry == "cube" ? make_cube_graded(n) : (geometry == "cube_uniform" ? make_cube_uniform(n) : make_icosphere(n));
         const std::size_t N = m.size();
         KernelEntries E(m, k);
         HMatrixParams p; p.eps = eps; p.eta = eta; p.leaf = leaf; p.sep_factor = sep;
@@ -62,11 +63,12 @@ int main(int argc, char** argv) {
         double MBd = 16.0 * s.entries_dense / 1048576.0, MBl = 16.0 * s.entries_lowrank / 1048576.0;
         double MBref = 16.0 * 4.0 * double(N) * double(N) / 1048576.0;
         double err = std::sqrt(num / den);
-        std::printf("%-7s %8zu %9zu %10.1f %10.1f %10.1f %7.1f %9.1f %9.3f %9.1e\n", geometry.c_str(), N, 8 * N, MBd, MBl, MBd + MBl, s.mean_rank, s.seconds, tmv, err);
+        std::printf("%-12s %6.2f %8zu %9zu %10.1f %10.1f %10.1f %7.1f %9.1f %9.3f %9.1e\n", geometry.c_str(), k.real(), N, 8 * N, MBd, MBl, MBd + MBl, s.mean_rank, s.seconds, tmv, err);
         std::fflush(stdout);
         if (out) out << geometry << ',' << n << ',' << N << ',' << 8 * N << ',' << mode << ',' << eps << ',' << eta << ',' << leaf << ',' << sep << ','
-                     << kr << ',' << ki << ',' << s.n_dense << ',' << s.n_lowrank << ',' << MBd << ',' << MBl << ',' << MBd + MBl << ',' << MBref << ','
+                     << k.real() << ',' << k.imag() << ',' << s.n_dense << ',' << s.n_lowrank << ',' << MBd << ',' << MBl << ',' << MBd + MBl << ',' << MBref << ','
                      << s.mean_rank << ',' << s.max_rank << ',' << s.seconds << ',' << tmv << ',' << err << '\n';
+        if (out) out.flush();
     }
     return 0;
 }
