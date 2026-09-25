@@ -151,3 +151,32 @@ also das feste Verhältnis der Komponenten), damit nur die ausfallende Welle dar
 - Kanten: die Streckung in log r ist nicht übertragbar. Ein aussichtsreicher Weg ist ein transparentes Kantenelement
   mit der exakten Mellin-Mode; es lässt sich im 2D-Prototyp gegen die Streckungsreferenz prüfen, bevor es in 3D
   umgesetzt wird.
+
+## Eckelement mit exakter Eckmode (`mode2d.py`, `check_mode.py`)
+
+Auf den beiden Eckelementen einer Ecke ist die Dichte γ r^{a−1} c_Fläche mit dem Nullvektor (c₁, c₂) des
+Mellin-Symbols von T₁ zum physikalischen Exponenten a (Symbol dort singulär: kleinster Singulärwert 2·10⁻⁵ bei
+κ = −2,8 + 0,3i, 7·10⁻¹³ bei Gold; eindimensionaler Kern), mit dem Rotor der Ecke auf das Quadrat gedreht; ein
+Unbekannter je Ecke, getestet mit c̄_Fläche bzw. c_Fläche auf denselben Elementen.
+
+- **Die Mode stimmt:** Die Dichte der Streckungslösung zeigt nahe der Ecke (Eckabstand 0,02 bis 0,2) in Richtung der
+  vorhergesagten Mode, |cos| = 0,997 bzw. 0,989 auf den beiden Seiten (bei vertauschten Strahlen 0,43/0,47, bei um
+  90° falsch gedrehtem Rotor 0,80/0,76).
+- **Quadratur:** r^{a−1} ist für kleines Re a nur langsam integrierbar; bei geometrischer Unterteilung bleibt nach
+  L Stufen ein Rest ∼ 2^{−L Re a} (Re a = 0,15: 1,6 % nach 40 Stufen). Das Eckelement braucht etwa 300 Stufen.
+- **Nicht transparent:** Trotz richtiger Mode hängt das Ergebnis im Fenster weiter von der Tiefe ab
+  (κ = −2,8 + 0,3i, q = 0,7; Referenz 0,060029 + 0,033137i):
+
+| Tiefe r_min | 10⁻² | 10⁻³ | 10⁻⁴ |
+|---|---:|---:|---:|
+| Test c̄ | 0,06131 + 0,03837i | 0,05793 + 0,03683i | 0,05727 + 0,03444i |
+| Test c | 0,05613 + 0,03535i | | 0,05842 + 0,03151i |
+
+Vermutete Ursache: Am Übergang bei r_min trifft die diskrete Welle auf dem gradierten Netz (mit ihrer eigenen
+diskreten Dispersion in log r) auf die exakte Mode; der Unterschied erzeugt eine Reflexion, die bei kleinem Verlust
+kaum gedämpft nach außen läuft. Die Streckung vermeidet das, weil sie über viele Elemente allmählich wirkt.
+
+**Folgerung.** Ein transparentes Element muss zur *diskreten* Welle passen, nicht zur exakten. Da das geometrisch
+gradierte Netz selbstähnlich ist, ist das diskrete Eckproblem in der Schichtnummer ein blockweises
+Toeplitz-System; seine ausfallenden diskreten Lösungen ließen sich aus der Rekursion bestimmen (diskrete
+DtN-Bedingung). Das wäre auch auf die Querrichtung gradierter 3D-Kantennetze übertragbar.

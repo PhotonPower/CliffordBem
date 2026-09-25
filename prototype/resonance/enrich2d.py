@@ -19,13 +19,14 @@ def exponent(kappa, alpha=np.pi/2):
                 except Exception: continue
                 if 1e-6 < r.real < 1 and (best is None or r.real < best.real): best = r
     return best
+LEVELS = 300   # Eckelement: r^{a-1} ist fuer kleines Re a nur langsam integrierbar (Schwanz 2^{-levels Re a})
 def build(ng, kappa, a, q=0.5, q0=0.5):
     g = GalerkinGeo(ng, 0.0, 0.25, q, q0); Ns = len(g.S0)
     corner = (g.S0 == 0.0) | (g.S1 == 2.0)
     Tn, Wn = gauss01(8); Tg, Wg = graded_nodes(8, 14, True)
     def pts(j, graded=False):
         if corner[j]:
-            Y, w, xx = g.pts_corner(j, levels=40); off = g._off; r = np.linalg.norm(off.real, axis=1)
+            Y, w, xx = g.pts_corner(j, levels=LEVELS); off = g._off; r = np.linalg.norm(off.real, axis=1)
             return Y, w, xx, off, r
         Y, w, xx = g.pts(j, Tg, Wg) if graded else g.pts(j, Tn, Wn); return Y, w, xx, None, None
     P = [pts(j) for j in range(Ns)]; Pg = [pts(j, True) for j in range(Ns)]
