@@ -19,7 +19,7 @@ static std::vector<int> parse_list(const std::string& s) {
 int main(int argc, char** argv) {
     std::string geometry = "sphere", mode = "joint", csv = "";
     std::vector<int> ns = {6, 8, 10};
-    double kr = 1.5, ki = 0.0, eps = 1e-4, eta = 1.0, sep = 3.0, k_per_n = 0.0; int leaf = 32, check_rows = 40;
+    double kr = 1.5, ki = 0.0, eps = 1e-4, eta = 1.0, sep = 3.0, k_per_n = 0.0; int leaf = 32, check_rows = 40; bool exact_lr = false;
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
         if (o == "--geometry") geometry = nxt(); else if (o == "--n") ns = parse_list(nxt());
@@ -29,6 +29,7 @@ int main(int argc, char** argv) {
         else if (o == "--mode") mode = nxt(); else if (o == "--check") check_rows = std::stoi(nxt());
         else if (o == "--csv") csv = nxt();
         else if (o == "--k-per-n") k_per_n = std::stod(nxt());   // k = k_per_n * n (feste Elemente je Wellenlaenge)
+        else if (o == "--exact-lr") exact_lr = true;              // ACA mit exakten Eintraegen (fuer --sep 0)
         else { std::printf("unbekannte Option %s\n", o.c_str()); return 1; }
     }
     std::ofstream out;
@@ -43,7 +44,7 @@ int main(int argc, char** argv) {
         TriangleMesh m = geometry == "cube" ? make_cube_graded(n) : (geometry == "cube_uniform" ? make_cube_uniform(n) : make_icosphere(n));
         const std::size_t N = m.size();
         KernelEntries E(m, k);
-        HMatrixParams p; p.eps = eps; p.eta = eta; p.leaf = leaf; p.sep_factor = sep;
+        HMatrixParams p; p.eps = eps; p.eta = eta; p.leaf = leaf; p.sep_factor = sep; p.exact_in_lowrank = exact_lr;
         p.mode = mode == "comp" ? AcaMode::Componentwise : AcaMode::Joint;
         KernelHMatrix H(E, p); CauchyOperator op(m, H);
         std::mt19937 g(7); std::normal_distribution<real> nd;

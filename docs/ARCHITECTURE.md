@@ -25,17 +25,17 @@
 | geometry | Kugel, gradierter Würfel, Dunavant-Regeln | Gmsh-Import, anisotrope/nichtkonforme Kantennetze, gekrümmte Elemente |
 | kernel | Dirac-Kern, Wilton-Integrale | chirale Kerne (k±), Helizitätsprojektoren |
 | assembly | Fern-/Nahfeld, Selbstterm | Sauter-Schwab, adaptive Nahfeldkriterien für gestreckte Elemente |
-| hmatrix | Clusterbaum, ACA (joint/comp), Nachkompression | Block-ACA mit 8×8-Pivots, ACA+, H-LU, complex64-Speicher, parallele Mat-Vek |
+| hmatrix | Clusterbaum, ACA (joint/comp), Nachkompression, ACA mit exakten Einträgen (gestreckte Elemente) | Block-ACA mit 8×8-Pivots, ACA+, H-LU, complex64-Speicher, parallele Mat-Vek |
 | operators | Cauchy-Operator E_k, Transmissionsoperator T₁ (Standardwahl von J) | chirale Transmission, Mehrkörperprobleme |
-| solvers | GMRES (Neustart, Rechtsvorkonditionierung), punktweise 2(1+J)⁻¹ | Kanten-/Eck-Blockvorkonditionierung (AP 2.5), H-LU-Blöcke |
+| solvers | GMRES, punktweise 2(1+J)⁻¹, Kanten-/Eck-Blockvorkonditionierung (dichte LU) | H-LU für große Blöcke, überlappende Blöcke |
 | sources | ebene Welle, Fernfeld, Extinktion | Dipolquellen, Nahfeldauswertung, Streumatrix |
-| apps | Kompressionsbenchmark, Kugelstreuung | Würfel-Studien, Parameterstudien |
+| apps | Kompressionsbenchmark, Kugel- und Würfelstreuung | Parameterstudien, AP-4-Geometrien |
 | bindings | – | pybind11-Modul für Skripting und Vergleich mit dem Prototyp |
 
 ## Bekannte Grenzen
 
-- Die Zulässigkeitsbedingung dist > 3 h_max ist konservativ und bestraft gestreckte Elemente
-  (vgl. AP 3, Abschnitt 5).
+- Mit `exact_in_lowrank` ist die Kompression auf gestreckten Elementen gut, die Aufbauzeit aber hoch:
+  Das Nahfeldkriterium D < 2,5 h_max behandelt bei gestreckten Elementen viele Paare analytisch.
 - Die Nahfeldquadratur an gemeinsamen Kanten konvergiert nur langsam (logarithmische
   Singularität der Außenintegration); für hohe Genauigkeit ist Sauter-Schwab vorzusehen.
 - Resonanzfenster an Ecken (AP 1, Teil IV): kein reflexionsfreier Eckabschluss vorhanden.

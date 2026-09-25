@@ -8,7 +8,12 @@ resonanzfreien Transmissionsgleichung T₁ = E₂⁺ + E₁⁻ J (siehe `docs/pa
 Stand 0.2: **Cauchy-Randoperator E_k** mit H-Matrix-Kompression (ACA) und **Streulöser** für die
 resonanzfreie Gleichung T₁ h = h_inc (Transmissionsabbildung J mit Standardwahl, ebene Welle,
 Fernfeld/Extinktion, GMRES mit punktweiser Vorkonditionierung). Validiert gegen Mie bis
-92 160 Unbekannte (`docs/results_scattering.md`). Die Architektur ist auf den
+92 160 Unbekannte (`docs/results_scattering.md`).
+
+Stand 0.3: **Kanten-/Eck-Blockvorkonditionierung** (`BlockPreconditioner`) und **Kriterien für
+gestreckte Elemente** (ACA mit exakten Einträgen, `sep_factor = 0`). Am gradierten Würfel sind
+die GMRES-Iterationen damit unabhängig von der Kantenauflösung, und der Speicher sinkt auf
+43–57 % (`docs/results_cube.md`). Die Architektur ist auf den
 Ausbau zu einem vollständigen BEM-Löser ausgelegt (siehe `docs/ARCHITECTURE.md`).
 
 ## Bauen und Testen
@@ -31,6 +36,7 @@ Tests:
 - `test_plemelj`: Spurtrennung E h = ±h für innere und äußere Dirac-Lösungen (Konvergenz erster Ordnung).
 - `test_gmres`: GMRES mit und ohne Vorkonditionierung, mit Neustart.
 - `test_scattering`: Kugelstreuung, identisch mit der dichten Lösung des Python-Prototyps.
+- `test_block_precond`: Blockvorkonditionierung (gleiche Lösung, weniger Iterationen; voller Block = exakte Inverse).
 
 Die Kerneinträge stimmen mit dem Python-Prototyp (`prototype/ap2`) auf 10⁻¹³ überein.
 
@@ -46,6 +52,17 @@ cd tools && python3 analyze_scattering.py ../results/scatter_glass.csv   # Vergl
 |---|---:|---:|---:|---:|
 | Glas, ωa = 1 | 92 160 | 0,214752 (extrapoliert 0,215111) | 0,215098 | 10 |
 | Gold, ωa = 0,5 | 92 160 | 0,597669 (extrapoliert 0,590837) | 0,590018 | 24 |
+
+## Würfel mit Kanten-/Eck-Blockvorkonditionierung
+
+```bash
+./build/scatter_cube --mesh graded --L 3,5,7 --omega 0.5 --eps1 -11,1.2 --R 0.125,0.25 --csv results/cube_gold.csv
+```
+
+| Gold, gradierter Würfel | L = 3 | L = 5 | L = 7 |
+|---|---:|---:|---:|
+| GMRES punktweise | 47 | 54 | 59 |
+| GMRES mit Blöcken (R = 0,125) | 40 | 41 | 41 |
 
 ## Kompressions-Benchmark
 
@@ -109,8 +126,8 @@ docs/                    Architektur, Arbeitspapiere (AP 1-3), Zusammenfassung, 
 
 ## Status und Ausbauplan
 
-Siehe `docs/ARCHITECTURE.md`. Kurz: Als Nächstes folgen die Kanten-/Eck-Blockvorkonditionierung
-(mit H-LU für große Blöcke) und Kriterien für gestreckte Elemente, danach Sauter-Schwab-Quadratur, Block-ACA mit Multivektor-Pivots, Netzimport (Gmsh) und
+Siehe `docs/ARCHITECTURE.md`. Kurz: Als Nächstes folgen ein schnelleres Nahfeld für gestreckte
+Elemente, anisotrope Kantennetze und H-LU für große Blöcke, danach Sauter-Schwab-Quadratur, Block-ACA mit Multivektor-Pivots, Netzimport (Gmsh) und
 Python-Anbindung.
 
 Die Beweise und Aussagen in den Arbeitspapieren sind vorläufig und nicht unabhängig geprüft.

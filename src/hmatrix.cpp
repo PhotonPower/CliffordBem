@@ -31,20 +31,22 @@ KernelHMatrix::KernelHMatrix(const KernelEntries& E, HMatrixParams prm)
         LR& B = lr_[b];
         B.R = tree_.indices(tree_.nodes[adm[b].first]); B.C = tree_.indices(tree_.nodes[adm[b].second]);
         const std::size_t m = B.R.size(), n = B.C.size();
+        const bool ex = prm_.exact_in_lowrank;
+        auto ent = [&](std::size_t i, std::size_t j) { return ex ? E.exact(i, j) : E.far(i, j); };
         if (prm_.mode == AcaMode::Joint) {
             RowFn row = [&](std::size_t i, cplx* out) {
-                for (std::size_t j = 0; j < n; ++j) { KernelComp K = E.far(B.R[i], B.C[j]); for (int c = 0; c < 4; ++c) out[c * n + j] = K[c]; }
+                for (std::size_t j = 0; j < n; ++j) { KernelComp K = ent(B.R[i], B.C[j]); for (int c = 0; c < 4; ++c) out[c * n + j] = K[c]; }
             };
             ColFn col = [&](std::size_t J, cplx* out) {
                 std::size_t c = J / n, j = J % n;
-                for (std::size_t i = 0; i < m; ++i) out[i] = E.far(B.R[i], B.C[j])[c];
+                for (std::size_t i = 0; i < m; ++i) out[i] = ent(B.R[i], B.C[j])[c];
             };
             LowRank f = aca_partial(row, col, m, 4 * n, prm_.eps); recompress(f, prm_.eps);
             B.f.push_back(std::move(f));
         } else {
             for (int c = 0; c < 4; ++c) {
-                RowFn row = [&, c](std::size_t i, cplx* out) { for (std::size_t j = 0; j < n; ++j) out[j] = E.far(B.R[i], B.C[j])[c]; };
-                ColFn col = [&, c](std::size_t j, cplx* out) { for (std::size_t i = 0; i < m; ++i) out[i] = E.far(B.R[i], B.C[j])[c]; };
+                RowFn row = [&, c](std::size_t i, cplx* out) { for (std::size_t j = 0; j < n; ++j) out[j] = ent(B.R[i], B.C[j])[c]; };
+                ColFn col = [&, c](std::size_t j, cplx* out) { for (std::size_t i = 0; i < m; ++i) out[i] = ent(B.R[i], B.C[j])[c]; };
                 LowRank f = aca_partial(row, col, m, n, prm_.eps); recompress(f, prm_.eps);
                 B.f.push_back(std::move(f));
             }
@@ -61,7 +63,7 @@ KernelHMatrix::KernelHMatrix(const KernelEntries& E, HMatrixParams prm)
 void KernelHMatrix::partition(int t, int s, std::vector<std::pair<int, int>>& adm, std::vector<std::pair<int, int>>& inadm) const {
     const ClusterNode& a = tree_.nodes[t]; const ClusterNode& b = tree_.nodes[s];
     real dist = box_distance(a, b), h = std::max(a.hmax, b.hmax);
-    bool ok = std::min(a.diam, b.diam) <= prm_.eta * dist && dist > prm_.sep_factor * h &&
+    bool ok = std::min(a.diam, b.diam) <= prm_.eta * dist && dist > 0 && dist > prm_.sep_factor * h &&
               std::abs(k_) * std::max(a.diam, b.diam) <= prm_.max_kdiam;
     if (ok) { adm.emplace_back(t, s); return; }
     if (a.leaf() || b.leaf()) { inadm.emplace_back(t, s); return; }

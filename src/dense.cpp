@@ -72,4 +72,28 @@ void svd_jacobi(const Matrix& A, Matrix& U, std::vector<real>& s, Matrix& V, rea
     U = std::move(U2); V = std::move(V2); s = std::move(s2);
 }
 
+void lu_factor(Matrix& A, std::vector<std::size_t>& piv) {
+    const std::size_t n = A.rows; piv.resize(n);
+    for (std::size_t k = 0; k < n; ++k) {
+        std::size_t p = k; real best = std::abs(A(k, k));
+        for (std::size_t i = k + 1; i < n; ++i) if (std::abs(A(i, k)) > best) { best = std::abs(A(i, k)); p = i; }
+        piv[k] = p;
+        if (p != k) for (std::size_t j = 0; j < n; ++j) std::swap(A(k, j), A(p, j));
+        const cplx d = A(k, k);
+        for (std::size_t i = k + 1; i < n; ++i) A(i, k) /= d;
+        for (std::size_t j = k + 1; j < n; ++j) {
+            const cplx a = A(k, j); if (a == cplx(0)) continue;
+            cplx* cj = A.col(j); const cplx* ck = A.col(k);
+            for (std::size_t i = k + 1; i < n; ++i) cj[i] -= ck[i] * a;
+        }
+    }
+}
+
+void lu_solve(const Matrix& LU, const std::vector<std::size_t>& piv, cplx* b) {
+    const std::size_t n = LU.rows;
+    for (std::size_t k = 0; k < n; ++k) if (piv[k] != k) std::swap(b[k], b[piv[k]]);
+    for (std::size_t j = 0; j < n; ++j) { const cplx bj = b[j]; const cplx* c = LU.col(j); for (std::size_t i = j + 1; i < n; ++i) b[i] -= c[i] * bj; }
+    for (std::size_t j = n; j-- > 0;) { b[j] /= LU(j, j); const cplx bj = b[j]; const cplx* c = LU.col(j); for (std::size_t i = 0; i < j; ++i) b[i] -= c[i] * bj; }
+}
+
 }  // namespace cbem

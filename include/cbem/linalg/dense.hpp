@@ -22,5 +22,8 @@ void qr_cgs2(const Matrix& A, Matrix& Q, Matrix& R);
 // A = U diag(s) V^H  (einseitige Jacobi-Rotationen), A: m x n, m >= n; s absteigend sortiert
 void svd_jacobi(const Matrix& A, Matrix& U, std::vector<real>& s, Matrix& V, real tol = 1e-14, int max_sweeps = 60);
 real frobenius(const Matrix& A);
+// LU-Zerlegung mit Spaltenpivotisierung (in place), Loesen von A x = b
+void lu_factor(Matrix& A, std::vector<std::size_t>& piv);
+void lu_solve(const Matrix& LU, const std::vector<std::size_t>& piv, cplx* b);
 
 }  // namespace cbem

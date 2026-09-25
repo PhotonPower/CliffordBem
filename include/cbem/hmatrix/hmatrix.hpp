@@ -17,7 +17,9 @@ struct HMatrixParams {
     real eps = 1e-4;             // relative ACA-Toleranz je Block
     real eta = 1.0;              // Zulaessigkeit min(diam) <= eta dist
     std::size_t leaf = 32;       // maximale Blattgroesse
-    real sep_factor = 3.0;       // zusaetzlich dist > sep_factor * h_max (Gauss-Fernfeldgenauigkeit)
+    real sep_factor = 3.0;       // zusaetzlich dist > sep_factor * h_max (Gauss-Fernfeldgenauigkeit); 0 = aus
+    bool exact_in_lowrank = false;  // ACA mit exakten Eintraegen (Nahfeld wo noetig) statt reiner Gauss-Fernfeldregel;
+                                    // erlaubt sep_factor = 0 bei gestreckten Elementen
     real max_kdiam = 20.0;       // |k| diam <= max_kdiam
     AcaMode mode = AcaMode::Joint;
 };
