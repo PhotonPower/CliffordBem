@@ -47,6 +47,7 @@ int main(int argc, char** argv) {
         HMatrixParams p; p.eps = eps; p.eta = eta; p.leaf = leaf; p.sep_factor = sep; p.exact_in_lowrank = exact_lr;
         p.mode = mode == "comp" ? AcaMode::Componentwise : AcaMode::Joint;
         KernelHMatrix H(E, p); CauchyOperator op(m, H);
+        std::printf("  (Nahfeld: %zu Paare in %.1f s)\n", E.near_pairs(), E.near_seconds());
         std::mt19937 g(7); std::normal_distribution<real> nd;
         std::vector<cplx> x(8 * N); for (auto& v : x) v = cplx(nd(g), nd(g));
         auto t0 = std::chrono::steady_clock::now(); std::vector<cplx> y; op.apply(x, y);

@@ -24,7 +24,7 @@
 |---|---|---|
 | geometry | Kugel, gradierter Würfel, Dunavant-Regeln | Gmsh-Import, anisotrope/nichtkonforme Kantennetze, gekrümmte Elemente |
 | kernel | Dirac-Kern, Wilton-Integrale | chirale Kerne (k±), Helizitätsprojektoren |
-| assembly | Fernfeld (Gauß), Sauter-Schwab für benachbarte Paare, analytisches Innenintegral für nahe nicht benachbarte Paare | adaptive Nahfeldkriterien für gestreckte Elemente, nichtkonforme Nachbarschaften |
+| assembly | Fernfeld (Gauß 7×7); benachbarte Paare: Sauter-Schwab (gleichseitig) bzw. halbanalytisch gradiert (gestreckt); nahe Paare: adaptive Außenregel; Nahfeld-Cache | nichtkonforme Nachbarschaften, schnellere Nahpaare auf gestreckten Elementen |
 | hmatrix | Clusterbaum, ACA (joint/comp), Nachkompression, ACA mit exakten Einträgen (gestreckte Elemente) | Block-ACA mit 8×8-Pivots, ACA+, H-LU, complex64-Speicher, parallele Mat-Vek |
 | operators | Cauchy-Operator E_k, Transmissionsoperator T₁ (Standardwahl von J) | chirale Transmission, Mehrkörperprobleme |
 | solvers | GMRES, punktweise 2(1+J)⁻¹, Kanten-/Eck-Blockvorkonditionierung (dichte LU) | H-LU für große Blöcke, überlappende Blöcke |
@@ -34,8 +34,10 @@
 
 ## Bekannte Grenzen
 
-- Mit `exact_in_lowrank` ist die Kompression auf gestreckten Elementen gut, die Aufbauzeit aber hoch:
-  Das Nahfeldkriterium D < 2,5 h_max behandelt bei gestreckten Elementen viele Paare analytisch.
+- Auf gestreckten Elementen ist die Zahl der Nahpaare groß (D < 2,5 h_max ist für die Fernfeldregel
+  nötig); die Vorberechnung dominiert dort die Aufbauzeit (L = 9: 93 s je Wellenzahl auf einem Kern).
+- Sauter-Schwab konvergiert auf gestreckten Dreiecken langsam und orientierungsabhängig; es wird
+  daher nur bis Seitenverhältnis 1,6 verwendet.
 - Sauter-Schwab setzt konforme Netze voraus (Nachbarschaft über gemeinsame Knotenindizes). Bei
   hängenden Knoten fällt der Kern auf das analytische Innenintegral zurück.
 - Resonanzfenster an Ecken (AP 1, Teil IV): kein reflexionsfreier Eckabschluss vorhanden.

@@ -1,0 +1,3 @@
+geometry,n,N,unknowns,mode,eps,eta,leaf,sep,k_re,k_im,n_dense,n_lowrank,MB_dense,MB_lowrank,MB_total,MB_dense_kernel_ref,mean_rank,max_rank,t_build_s,t_matvec_s,rel_err
+cube,7,3072,24576,joint,0.0001,1,32,0,1.5,0,2106,1966,74.0391,52.7582,126.797,576,6.41709,12,3.47086,0.100346,3.95018e-05
+cube,9,4800,38400,joint,0.0001,1,32,0,1.5,0,4654,5874,99.9795,116.138,216.117,1406.25,6.1888,14,5.78556,0.173839,3.08027e-05

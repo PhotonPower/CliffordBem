@@ -13,7 +13,10 @@ void triangle_integrals(const Vec3& x, const std::array<Vec3, 3>& p, const Vec3&
         Vec3 d = q2 - q1; real L = norm(d); Vec3 t = d / L; Vec3 m = cross(t, n);
         real lm = dot(q1 - rho, t), lp = dot(q2 - rho, t), P0 = dot(q1 - rho, m);
         real Rm = norm(x - q1), Rp = norm(x - q2), R0sq = P0 * P0 + w * w;
-        real f = (lm + lp >= 0) ? std::log((Rp + lp) / (Rm + lm)) : std::log((Rm - lm) / (Rp - lp));
+        // f = int_e dl / R = asinh(l+/R0) - asinh(l-/R0); R0 nach unten begrenzt (Punkte auf der Kantengeraden)
+        const real R0 = std::max(std::sqrt(R0sq), 1e-13 * L);
+        real f = std::asinh(lp / R0) - std::asinh(lm / R0);
+        (void)Rm; (void)Rp;
         real beta = std::atan2(P0 * lp, R0sq + aw * Rp) - std::atan2(P0 * lm, R0sq + aw * Rm);
         gpar += m * f; inv += P0 * f; bsum += beta;
     }

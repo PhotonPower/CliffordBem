@@ -32,17 +32,17 @@ int main() {
     }
     struct Case { const char* name; std::size_t j; } cases[3] = {{"gleiches Dreieck", i0}, {"gemeinsame Kante", ie}, {"gemeinsame Ecke", iv}};
     for (auto& cs : cases) {
-        EntryParams pr; pr.ss_order = 10; KernelEntries Ref(m, k, pr);
+        EntryParams pr; pr.ss_order = 10; pr.cache_near = false; KernelEntries Ref(m, k, pr);
         const Adjacency ad = Ref.adjacency(i0, cs.j);
         KernelComp Kr = Ref.sauter_schwab(i0, cs.j, ad);                 // Referenz: Sauter-Schwab Ordnung 10
         std::printf("  %s (Referenz: Sauter-Schwab Ordnung 10):\n", cs.name);
         real prev = 1e9; bool mono = true;
-        for (int sub : {4, 16, 48}) { EntryParams p2; p2.sauter_schwab = false; p2.near_subdivision = sub; KernelEntries E(m, k, p2);
+        for (int sub : {4, 16, 48}) { EntryParams p2; p2.sauter_schwab = false; p2.adaptive_outer = false; p2.cache_near = false; p2.near_subdivision = sub; KernelEntries E(m, k, p2);
             real e = rel(E.near(i0, cs.j), Kr); mono &= (e < prev); prev = e;
             std::printf("     analytisch innen, Aussenregel %2d^2 x 7 Punkte: Abw. %.2e\n", sub, e); }
         CHECK(mono, "unabhaengige Methode konvergiert nicht gegen Sauter-Schwab");
         real e6 = 0;
-        for (int ord : {3, 4, 6, 8}) { EntryParams p3; p3.ss_order = ord; KernelEntries E(m, k, p3);
+        for (int ord : {3, 4, 6, 8}) { EntryParams p3; p3.ss_order = ord; p3.cache_near = false; KernelEntries E(m, k, p3);
             real e = rel(E.sauter_schwab(i0, cs.j, ad), Kr); if (ord == 6) e6 = e;
             std::printf("     Sauter-Schwab Ordnung %d: Abw. %.2e\n", ord, e); }
         CHECK(e6 < 1e-6, "Sauter-Schwab konvergiert nicht (Ordnung 6: %.1e)", e6);

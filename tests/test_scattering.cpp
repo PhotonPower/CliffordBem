@@ -9,6 +9,7 @@ static real qext(int n, real om, cplx eps1, bool ss) {
     Medium in{eps1, 1.0}, out{1.0, 1.0};
     cplx k1 = om * std::sqrt(eps1), k2 = om;
     EntryParams ep; ep.sauter_schwab = ss;
+    if (!ss) { ep.adaptive_outer = false; ep.near_subdivision = 4; }   // Nahfeldregel des Python-Prototyps
     KernelEntries Ein(m, k1, ep), Eout(m, k2, ep); HMatrixParams p; p.eps = 1e-8;
     KernelHMatrix H1(Ein, p), H2(Eout, p); CauchyOperator E1(m, H1), E2(m, H2);
     TransmissionOperator T(m, E1, E2, in, out);

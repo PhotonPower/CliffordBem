@@ -10,6 +10,12 @@ resonanzfreie Gleichung T₁ h = h_inc (Transmissionsabbildung J mit Standardwah
 Fernfeld/Extinktion, GMRES mit punktweiser Vorkonditionierung). Validiert gegen Mie bis
 92 160 Unbekannte (`docs/results_scattering.md`).
 
+Stand 0.5: **Nahfeld für gestreckte Elemente.** Sauter-Schwab ist auf gestreckten Dreiecken
+ungenau (bis 1,4 % bei Seitenverhältnis 16); dort wird jetzt eine halbanalytische, zur gemeinsamen
+Kante/Ecke gradierte Regel verwendet, für nahe nicht benachbarte Paare eine adaptive Außenregel.
+Alle Nahpaare werden vorab berechnet und gespeichert. Die Würfelergebnisse sind neu gerechnet
+(`docs/results_cube.md`).
+
 Stand 0.4: **Sauter-Schwab-Quadratur** für Dreieckspaare mit gemeinsamer Fläche, Kante oder
 Ecke. Damit konvergiert auch Gold mit Ordnung 2 gegen Mie (Extrapolation auf 2·10⁻⁵ statt
 1,4·10⁻³ zuvor).
@@ -43,6 +49,7 @@ Tests:
 - `test_block_precond`: Blockvorkonditionierung (gleiche Lösung, weniger Iterationen; voller Block = exakte Inverse).
 - `test_sauter_schwab`: Gewichtssummen, Exaktheit für glatte Integranden, exponentielle Konvergenz für
   die singulären Kernintegrale (gleiches Dreieck, gemeinsame Kante, gemeinsame Ecke).
+- `test_nearfield`: Nahfeldregeln auf dem gradierten Würfel gegen feine Referenz; Nahfeld-Cache.
 
 Die Kerneinträge stimmen mit dem Python-Prototyp (`prototype/ap2`) auf 10⁻¹³ überein.
 
@@ -67,8 +74,8 @@ cd tools && python3 analyze_scattering.py ../results/scatter_glass.csv   # Vergl
 
 | Gold, gradierter Würfel | L = 3 | L = 5 | L = 7 |
 |---|---:|---:|---:|
-| GMRES punktweise | 47 | 54 | 59 |
-| GMRES mit Blöcken (R = 0,125) | 40 | 41 | 41 |
+| GMRES punktweise | 48 | 54 | 60 |
+| GMRES mit Blöcken (R = 0,125) | 41 | 41 | 41 |
 
 ## Kompressions-Benchmark
 
