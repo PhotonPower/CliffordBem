@@ -10,6 +10,10 @@ resonanzfreie Gleichung T₁ h = h_inc (Transmissionsabbildung J mit Standardwah
 Fernfeld/Extinktion, GMRES mit punktweiser Vorkonditionierung). Validiert gegen Mie bis
 92 160 Unbekannte (`docs/results_scattering.md`).
 
+Stand 0.6: **Chirale Medien und Zirkulardichroismus.** Pasteur-Medien im Inneren (Helizitätszerlegung,
+chirale Transmissionsabbildung aus AP 1), zirkular polarisierte Anregung, chirale Mie-Referenz. Q₊, Q₋ und
+CD treffen die Mie-Lösung nach Extrapolation auf 10⁻⁴ (`docs/results_chiral.md`).
+
 Stand 0.5: **Nahfeld für gestreckte Elemente.** Sauter-Schwab ist auf gestreckten Dreiecken
 ungenau (bis 1,4 % bei Seitenverhältnis 16); dort wird jetzt eine halbanalytische, zur gemeinsamen
 Kante/Ecke gradierte Regel verwendet, für nahe nicht benachbarte Paare eine adaptive Außenregel.
@@ -50,6 +54,7 @@ Tests:
 - `test_sauter_schwab`: Gewichtssummen, Exaktheit für glatte Integranden, exponentielle Konvergenz für
   die singulären Kernintegrale (gleiches Dreieck, gemeinsame Kante, gemeinsame Ecke).
 - `test_nearfield`: Nahfeldregeln auf dem gradierten Würfel gegen feine Referenz; Nahfeld-Cache.
+- `test_chiral`: chirale Transmissionsabbildung gegen den Prototyp, χ = 0 gleich achiral, Symmetrie σ_s(χ) = σ_{−s}(−χ).
 
 Die Kerneinträge stimmen mit dem Python-Prototyp (`prototype/ap2`) auf 10⁻¹³ überein.
 
@@ -65,6 +70,13 @@ cd tools && python3 analyze_scattering.py ../results/scatter_glass.csv   # Vergl
 |---|---:|---:|---:|---:|
 | Glas, ωa = 1 | 92 160 | 0,214745 (extrapoliert 0,215110) | 0,215098 | 10 |
 | Gold, ωa = 0,5 | 92 160 | 0,591164 (extrapoliert 0,589967) | 0,590018 | 24 |
+
+## Chirale Kugel (Zirkulardichroismus)
+
+```bash
+./build/scatter_chiral --n 8,12,16 --omega 1.0 --eps1 2.25,0 --chi 0.2,0 --csv results/chiral_lossless.csv
+cd tools && python3 analyze_chiral.py ../results/chiral_lossless.csv     # Vergleich mit chiraler Mie-Lösung
+```
 
 ## Würfel mit Kanten-/Eck-Blockvorkonditionierung
 
@@ -126,7 +138,7 @@ include/cbem/kernel      Dirac-Fundamentallösung, analytische Dreiecksintegrale
 include/cbem/assembly    Eintragsauswertung (Fern-/Nahfeld) = Schnittstelle zu H-Matrix und Lösern
 include/cbem/linalg      kleine dichte Matrizen: QR, Jacobi-SVD
 include/cbem/hmatrix     Clusterbaum, Blockpartition, ACA, H-Matrix
-include/cbem/operators   Randoperatoren (Cauchy-Operator E_k, Transmissionsoperator T_1)
+include/cbem/operators   Randoperatoren (Cauchy-Operator E_k, chiraler Cauchy-Operator, Transmissionsoperator T_1)
 include/cbem/solvers     GMRES
 include/cbem/sources     ebene Wellen, Fernfeld, Extinktion
 apps/                    Benchmarks

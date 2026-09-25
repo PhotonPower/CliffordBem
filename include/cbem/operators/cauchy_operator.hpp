@@ -8,11 +8,19 @@
 
 namespace cbem {
 
-class CauchyOperator {
+// Schnittstelle fuer Randoperatoren auf der orthonormalen stueckweise konstanten Basis (8 Komponenten je Dreieck)
+class BoundaryOperator {
+public:
+    virtual ~BoundaryOperator() = default;
+    virtual void apply(const std::vector<cplx>& x, std::vector<cplx>& y) const = 0;
+    virtual std::size_t size() const = 0;
+};
+
+class CauchyOperator : public BoundaryOperator {
 public:
     CauchyOperator(const TriangleMesh& mesh, const KernelHMatrix& H);
-    void apply(const std::vector<cplx>& x, std::vector<cplx>& y) const;   // x, y: 8N
-    std::size_t size() const { return 8 * N_; }
+    void apply(const std::vector<cplx>& x, std::vector<cplx>& y) const override;   // x, y: 8N
+    std::size_t size() const override { return 8 * N_; }
     // Z aus x (fuer Referenzrechnungen mit denselben Konventionen)
     void make_Z(const std::vector<cplx>& x, std::vector<cplx>& Z) const;
 private:

@@ -10,14 +10,22 @@
 
 namespace cbem {
 
-struct Medium { cplx eps{1.0}, mu{1.0}; };
+// Pasteur-Medium: D = eps E + i chi H, B = mu H - i chi E (chi = 0: achiral)
+struct Medium {
+    cplx eps{1.0}, mu{1.0}, chi{0.0};
+    cplx k(real omega, int helicity = 0) const {          // helicity = 0: achiral; +-1: k_pm = omega (sqrt(eps mu) -+ chi)
+        return omega * (std::sqrt(eps) * std::sqrt(mu) - real(helicity) * chi);
+    }
+};
 
-// J als 8x8-Matrix zur Normalen n (Medium 1 innen, Medium 2 aussen)
+// J als 8x8-Matrix zur Normalen n (Medium 1 innen, Medium 2 aussen). Tangentialanteile mit sqrt(eps1/eps2)
+// bzw. sqrt(mu1/mu2); Normalanteile (e_n, h_n)_1 = D_1 C_1^{-1} C_2 D_2^{-1} (e_n, h_n)_2 mit
+// C_j = [[eps_j, i chi_j], [-i chi_j, mu_j]], D_j = diag(sqrt(eps_j), sqrt(mu_j)) (AP 1, Lemma Jchiral).
 Mat8 transmission_map(const Vec3& n, const Medium& inner, const Medium& outer);
 
 class TransmissionOperator {
 public:
-    TransmissionOperator(const TriangleMesh& m, const CauchyOperator& E_inner, const CauchyOperator& E_outer,
+    TransmissionOperator(const TriangleMesh& m, const BoundaryOperator& E_inner, const BoundaryOperator& E_outer,
                          const Medium& inner, const Medium& outer);
     void apply(const std::vector<cplx>& x, std::vector<cplx>& y) const;
     // punktweise Vorkonditionierung P = 2 (1 + J)^{-1}
@@ -26,8 +34,8 @@ public:
     const std::vector<Mat8>& J() const { return J_; }
 private:
     std::size_t N_;
-    const CauchyOperator& E1_;
-    const CauchyOperator& E2_;
+    const BoundaryOperator& E1_;
+    const BoundaryOperator& E2_;
     std::vector<Mat8> J_, P_;
 };
 

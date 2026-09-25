@@ -23,6 +23,7 @@ add_library(cbem
   src/aca.cpp
   src/hmatrix.cpp
   src/cauchy_operator.cpp
+  src/chiral_cauchy_operator.cpp
   src/transmission_operator.cpp
   src/gmres.cpp
   src/fields.cpp
@@ -48,11 +49,13 @@ if(CBEM_BUILD_APPS)
   target_link_libraries(scatter_sphere PRIVATE cbem)
   add_executable(scatter_cube apps/scatter_cube.cpp)
   target_link_libraries(scatter_cube PRIVATE cbem)
+  add_executable(scatter_chiral apps/scatter_chiral.cpp)
+  target_link_libraries(scatter_chiral PRIVATE cbem)
 endif()
 
 if(CBEM_BUILD_TESTS)
   enable_testing()
-  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield)
+  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE cbem)
     add_test(NAME ${t} COMMAND ${t})

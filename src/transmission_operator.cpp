@@ -24,6 +24,17 @@ Mat8 inverse8(Mat8 A) {
 Mat8 transmission_map(const Vec3& n, const Medium& in, const Medium& out) {
     const cplx se = std::sqrt(in.eps) / std::sqrt(out.eps), sm = std::sqrt(in.mu) / std::sqrt(out.mu);
     const cplx a = sm, b = se;                  // Standardwahl
+    // Normalanteile: Nn = D1 C1^{-1} C2 D2^{-1}
+    const cplx I1(0, 1);
+    const cplx c1[2][2] = {{in.eps, I1 * in.chi}, {-I1 * in.chi, in.mu}}, c2[2][2] = {{out.eps, I1 * out.chi}, {-I1 * out.chi, out.mu}};
+    const cplx det = c1[0][0] * c1[1][1] - c1[0][1] * c1[1][0];
+    const cplx ci[2][2] = {{c1[1][1] / det, -c1[0][1] / det}, {-c1[1][0] / det, c1[0][0] / det}};
+    const cplx d1[2] = {std::sqrt(in.eps), std::sqrt(in.mu)}, d2[2] = {std::sqrt(out.eps), std::sqrt(out.mu)};
+    cplx Nn[2][2];
+    for (int r = 0; r < 2; ++r) for (int c = 0; c < 2; ++c) {
+        cplx s = 0; for (int q = 0; q < 2; ++q) s += ci[r][q] * c2[q][c];
+        Nn[r][c] = d1[r] * s / d2[c];
+    }
     Mat8 J{};
     const int VEC[3] = {1, 2, 4};               // e1, e2, e3
     const int BIV[3] = {6, 5, 3};               // I e1 = e23, I e2 = -e13, I e3 = e12
@@ -35,17 +46,18 @@ Mat8 transmission_map(const Vec3& n, const Medium& in, const Medium& out) {
         cplx vn = v[0] * n.x + v[1] * n.y + v[2] * n.z, bn = Ib[0] * n.x + Ib[1] * n.y + Ib[2] * n.z;
         cplx out8[8] = {};
         out8[0] = a * h[0]; out8[7] = b * h[7];
+        const cplx vn2 = Nn[0][0] * vn + Nn[0][1] * bn, bn2 = Nn[1][0] * vn + Nn[1][1] * bn;
         for (int d = 0; d < 3; ++d) {
             cplx vt = v[d] - vn * n[d], bt = Ib[d] - bn * n[d];
-            out8[VEC[d]] = se * vt + vn * n[d] / se;
-            out8[BIV[d]] = (sm * bt + bn * n[d] / sm) * BS[d];
+            out8[VEC[d]] = se * vt + vn2 * n[d];
+            out8[BIV[d]] = (sm * bt + bn2 * n[d]) * BS[d];
         }
         for (int r = 0; r < 8; ++r) J[r * 8 + col] = out8[r];
     }
     return J;
 }
 
-TransmissionOperator::TransmissionOperator(const TriangleMesh& m, const CauchyOperator& E1, const CauchyOperator& E2,
+TransmissionOperator::TransmissionOperator(const TriangleMesh& m, const BoundaryOperator& E1, const BoundaryOperator& E2,
                                            const Medium& in, const Medium& out)
     : N_(m.size()), E1_(E1), E2_(E2), J_(m.size()), P_(m.size()) {
     for (std::size_t t = 0; t < N_; ++t) {
