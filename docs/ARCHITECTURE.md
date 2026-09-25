@@ -24,7 +24,7 @@
 |---|---|---|
 | geometry | Kugel, gradierter Würfel, Dunavant-Regeln | Gmsh-Import, anisotrope/nichtkonforme Kantennetze, gekrümmte Elemente |
 | kernel | Dirac-Kern, Wilton-Integrale | chirale Kerne (k±), Helizitätsprojektoren |
-| assembly | Fern-/Nahfeld, Selbstterm | Sauter-Schwab, adaptive Nahfeldkriterien für gestreckte Elemente |
+| assembly | Fernfeld (Gauß), Sauter-Schwab für benachbarte Paare, analytisches Innenintegral für nahe nicht benachbarte Paare | adaptive Nahfeldkriterien für gestreckte Elemente, nichtkonforme Nachbarschaften |
 | hmatrix | Clusterbaum, ACA (joint/comp), Nachkompression, ACA mit exakten Einträgen (gestreckte Elemente) | Block-ACA mit 8×8-Pivots, ACA+, H-LU, complex64-Speicher, parallele Mat-Vek |
 | operators | Cauchy-Operator E_k, Transmissionsoperator T₁ (Standardwahl von J) | chirale Transmission, Mehrkörperprobleme |
 | solvers | GMRES, punktweise 2(1+J)⁻¹, Kanten-/Eck-Blockvorkonditionierung (dichte LU) | H-LU für große Blöcke, überlappende Blöcke |
@@ -36,6 +36,6 @@
 
 - Mit `exact_in_lowrank` ist die Kompression auf gestreckten Elementen gut, die Aufbauzeit aber hoch:
   Das Nahfeldkriterium D < 2,5 h_max behandelt bei gestreckten Elementen viele Paare analytisch.
-- Die Nahfeldquadratur an gemeinsamen Kanten konvergiert nur langsam (logarithmische
-  Singularität der Außenintegration); für hohe Genauigkeit ist Sauter-Schwab vorzusehen.
+- Sauter-Schwab setzt konforme Netze voraus (Nachbarschaft über gemeinsame Knotenindizes). Bei
+  hängenden Knoten fällt der Kern auf das analytische Innenintegral zurück.
 - Resonanzfenster an Ecken (AP 1, Teil IV): kein reflexionsfreier Eckabschluss vorhanden.

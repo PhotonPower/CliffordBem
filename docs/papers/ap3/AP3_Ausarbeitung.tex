@@ -279,6 +279,14 @@ Gold, $\omega a=0{,}5$ & 0,597669 & 0,590837 ($p=1{,}29$) & 0,590018 & 24\\
 Die Iterationszahlen sind von $N$ unabhängig. Bei Gold sinkt die beobachtete Ordnung mit
 $N$ ($1{,}42\to1{,}29$), die Extrapolation nähert sich Mie ($3{,}2\to1{,}4\cdot10^{-3}$).
 
+\paragraph{Sauter-Schwab (C++-Kern v0.4).} Mit Sauter-Schwab-Quadratur für alle Paare mit gemeinsamer
+Fläche, Kante oder Ecke ändert sich das Bild für Gold grundlegend. Für ein kantenbenachbartes
+Paar hatte die bisherige Nahfeldregel 1,7\,\% Fehler, Sauter-Schwab (Ordnung 5) liegt unter
+$10^{-5}$. Die Streurechnung konvergiert für Gold jetzt mit Ordnung $p=1{,}99$--$2{,}02$, und die
+Extrapolation trifft Mie auf $2\cdot10^{-5}$ bis $9\cdot10^{-5}$ (zuvor $1{,}4\cdot10^{-3}$). Auf dem
+feinsten Netz sinkt der Fehler ohne Extrapolation von 1,3\,\% auf 0,19\,\%. Die langsamere
+Konvergenz bei Gold lag also an der Nahfeldquadratur, nicht an Formulierung oder Ansatzraum.
+
 Damit ist H3 (zweiter Teil) im Bereich bis etwa 160\,000 Unbekannte und $kD\lesssim16$ numerisch
 gestützt: Der Aufwand ist $\mathcal{O}(N\log^\alpha N)$ mit $\alpha\approx2$ für den Speicher.
 

@@ -22,7 +22,7 @@
   \sffamily
   {\Large\textbf{Clifford-BEM: Zusammenfassung der Vorarbeiten}}\\[0.3cm]
   {\large Ergebnisse zu AP 1 (Theorie), AP 2 (Diskretisierung) und AP 3 (Kompression)}\\[0.3cm]
-  {\small Stand: Arbeitspapiere AP1 v0.17, AP2 v0.3, AP3 v0.3; C++-Kern v0.2}
+  {\small Stand: Arbeitspapiere AP1 v0.17, AP2 v0.3, AP3 v0.3; C++-Kern v0.4}
 \end{center}
 
 \section*{Vorbemerkung}
@@ -262,8 +262,9 @@ Gold, $\omega a=0{,}5$ & 25 (konstant) & 0,60764 & 0,59247 & 0,59002\\
 \end{center}
 \begin{itemize}[leftmargin=*]
   \item \emph{C++-Streulöser} (v0.2): $T_1$ mit $\mathcal{H}$-Operatoren und GMRES bis 92\,160 Unbekannte.
-    Glas trifft Mie nach Extrapolation auf $6\cdot10^{-5}$, Gold auf $1{,}4\cdot10^{-3}$. Die Iterationen
-    sind von $N$ unabhängig (10 bzw.\ 24).
+    Mit Sauter-Schwab-Quadratur (v0.4) konvergieren Glas und Gold mit Ordnung 2; nach Extrapolation
+    liegen beide auf $10^{-5}$ bis $10^{-4}$ bei Mie. Die langsamere Konvergenz bei Gold lag an der
+    Nahfeldquadratur. Die Iterationen sind von $N$ unabhängig (10 bzw.\ 24).
   \item \emph{Kombinierter Löser am Würfel:} anisotropes, nichtkonformes Kantennetz,
     $\mathcal{H}$-Operatoren und Kanten-/Eckblöcke. Die Iterationen bleiben konstant (49 für
     $-3+0{,}3i$, 47 für Gold, $L=2\dots5$), ohne Blöcke wachsen sie ($73\to106$ bzw.\ $64\to71$).
@@ -300,8 +301,7 @@ Gold, $\omega a=0{,}5$ & 25 (konstant) & 0,60764 & 0,59247 & 0,59002\\
   \item \emph{Resonanzfenster:} reflexionsfreier Eckabschluss (komplexe Streckung in
     $\log r$ oder transparenter Abschluss); Theorie der diskreten Eckmoden.
   \item \emph{Diskretisierung:} Gårding-Ungleichung für $T_1$; ein kombiniertes Gewicht für Kanten und Ecken;
-    Sauter-Schwab-Quadratur; Ursache der langsameren Konvergenzordnung bei Gold
-    ($p\approx1{,}5$).
+    Nahfeldkriterien für gestreckte Elemente; Sauter-Schwab für nichtkonforme Netze.
   \item \emph{Kompression:} echte Block-ACA mit Multivektor-Pivots; Zulässigkeit für
     gestreckte Elemente; $\mathcal{H}$-LU für große Kanten- und Eckblöcke.
   \item \emph{Umsetzung:} Ausbau des C++-Kerns (Repository \texttt{PhotonPower/CliffordBem}) zum

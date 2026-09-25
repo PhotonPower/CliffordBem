@@ -15,6 +15,7 @@ option(CBEM_BUILD_APPS "Anwendungen/Benchmarks bauen" ON)
 add_library(cbem
   src/mesh.cpp
   src/quadrature.cpp
+  src/sauter_schwab.cpp
   src/triangle_integrals.cpp
   src/kernel_entries.cpp
   src/dense.cpp
@@ -51,7 +52,7 @@ endif()
 
 if(CBEM_BUILD_TESTS)
   enable_testing()
-  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond)
+  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE cbem)
     add_test(NAME ${t} COMMAND ${t})

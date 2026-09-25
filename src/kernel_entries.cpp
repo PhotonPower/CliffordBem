@@ -5,7 +5,54 @@
 namespace cbem {
 
 KernelEntries::KernelEntries(const TriangleMesh& mesh, cplx k, EntryParams prm)
-    : m_(mesh), k_(k), prm_(prm), q7_(mesh, QuadRule::dunavant7()), qn_(mesh, QuadRule::subdivided(prm.near_subdivision)) {}
+    : m_(mesh), k_(k), prm_(prm), q7_(mesh, QuadRule::dunavant7()), qn_(mesh, QuadRule::subdivided(prm.near_subdivision)) {
+    if (prm_.sauter_schwab)
+        for (Adjacency a : {Adjacency::Vertex, Adjacency::Edge, Adjacency::Coincident})
+            ss_[static_cast<int>(a)] = PairRule::sauter_schwab(a, prm_.ss_order);
+}
+
+Adjacency KernelEntries::adjacency(std::size_t i, std::size_t j) const {
+    if (i == j) return Adjacency::Coincident;
+    int c = 0;
+    for (int a = 0; a < 3; ++a) for (int b = 0; b < 3; ++b) c += (m_.T[i][a] == m_.T[j][b]);
+    return c == 0 ? Adjacency::None : (c == 1 ? Adjacency::Vertex : (c == 2 ? Adjacency::Edge : Adjacency::Coincident));
+}
+
+KernelComp KernelEntries::exact(std::size_t i, std::size_t j) const {
+    if (!is_near(i, j)) return far(i, j);
+    if (prm_.sauter_schwab) { Adjacency a = adjacency(i, j); if (a != Adjacency::None) return sauter_schwab(i, j, a); }
+    return near(i, j);
+}
+
+KernelComp KernelEntries::sauter_schwab(std::size_t i, std::size_t j, Adjacency adj) const {
+    // Eckenreihenfolge: gemeinsame Ecken zuerst, in beiden Dreiecken in gleicher Reihenfolge
+    std::array<int, 3> ti = m_.T[i], tj = m_.T[j];
+    if (adj == Adjacency::Edge || adj == Adjacency::Vertex) {
+        std::array<int, 3> oi{}, oj{}; int ns = 0;
+        for (int a = 0; a < 3; ++a) for (int b = 0; b < 3; ++b) if (ti[a] == tj[b]) { oi[ns] = ti[a]; oj[ns] = tj[b]; ++ns; }
+        int ki = ns, kj = ns;
+        for (int a = 0; a < 3; ++a) { bool sh = false; for (int q = 0; q < ns; ++q) sh |= (ti[a] == oi[q]); if (!sh) oi[ki++] = ti[a]; }
+        for (int b = 0; b < 3; ++b) { bool sh = false; for (int q = 0; q < ns; ++q) sh |= (tj[b] == oj[q]); if (!sh) oj[kj++] = tj[b]; }
+        ti = oi; tj = oj;
+    }
+    const Vec3 A = m_.P[ti[0]], Bi = m_.P[ti[1]] - A, Ci = m_.P[ti[2]] - A;
+    const Vec3 D = m_.P[tj[0]], Bj = m_.P[tj[1]] - D, Cj = m_.P[tj[2]] - D;
+    const PairRule& R = ss_[static_cast<int>(adj)];
+    const real jac = 4.0 * m_.area[i] * m_.area[j];
+    KernelComp K{0, 0, 0, 0};
+    const bool coinc = (adj == Adjacency::Coincident);
+    for (std::size_t q = 0; q < R.w.size(); ++q) {
+        Vec3 x = A + Bi * R.x[q][0] + Ci * R.x[q][1], y = D + Bj * R.y[q][0] + Cj * R.y[q][1];
+        Vec3 z = x - y; real r = norm(z);
+        if (r < 1e-14) continue;
+        KernelValue kv = dirac_kernel_full(z, k_);
+        cplx vc = kv.vcoef;
+        if (coinc) vc -= 1.0 / (4 * pi * r * r * r);          // Phi_0 im Selbstterm exakt 0 (Antisymmetrie)
+        real w = R.w[q] * jac;
+        K[0] += w * kv.s; K[1] += w * vc * z.x; K[2] += w * vc * z.y; K[3] += w * vc * z.z;
+    }
+    return K;
+}
 
 bool KernelEntries::is_near(std::size_t i, std::size_t j) const {
     real d = norm(m_.centroid[i] - m_.centroid[j]);

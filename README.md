@@ -10,6 +10,10 @@ resonanzfreie Gleichung T₁ h = h_inc (Transmissionsabbildung J mit Standardwah
 Fernfeld/Extinktion, GMRES mit punktweiser Vorkonditionierung). Validiert gegen Mie bis
 92 160 Unbekannte (`docs/results_scattering.md`).
 
+Stand 0.4: **Sauter-Schwab-Quadratur** für Dreieckspaare mit gemeinsamer Fläche, Kante oder
+Ecke. Damit konvergiert auch Gold mit Ordnung 2 gegen Mie (Extrapolation auf 2·10⁻⁵ statt
+1,4·10⁻³ zuvor).
+
 Stand 0.3: **Kanten-/Eck-Blockvorkonditionierung** (`BlockPreconditioner`) und **Kriterien für
 gestreckte Elemente** (ACA mit exakten Einträgen, `sep_factor = 0`). Am gradierten Würfel sind
 die GMRES-Iterationen damit unabhängig von der Kantenauflösung, und der Speicher sinkt auf
@@ -37,6 +41,8 @@ Tests:
 - `test_gmres`: GMRES mit und ohne Vorkonditionierung, mit Neustart.
 - `test_scattering`: Kugelstreuung, identisch mit der dichten Lösung des Python-Prototyps.
 - `test_block_precond`: Blockvorkonditionierung (gleiche Lösung, weniger Iterationen; voller Block = exakte Inverse).
+- `test_sauter_schwab`: Gewichtssummen, Exaktheit für glatte Integranden, exponentielle Konvergenz für
+  die singulären Kernintegrale (gleiches Dreieck, gemeinsame Kante, gemeinsame Ecke).
 
 Die Kerneinträge stimmen mit dem Python-Prototyp (`prototype/ap2`) auf 10⁻¹³ überein.
 
@@ -50,8 +56,8 @@ cd tools && python3 analyze_scattering.py ../results/scatter_glass.csv   # Vergl
 
 | Fall | Unbekannte | Q_ext | Mie | GMRES |
 |---|---:|---:|---:|---:|
-| Glas, ωa = 1 | 92 160 | 0,214752 (extrapoliert 0,215111) | 0,215098 | 10 |
-| Gold, ωa = 0,5 | 92 160 | 0,597669 (extrapoliert 0,590837) | 0,590018 | 24 |
+| Glas, ωa = 1 | 92 160 | 0,214745 (extrapoliert 0,215110) | 0,215098 | 10 |
+| Gold, ωa = 0,5 | 92 160 | 0,591164 (extrapoliert 0,589967) | 0,590018 | 24 |
 
 ## Würfel mit Kanten-/Eck-Blockvorkonditionierung
 
@@ -127,7 +133,7 @@ docs/                    Architektur, Arbeitspapiere (AP 1-3), Zusammenfassung, 
 ## Status und Ausbauplan
 
 Siehe `docs/ARCHITECTURE.md`. Kurz: Als Nächstes folgen ein schnelleres Nahfeld für gestreckte
-Elemente, anisotrope Kantennetze und H-LU für große Blöcke, danach Sauter-Schwab-Quadratur, Block-ACA mit Multivektor-Pivots, Netzimport (Gmsh) und
+Elemente, anisotrope Kantennetze und H-LU für große Blöcke, danach Block-ACA mit Multivektor-Pivots, Netzimport (Gmsh) und
 Python-Anbindung.
 
 Die Beweise und Aussagen in den Arbeitspapieren sind vorläufig und nicht unabhängig geprüft.
