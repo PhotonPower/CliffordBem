@@ -110,3 +110,44 @@ ist er noch nicht bekannt. Nächste Schritte wären: Ansatzfunktionen, die an r^
 angepasst sind (Anreicherung mit dem gestreckten Exponenten) oder polynomiell höherer Ordnung in log r;
 Galerkin statt Kollokation; eine Mellin-Analyse des diskreten gestreckten Eckproblems, um θ und die nötige
 Auflösung vorherzusagen; und ein Referenzwert für das Quadrat im Fenster aus einer unabhängigen Methode.
+
+## Übertragung auf 3D: Befunde zu Kanten und Ecken (`edge3d_zeros.py`, `enrich2d.py`)
+
+**Kanten: die Spiralstreckung erzeugt Singularitäten.** An einer Kante bleibt die Koordinate t entlang der Kante
+reell, gestreckt wird nur der Kantenabstand. Dann ist z·z = (t₁ − t₂)² + w_T mit dem transversalen Anteil w_T, und
+z·z verschwindet für ein reelles t₁ − t₂, sobald w_T auf der negativen reellen Achse liegt. Das passiert für die
+Spirale r̃ = r (r/r₀)^{iθ} bei jedem θ > 0, auf derselben Fläche wie zwischen Nachbarflächen (numerisch: 254 bis
+532 Paare mit z·z = 0 auf einem Gitter von 1 500 × 1 500 Abständen). Der fortgesetzte Kern ist dort singulär;
+die Konturverschiebung ist nicht zulässig. In 2D fehlt die reelle Koordinate t, deshalb tritt das dort nicht auf.
+
+**Begrenzte Phase.** Mit r̃ = r e^{iψ(r)} und −π/2 < ψ ≤ 0 (ψ monoton) gibt es keine Nullstellen: auf derselben
+Fläche, weil r cos ψ(r) streng monoton ist, zwischen Flächen im 90°-Winkel, weil r̃₁² + r̃₂² dann nicht auf der
+negativen reellen Achse liegen kann (numerisch bestätigt, max |arg w_T| = 2ψ_max). Eine begrenzte Phase dämpft die
+Eckwellen aber nur um den Faktor e^{τψ_max} ≤ e^{τπ/2} (τ = 0,24: 0,69) und verbessert tief in der Schicht nichts
+mehr; damit ist sie als transparente Bedingung unbrauchbar.
+
+**Ecken und Kegelspitzen: sicher.** Streckt man alle drei Koordinaten isotrop um die Spitze (ρ ↦ ρ e^{iψ(ρ)}), dann
+verlangt z·z = 0 gleiche Beträge bei verschiedener Phase, was bei ψ = ψ(ρ) ausgeschlossen ist (numerisch
+min |z·z|/|z|² = 0,38 über 200 000 Zufallspaare). Die 2D-Methode überträgt sich also auf Spitzen, nicht auf Kanten.
+
+**Anreicherung als Alternative für Kanten.** Eine transparente Eckbedingung ohne komplexe Geometrie wäre auf
+3D-Kanten übertragbar: Netz nur bis r_min, Eckelement mit Ansatzfunktion r^{a−1} (physikalischer Exponent), getestet
+mit 1 (Petrov-Galerkin). Im 2D-Galerkin-Prototyp (Referenz aus der Streckung: 0,060029 + 0,033137i):
+
+| Tiefe r_min | 10⁻² | 10⁻³ | 10⁻⁴ | 10⁻⁶ |
+|---|---:|---:|---:|---:|
+| Gold (Kontrolle; Referenz 0,02496 + 0,00068i) | 0,0249595 + 0,0006769i | 0,0249602 + 0,0006815i | 0,0249604 + 0,0006826i | |
+| −2,8 + 0,3i (Fenster) | 0,05772 + 0,03997i | 0,05482 + 0,03560i | 0,05598 + 0,03233i | 0,05994 + 0,03137i |
+
+Außerhalb des Fensters wirkt das Eckelement wie erwartet (schon ab r_min = 10⁻² richtig), im Fenster hängt das
+Ergebnis weiter von der Tiefe ab: Eine Ansatzfunktion r^{a−1} mit freien Koeffizienten in allen acht Komponenten
+ist keine transparente Bedingung. Nötig wäre die exakte Modenstruktur (der Nullvektor des Mellin-Symbols zu a,
+also das feste Verhältnis der Komponenten), damit nur die ausfallende Welle dargestellt wird.
+
+## Stand für 3D
+
+- Kegelspitzen und Würfelecken: isotrope Streckung um die Spitze ist zulässig; Umsetzung im C++-Kern steht aus
+  (komplexe Quadraturpunkte, analytisch fortgesetzter Kern mit √(z·z) für k ≠ 0).
+- Kanten: die Streckung in log r ist nicht übertragbar. Ein aussichtsreicher Weg ist ein transparentes Kantenelement
+  mit der exakten Mellin-Mode; es lässt sich im 2D-Prototyp gegen die Streckungsreferenz prüfen, bevor es in 3D
+  umgesetzt wird.
