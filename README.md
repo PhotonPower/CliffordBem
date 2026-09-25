@@ -10,6 +10,11 @@ resonanzfreie Gleichung T₁ h = h_inc (Transmissionsabbildung J mit Standardwah
 Fernfeld/Extinktion, GMRES mit punktweiser Vorkonditionierung). Validiert gegen Mie bis
 92 160 Unbekannte (`docs/results_scattering.md`).
 
+Stand 0.8: **Spektren.** Dispersive Materialien (Johnson-Christy Au/Ag, beliebige n,k-Tabellen),
+Hintergrundmedium, physikalische Einheiten, Orientierungsmittelung (Lebedev) und die App `spectrum`.
+Beispiele: Goldkugel in Wasser gegen Mie, orientierungsgemitteltes CD-Spektrum eines Born-Kuhn-Dimers
+(`docs/results_spectra.md`).
+
 Stand 0.7: **Mehrkörperprobleme und Gmsh-Import.** Beliebig viele getrennte Körper mit eigenem Medium
 (auch chiral), `ScatteringProblem` als zentrale Einstiegsklasse, Netzimport aus Gmsh (ASCII 2.2/4.1) und
 Beispielgeometrien. Beispiel: Zirkulardichroismus eines Born-Kuhn-Dimers aus Gold-Stäben
@@ -62,6 +67,7 @@ Tests:
 - `test_chiral`: chirale Transmissionsabbildung gegen den Prototyp, χ = 0 gleich achiral, Symmetrie σ_s(χ) = σ_{−s}(−χ).
 - `test_multibody`: großer Abstand = Summe der Einzelquerschnitte, zwei unabhängige Formulierungen, Vertauschungssymmetrie.
 - `test_gmsh`: Gmsh-Rundreise (2.2), Format 4.1, Orientierung, identische Streulösung.
+- `test_materials`: Materialtabellen (Tabellenpunkte, Interpolation, Bereich) und Lebedev-Momente bis Grad 6.
 
 Die Kerneinträge stimmen mit dem Python-Prototyp (`prototype/ap2`) auf 10⁻¹³ überein.
 
@@ -77,6 +83,14 @@ cd tools && python3 analyze_scattering.py ../results/scatter_glass.csv   # Vergl
 |---|---:|---:|---:|---:|
 | Glas, ωa = 1 | 92 160 | 0,214745 (extrapoliert 0,215110) | 0,215098 | 10 |
 | Gold, ωa = 0,5 | 92 160 | 0,591164 (extrapoliert 0,589967) | 0,590018 | 24 |
+
+## Spektren
+
+```bash
+./build/spectrum --sphere 8 --unit 40 --materials Au --nbg 1.33 --lambda 450:650:25 --csv results/au40_water.csv
+cd tools && python3 mie_spectrum.py ../results/au40_water.csv Au      # Vergleich mit Mie
+./build/spectrum --mesh examples/bornkuhn_60.msh --unit 20 --materials Au --lambda 650:850:25 --pol circ --orient 6
+```
 
 ## Beliebige Geometrien aus Gmsh
 
@@ -149,7 +163,7 @@ Genauigkeit: 25/31 MB (N = 1 280), 221/273 MB (5 120), 644/793 MB (11 520); das 
 ## Aufbau
 
 ```
-include/cbem/core        Grundtypen (Vec3, komplexe Zahlen, Kernkomponenten)
+include/cbem/core        Grundtypen, Materialmodelle (konstant, n/k-Tabellen)
 include/cbem/clifford    Cl3(C): Multivektoren, geometrisches Produkt, Linksmultiplikation
 include/cbem/geometry    Dreiecksnetze (Kugel, Würfel, Mehrkörper), Gmsh-Import, Quadratur, Sauter-Schwab
 include/cbem/kernel      Dirac-Fundamentallösung, analytische Dreiecksintegrale
@@ -158,13 +172,14 @@ include/cbem/linalg      kleine dichte Matrizen: QR, Jacobi-SVD
 include/cbem/hmatrix     Clusterbaum, Blockpartition, ACA, H-Matrix
 include/cbem/operators   Randoperatoren (Cauchy-Operator E_k, chiraler Cauchy-Operator, Transmissionsoperator T_1)
 include/cbem/solvers     GMRES
-include/cbem/sources     ebene Wellen, Fernfeld, Extinktion
+include/cbem/sources     ebene Wellen (auch zirkular), Fernfeld, Extinktion, Lebedev-Richtungen
 include/cbem/problems    ScatteringProblem: ein oder mehrere Körper, alle Operatoren, Lösung für ebene Wellen
 apps/                    Benchmarks
 tests/                   Tests (CTest)
 tools/                   Auswertungsskripte
 results/                 Benchmark-Ergebnisse (CSV)
 prototype/               Python-Prototypen aus AP 1-3 (Referenz und Validierung)
+data/materials/          optische Konstanten (Johnson-Christy Au, Ag; refractiveindex.info, CC0)
 docs/                    Architektur, Arbeitspapiere (AP 1-3), Zusammenfassung, Antrag
 ```
 
