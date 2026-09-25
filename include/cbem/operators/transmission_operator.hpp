@@ -27,12 +27,16 @@ class TransmissionOperator {
 public:
     TransmissionOperator(const TriangleMesh& m, const BoundaryOperator& E_inner, const BoundaryOperator& E_outer,
                          const Medium& inner, const Medium& outer);
+    // mehrere Koerper: Innenmedium je Dreieck
+    TransmissionOperator(const TriangleMesh& m, const BoundaryOperator& E_inner, const BoundaryOperator& E_outer,
+                         const std::vector<Medium>& inner_per_triangle, const Medium& outer);
     void apply(const std::vector<cplx>& x, std::vector<cplx>& y) const;
     // punktweise Vorkonditionierung P = 2 (1 + J)^{-1}
     void precondition(const std::vector<cplx>& x, std::vector<cplx>& y) const;
     std::size_t size() const { return 8 * N_; }
     const std::vector<Mat8>& J() const { return J_; }
 private:
+    void setup(const TriangleMesh& m, const std::vector<Medium>& in, const Medium& out);
     std::size_t N_;
     const BoundaryOperator& E1_;
     const BoundaryOperator& E2_;

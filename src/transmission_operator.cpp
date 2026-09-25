@@ -59,9 +59,16 @@ Mat8 transmission_map(const Vec3& n, const Medium& in, const Medium& out) {
 
 TransmissionOperator::TransmissionOperator(const TriangleMesh& m, const BoundaryOperator& E1, const BoundaryOperator& E2,
                                            const Medium& in, const Medium& out)
-    : N_(m.size()), E1_(E1), E2_(E2), J_(m.size()), P_(m.size()) {
+    : N_(m.size()), E1_(E1), E2_(E2) { setup(m, std::vector<Medium>(m.size(), in), out); }
+
+TransmissionOperator::TransmissionOperator(const TriangleMesh& m, const BoundaryOperator& E1, const BoundaryOperator& E2,
+                                           const std::vector<Medium>& in, const Medium& out)
+    : N_(m.size()), E1_(E1), E2_(E2) { setup(m, in, out); }
+
+void TransmissionOperator::setup(const TriangleMesh& m, const std::vector<Medium>& in, const Medium& out) {
+    J_.resize(N_); P_.resize(N_);
     for (std::size_t t = 0; t < N_; ++t) {
-        J_[t] = transmission_map(m.normal[t], in, out);
+        J_[t] = transmission_map(m.normal[t], in[t], out);
         Mat8 A = J_[t]; for (int i = 0; i < 8; ++i) A[i * 8 + i] += 1.0;
         P_[t] = inverse8(A); for (auto& v : P_[t]) v *= 2.0;
     }

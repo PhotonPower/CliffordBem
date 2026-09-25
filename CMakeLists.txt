@@ -14,6 +14,7 @@ option(CBEM_BUILD_APPS "Anwendungen/Benchmarks bauen" ON)
 
 add_library(cbem
   src/mesh.cpp
+  src/gmsh_io.cpp
   src/quadrature.cpp
   src/sauter_schwab.cpp
   src/triangle_integrals.cpp
@@ -28,7 +29,8 @@ add_library(cbem
   src/gmres.cpp
   src/fields.cpp
   src/dense_blocks.cpp
-  src/block_preconditioner.cpp)
+  src/block_preconditioner.cpp
+  src/scattering_problem.cpp)
 target_include_directories(cbem PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(cbem PRIVATE -Wall -Wextra)
 if(CBEM_NATIVE)
@@ -51,11 +53,15 @@ if(CBEM_BUILD_APPS)
   target_link_libraries(scatter_cube PRIVATE cbem)
   add_executable(scatter_chiral apps/scatter_chiral.cpp)
   target_link_libraries(scatter_chiral PRIVATE cbem)
+  add_executable(scatter_multi apps/scatter_multi.cpp)
+  target_link_libraries(scatter_multi PRIVATE cbem)
+  add_executable(scatter_mesh apps/scatter_mesh.cpp)
+  target_link_libraries(scatter_mesh PRIVATE cbem)
 endif()
 
 if(CBEM_BUILD_TESTS)
   enable_testing()
-  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral)
+  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE cbem)
     add_test(NAME ${t} COMMAND ${t})

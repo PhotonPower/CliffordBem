@@ -19,6 +19,17 @@ struct TriangleMesh {
 };
 
 TriangleMesh make_icosphere(int n, real radius = 1.0);        // 20 n^2 Dreiecke
+TriangleMesh translated(const TriangleMesh& m, const Vec3& shift, real scale = 1.0);  // x -> scale x + shift
+
+// Mehrere Koerper: Vereinigung der Netze; Dreiecke eines Koerpers liegen zusammenhaengend,
+// body_begin[b] .. body_begin[b+1] sind die Dreiecke von Koerper b.
+struct MultiBodyMesh {
+    TriangleMesh all;
+    std::vector<TriangleMesh> parts;
+    std::vector<std::size_t> body_begin;
+    std::size_t bodies() const { return parts.size(); }
+};
+MultiBodyMesh make_multibody(const std::vector<TriangleMesh>& parts);
 TriangleMesh make_cube_graded(int L);                         // Wuerfel [-1,1]^3, zu den Kanten gradiert, 48 (L+1)^2 Dreiecke
 TriangleMesh make_cube_uniform(int n);                        // Wuerfel [-1,1]^3, gleichmaessig, 12 n^2 Dreiecke
 

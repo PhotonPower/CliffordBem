@@ -22,11 +22,12 @@
 
 | Modul | Stand 0.1 | Nächste Schritte |
 |---|---|---|
-| geometry | Kugel, gradierter Würfel, Dunavant-Regeln | Gmsh-Import, anisotrope/nichtkonforme Kantennetze, gekrümmte Elemente |
+| geometry | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörpernetze, Gmsh-Import (2.2/4.1), Dunavant, Sauter-Schwab | gekrümmte Elemente, nichtkonforme Kantennetze |
 | kernel | Dirac-Kern, Wilton-Integrale | – |
 | assembly | Fernfeld (Gauß 7×7); benachbarte Paare: Sauter-Schwab (gleichseitig) bzw. halbanalytisch gradiert (gestreckt); nahe Paare: adaptive Außenregel; Nahfeld-Cache | nichtkonforme Nachbarschaften, schnellere Nahpaare auf gestreckten Elementen |
 | hmatrix | Clusterbaum, ACA (joint/comp), Nachkompression, ACA mit exakten Einträgen (gestreckte Elemente) | Block-ACA mit 8×8-Pivots, ACA+, H-LU, complex64-Speicher, parallele Mat-Vek |
-| operators | Cauchy-Operator E_k, chiraler Cauchy-Operator (P₊E_{k₊} + P₋E_{k₋}), Transmissionsoperator T₁ mit chiraler J | chirale Außenmedien, Mehrkörperprobleme |
+| operators | Cauchy-Operator E_k, chiraler Cauchy-Operator, blockdiagonaler Mehrkörper-Innenoperator, Transmissionsoperator T₁ (Medium je Dreieck) | chirale Außenmedien, Substrate (geschichtete Außenmedien) |
+| problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, ebene Wellen) | Frequenzscans, Orientierungsmittelung |
 | solvers | GMRES, punktweise 2(1+J)⁻¹, Kanten-/Eck-Blockvorkonditionierung (dichte LU) | H-LU für große Blöcke, überlappende Blöcke |
 | sources | ebene Welle, Fernfeld, Extinktion | Dipolquellen, Nahfeldauswertung, Streumatrix |
 | apps | Kompressionsbenchmark, Kugel- und Würfelstreuung | Parameterstudien, AP-4-Geometrien |

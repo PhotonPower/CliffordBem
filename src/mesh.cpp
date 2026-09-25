@@ -38,6 +38,25 @@ std::array<long long, 3> key_of(const Vec3& p) {
 }
 }  // namespace
 
+TriangleMesh translated(const TriangleMesh& m, const Vec3& shift, real scale) {
+    TriangleMesh r = m;
+    for (auto& p : r.P) p = p * scale + shift;
+    r.compute_geometry();
+    return r;
+}
+
+MultiBodyMesh make_multibody(const std::vector<TriangleMesh>& parts) {
+    MultiBodyMesh mb; mb.parts = parts; mb.body_begin.push_back(0);
+    for (const auto& p : parts) {
+        const int off = static_cast<int>(mb.all.P.size());
+        mb.all.P.insert(mb.all.P.end(), p.P.begin(), p.P.end());
+        for (auto t : p.T) mb.all.T.push_back({t[0] + off, t[1] + off, t[2] + off});
+        mb.body_begin.push_back(mb.all.T.size());
+    }
+    mb.all.compute_geometry();
+    return mb;
+}
+
 TriangleMesh make_icosphere(int n, real radius) {
     const real t = (1.0 + std::sqrt(5.0)) / 2.0;
     std::vector<Vec3> V0 = {{-1, t, 0}, {1, t, 0}, {-1, -t, 0}, {1, -t, 0}, {0, -1, t}, {0, 1, t},
