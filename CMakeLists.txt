@@ -61,6 +61,8 @@ if(CBEM_BUILD_APPS)
   target_link_libraries(scatter_mesh PRIVATE cbem)
   add_executable(spectrum apps/spectrum.cpp)
   target_link_libraries(spectrum PRIVATE cbem)
+  add_executable(scatter_cube_dimer apps/scatter_cube_dimer.cpp)
+  target_link_libraries(scatter_cube_dimer PRIVATE cbem)
 endif()
 
 if(CBEM_BUILD_TESTS)

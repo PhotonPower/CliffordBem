@@ -11,10 +11,12 @@ using namespace cbem;
 static std::vector<std::string> split(const std::string& s, char c) { std::vector<std::string> v; std::stringstream ss(s); std::string t; while (std::getline(ss, t, c)) v.push_back(t); return v; }
 static cplx cval(const std::string& s) { auto c = s.find(','); return {std::stod(s.substr(0, c)), c == std::string::npos ? 0.0 : std::stod(s.substr(c + 1))}; }
 int main(int argc, char** argv) {
+    std::string precond = "point";   // point | cluster:G (Blockvorkonditionierung auf Clustern mit <= G Dreiecken)
     std::string path, media = "2.25,0", chis = "0", pol = "lin"; double om = 1.0, scale = 1.0, heps = 1e-4, tol = 1e-6; Vec3 d(0, 0, 1);
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
-        if (o == "--mesh") path = nxt(); else if (o == "--omega") om = std::stod(nxt()); else if (o == "--media") media = nxt();
+        if (o == "--precond") precond = nxt();
+        else if (o == "--mesh") path = nxt(); else if (o == "--omega") om = std::stod(nxt()); else if (o == "--media") media = nxt();
         else if (o == "--chi") chis = nxt(); else if (o == "--pol") pol = nxt(); else if (o == "--scale") scale = std::stod(nxt());
         else if (o == "--dir") { auto v = split(nxt(), ','); d = Vec3(std::stod(v[0]), std::stod(v[1]), std::stod(v[2])); d = d / norm(d); }
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt());
@@ -32,6 +34,10 @@ int main(int argc, char** argv) {
     }
     HMatrixParams hp; hp.eps = heps; SolveOptions so; so.tol = tol;
     ScatteringProblem P(parts, med, om, {}, hp);
+    if (precond.rfind("cluster:", 0) == 0) {
+        P.use_block_preconditioner(group_by_clusters(P.mesh(), std::stoul(precond.substr(8))));
+        std::printf("Blockvorkonditionierung: groesster Block %zu Unbekannte, Aufbau %.1f s\n", P.block_preconditioner()->max_block(), P.block_preconditioner()->seconds());
+    }
     if (pol == "circ") {
         auto rp = P.solve_plane_wave(d, circular_polarization(d, +1), so), rm = P.solve_plane_wave(d, circular_polarization(d, -1), so);
         std::printf("sigma_ext: + %.6f, - %.6f, CD %.6f  (GMRES %d/%d, H %.0f MB)\n", rp.sigma_ext, rm.sigma_ext, rp.sigma_ext - rm.sigma_ext, rp.iterations, rm.iterations, P.hmatrix_bytes() / 1048576.0);

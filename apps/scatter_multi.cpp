@@ -13,11 +13,13 @@ using namespace cbem;
 static cplx cval(const std::string& s) { auto c = s.find(','); return {std::stod(s.substr(0, c)), c == std::string::npos ? 0.0 : std::stod(s.substr(c + 1))}; }
 static std::vector<double> dlist(const std::string& s) { std::vector<double> v; std::stringstream ss(s); std::string t; while (std::getline(ss, t, ',')) v.push_back(std::stod(t)); return v; }
 int main(int argc, char** argv) {
+    std::string precond = "point";   // point | cluster:G (Blockvorkonditionierung auf Clustern mit <= G Dreiecken)
     int n = 6; std::vector<double> dists = {3.0}; std::string axis = "x", pol = "lin", csv; bool uni = false;
     double om = 0.5, heps = 1e-4, tol = 1e-6; Medium b1{cplx(-11, 1.2), 1.0, 0.0}, b2 = b1;
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
-        if (o == "--n") n = std::stoi(nxt()); else if (o == "--dist") dists = dlist(nxt()); else if (o == "--axis") axis = nxt();
+        if (o == "--precond") precond = nxt();
+        else if (o == "--n") n = std::stoi(nxt()); else if (o == "--dist") dists = dlist(nxt()); else if (o == "--axis") axis = nxt();
         else if (o == "--omega") om = std::stod(nxt()); else if (o == "--eps1") b1.eps = cval(nxt()); else if (o == "--eps2") b2.eps = cval(nxt());
         else if (o == "--chi1") b1.chi = cval(nxt()); else if (o == "--chi2") b2.chi = cval(nxt());
         else if (o == "--pol") pol = nxt(); else if (o == "--union") uni = true;
@@ -31,6 +33,7 @@ int main(int argc, char** argv) {
         auto t0 = std::chrono::steady_clock::now();
         Vec3 c = axis == "z" ? Vec3(0, 0, D / 2) : Vec3(D / 2, 0, 0);
         ScatteringProblem P({translated(sphere, c * -1.0), translated(sphere, c)}, {b1, b2}, om, {}, hp, {}, uni);
+        if (precond.rfind("cluster:", 0) == 0) P.use_block_preconditioner(group_by_clusters(P.mesh(), std::stoul(precond.substr(8))));
         real Q = 0, Qp = 0, Qm = 0; int its = 0;
         if (pol == "circ") {
             auto rp = P.solve_plane_wave(d, circular_polarization(d, +1), so), rm = P.solve_plane_wave(d, circular_polarization(d, -1), so);

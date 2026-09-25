@@ -17,11 +17,13 @@
 using namespace cbem;
 static std::vector<std::string> split(const std::string& s, char c) { std::vector<std::string> v; std::stringstream ss(s); std::string t; while (std::getline(ss, t, c)) v.push_back(t); return v; }
 int main(int argc, char** argv) {
+    std::string precond = "point";   // point | cluster:G (Blockvorkonditionierung auf Clustern mit <= G Dreiecken)
     std::string mesh, mats = "Au", chis = "0", pol = "lin", lam = "500:600:50", csv, datadir = "data/materials";
     int sph = 0, orient = 1; bool verbose = false; double unit = 1.0, nbg = 1.0, heps = 1e-4, tol = 1e-6;
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
-        if (o == "--mesh") mesh = nxt(); else if (o == "--sphere") sph = std::stoi(nxt()); else if (o == "--unit") unit = std::stod(nxt());
+        if (o == "--precond") precond = nxt();
+        else if (o == "--mesh") mesh = nxt(); else if (o == "--sphere") sph = std::stoi(nxt()); else if (o == "--unit") unit = std::stod(nxt());
         else if (o == "--materials") mats = nxt(); else if (o == "--chi") chis = nxt(); else if (o == "--nbg") nbg = std::stod(nxt());
         else if (o == "--lambda") lam = nxt(); else if (o == "--pol") pol = nxt(); else if (o == "--orient") orient = std::stoi(nxt());
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt());
@@ -51,6 +53,7 @@ int main(int argc, char** argv) {
         for (std::size_t b = 0; b < parts.size(); ++b) med.push_back(Medium{mat[b]->eps(L), 1.0, chi[b]});
         HMatrixParams hp; hp.eps = heps; SolveOptions so; so.tol = tol;
         ScatteringProblem P(parts, med, om, Medium{nbg * nbg, 1.0, 0.0}, hp);
+        if (precond.rfind("cluster:", 0) == 0) P.use_block_preconditioner(group_by_clusters(P.mesh(), std::stoul(precond.substr(8))));
         real s = 0, sp = 0, sm = 0; int its = 0;
         for (const auto& dw : dirs) {
             if (pol == "circ") {

@@ -7,6 +7,7 @@
 #include "cbem/operators/chiral_cauchy_operator.hpp"
 #include "cbem/operators/multibody_operator.hpp"
 #include "cbem/operators/transmission_operator.hpp"
+#include "cbem/solvers/block_preconditioner.hpp"
 #include "cbem/solvers/gmres.hpp"
 
 namespace cbem {
@@ -20,6 +21,11 @@ public:
     ScatteringProblem(const std::vector<TriangleMesh>& bodies, const std::vector<Medium>& media, real omega,
                       Medium outer = {}, HMatrixParams hp = {}, EntryParams ep = {}, bool union_interior = false);
     PlaneWaveResult solve_plane_wave(const Vec3& d, const CVec3& p, const SolveOptions& o = {}) const;
+    // Innerer Operator E_1 auf B x B (blockdiagonal ueber Koerper, chiral: P+ E_{k+} + P- E_{k-}), dicht
+    Matrix inner_block(const std::vector<std::size_t>& B) const;
+    // Blockvorkonditionierung einschalten (Gruppen z. B. aus group_by_clusters / group_by_features)
+    void use_block_preconditioner(const std::vector<std::vector<std::size_t>>& groups);
+    const BlockPreconditioner* block_preconditioner() const { return prec_.get(); }
     const TriangleMesh& mesh() const { return mb_.all; }
     const MultiBodyMesh& multibody() const { return mb_; }
     const TransmissionOperator& T() const { return *T_; }
@@ -35,6 +41,12 @@ private:
     const BoundaryOperator* inner_ptr_ = nullptr;
     const CauchyOperator* outer_op_ = nullptr;
     std::unique_ptr<TransmissionOperator> T_;
+    std::unique_ptr<BlockPreconditioner> prec_;
+    const KernelEntries* outer_entries_ = nullptr;
+    // je Koerper: Teile des Innenoperators (Eintraege, Helizitaet 0/+1/-1) und Dreiecksbereich
+    struct InnerPart { const KernelEntries* E; int helicity; };
+    std::vector<std::vector<InnerPart>> inner_parts_;
+    std::vector<std::size_t> inner_begin_;
 };
 
 }  // namespace cbem

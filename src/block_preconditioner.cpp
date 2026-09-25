@@ -3,17 +3,18 @@
 #include <cmath>
 #include <limits>
 #include "cbem/operators/dense_blocks.hpp"
+#include "cbem/hmatrix/cluster_tree.hpp"
 
 namespace cbem {
 
-FeatureSet FeatureSet::cube(real a) {
+FeatureSet FeatureSet::cube(real a, const Vec3& c) {
     FeatureSet f;
-    for (int x : {-1, 1}) for (int y : {-1, 1}) for (int z : {-1, 1}) f.vertices.emplace_back(a * x, a * y, a * z);
+    for (int x : {-1, 1}) for (int y : {-1, 1}) for (int z : {-1, 1}) f.vertices.push_back(c + Vec3(a * x, a * y, a * z));
     for (int ax = 0; ax < 3; ++ax)
         for (int s1 : {-1, 1}) for (int s2 : {-1, 1}) {
             Vec3 p, q; int u = (ax + 1) % 3, v = (ax + 2) % 3;
             p[ax] = -a; q[ax] = a; p[u] = q[u] = a * s1; p[v] = q[v] = a * s2;
-            f.edges.emplace_back(p, q);
+            f.edges.emplace_back(p + c, q + c);
         }
     return f;
 }
@@ -40,10 +41,26 @@ std::vector<std::vector<std::size_t>> group_by_features(const TriangleMesh& m, c
     return out;
 }
 
+std::vector<std::vector<std::size_t>> group_by_clusters(const TriangleMesh& m, std::size_t max_size) {
+    ClusterTree tree(m, max_size);
+    std::vector<std::vector<std::size_t>> out;
+    for (const auto& c : tree.nodes) if (c.leaf()) out.push_back(tree.indices(c));
+    return out;
+}
+
 BlockPreconditioner::BlockPreconditioner(const TriangleMesh& m, const KernelEntries& E1, const KernelEntries& E2,
                                          const TransmissionOperator& T, const std::vector<std::vector<std::size_t>>& groups)
     : T_(T), groups_(groups) {
+    build(m, [&E1](const std::vector<std::size_t>& B) { return cauchy_block(E1, B, B); }, E2);
+}
+
+BlockPreconditioner::BlockPreconditioner(const TriangleMesh& m, const BlockFn& inner, const KernelEntries& E2,
+                                         const TransmissionOperator& T, const std::vector<std::vector<std::size_t>>& groups)
+    : T_(T), groups_(groups) { build(m, inner, E2); }
+
+void BlockPreconditioner::build(const TriangleMesh& m, const BlockFn& inner, const KernelEntries& E2) {
     auto t0 = std::chrono::steady_clock::now();
+    const auto& T = T_;
     const auto& J = T.J(); std::size_t tot = 0;
     lu_.resize(groups_.size()); piv_.resize(groups_.size());
 #ifdef CBEM_USE_OPENMP
@@ -51,7 +68,7 @@ BlockPreconditioner::BlockPreconditioner(const TriangleMesh& m, const KernelEntr
 #endif
     for (long g = 0; g < static_cast<long>(groups_.size()); ++g) {
         const auto& B = groups_[g]; const std::size_t nb = 8 * B.size();
-        Matrix A1 = cauchy_block(E1, B, B), A2 = cauchy_block(E2, B, B);
+        Matrix A1 = inner(B), A2 = cauchy_block(E2, B, B);
         Matrix T_BB(nb, nb);
         // T = 1/2 (I + E2) + 1/2 (J - E1 J),  J blockdiagonal
         for (std::size_t bc = 0; bc < B.size(); ++bc) {
