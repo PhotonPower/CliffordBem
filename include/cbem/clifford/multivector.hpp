@@ -55,6 +55,13 @@ struct Multivector {
     }
 };
 
+// Inverse einer 8x8-Matrix (Gauss-Jordan mit Pivotsuche); det8: Determinante
+Mat8 inverse8(Mat8 A);
+cplx det8(Mat8 A);
+// Multivektor-Inverse ueber die Linksmultiplikation (L(M)^{-1} = L(M^{-1})); ok = false bei Nullteilern
+Multivector mv_inverse(const Multivector& M, bool* ok = nullptr);
+inline real mv_norm2(const Multivector& M) { real s = 0; for (auto v : M.c) s += std::norm(v); return s; }   // <M M~*>_0 in der Blade-Basis
+
 // y = M x
 inline void apply(const Mat8& M, const cplx* x, cplx* y) {
     for (int r = 0; r < 8; ++r) { cplx s = 0; for (int c = 0; c < 8; ++c) s += M[r * 8 + c] * x[c]; y[r] = s; }

@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
         const std::size_t N = m.size();
         KernelEntries E(m, k);
         HMatrixParams p; p.eps = eps; p.eta = eta; p.leaf = leaf; p.sep_factor = sep; p.exact_in_lowrank = exact_lr;
-        p.mode = mode == "comp" ? AcaMode::Componentwise : AcaMode::Joint;
+        p.mode = mode == "comp" ? AcaMode::Componentwise : (mode == "mv" ? AcaMode::Multivector : AcaMode::Joint);
         KernelHMatrix H(E, p); CauchyOperator op(m, H);
         std::printf("  (Nahfeld: %zu Paare in %.1f s)\n", E.near_pairs(), E.near_seconds());
         std::mt19937 g(7); std::normal_distribution<real> nd;

@@ -3,23 +3,6 @@
 
 namespace cbem {
 
-namespace {
-// Gauss-Jordan-Inversion einer 8x8-Matrix
-Mat8 inverse8(Mat8 A) {
-    Mat8 I{}; for (int i = 0; i < 8; ++i) I[i * 8 + i] = 1.0;
-    for (int c = 0; c < 8; ++c) {
-        int p = c; for (int r = c + 1; r < 8; ++r) if (std::abs(A[r * 8 + c]) > std::abs(A[p * 8 + c])) p = r;
-        for (int k = 0; k < 8; ++k) { std::swap(A[c * 8 + k], A[p * 8 + k]); std::swap(I[c * 8 + k], I[p * 8 + k]); }
-        cplx d = A[c * 8 + c];
-        for (int k = 0; k < 8; ++k) { A[c * 8 + k] /= d; I[c * 8 + k] /= d; }
-        for (int r = 0; r < 8; ++r) if (r != c) {
-            cplx f = A[r * 8 + c];
-            for (int k = 0; k < 8; ++k) { A[r * 8 + k] -= f * A[c * 8 + k]; I[r * 8 + k] -= f * I[c * 8 + k]; }
-        }
-    }
-    return I;
-}
-}  // namespace
 
 Mat8 transmission_map(const Vec3& n, const Medium& in, const Medium& out) {
     const cplx se = std::sqrt(in.eps) / std::sqrt(out.eps), sm = std::sqrt(in.mu) / std::sqrt(out.mu);

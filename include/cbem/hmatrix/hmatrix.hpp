@@ -8,10 +8,15 @@
 #include "cbem/assembly/kernel_entries.hpp"
 #include "cbem/hmatrix/aca.hpp"
 #include "cbem/hmatrix/cluster_tree.hpp"
+#include "cbem/clifford/multivector.hpp"
 
 namespace cbem {
 
-enum class AcaMode { Joint, Componentwise };
+// Joint: eine skalare ACA auf den gestapelten Komponenten (gemeinsame Zeilenfaktoren);
+// Componentwise: vier getrennte skalare ACAs;
+// Multivector: Kreuzapproximation ueber der Algebra, K ~ sum_k u_k(i) w_k(j) (geometrisches Produkt) mit
+//   Multivektor-Pivots K_ij^{-1}; Faktoren sind Multivektoren (8 Komponenten), ohne Nachkompression.
+enum class AcaMode { Joint, Componentwise, Multivector };
 
 struct HMatrixParams {
     real eps = 1e-4;             // relative ACA-Toleranz je Block
@@ -40,7 +45,8 @@ public:
     std::size_t size() const { return N_; }
 private:
     struct Dense { std::vector<std::size_t> R, C; std::vector<KernelComp> K; };
-    struct LR { std::vector<std::size_t> R, C; std::vector<LowRank> f; };   // Joint: f.size()==1 (V: 4C x r)
+    struct LR { std::vector<std::size_t> R, C; std::vector<LowRank> f;       // Joint: f.size()==1 (V: 4C x r)
+                std::vector<Multivector> mu, mw; std::size_t mrank = 0; };     // Multivector: u (|R| x r), w (|C| x r), spaltenweise
     void partition(int t, int s, std::vector<std::pair<int, int>>& adm, std::vector<std::pair<int, int>>& inadm) const;
     std::size_t N_;
     HMatrixParams prm_;

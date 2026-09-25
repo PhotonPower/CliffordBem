@@ -13,6 +13,7 @@ option(CBEM_BUILD_TESTS "Tests bauen" ON)
 option(CBEM_BUILD_APPS "Anwendungen/Benchmarks bauen" ON)
 
 add_library(cbem
+  src/multivector.cpp
   src/mesh.cpp
   src/gmsh_io.cpp
   src/quadrature.cpp

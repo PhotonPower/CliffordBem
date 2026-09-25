@@ -10,6 +10,10 @@ resonanzfreie Gleichung T₁ h = h_inc (Transmissionsabbildung J mit Standardwah
 Fernfeld/Extinktion, GMRES mit punktweiser Vorkonditionierung). Validiert gegen Mie bis
 92 160 Unbekannte (`docs/results_scattering.md`).
 
+Stand 0.11: **Kreuzapproximation mit Multivektor-Pivots** (`--mode mv`). Ergebnis für H3: Bei gleicher
+Genauigkeit 2,3–2,9-mal mehr Speicher als die gemeinsame skalare ACA; der Kern ist skalar separabel
+(`docs/results_aca_multivector.md`).
+
 Stand 0.10: **Hierarchische Faktorisierung** des Gesamtsystems im HODLR-Format (`HodlrSolver`,
 `ScatteringProblem::use_hodlr_preconditioner`, `--precond hodlr:eps`): direkter Löser mit feiner Toleranz,
 Vorkonditionierer mit grober Toleranz; lohnt sich bei vielen rechten Seiten, an Plasmonresonanzen nur begrenzt
@@ -142,7 +146,7 @@ python3 tools/analyze_compression.py results/results_sphere.csv
 
 Optionen: `--geometry sphere|cube|cube_uniform`, `--n` Liste (Kugel: 20 n² Dreiecke, `cube`:
 Gradierungsstufen L mit 48 (L+1)² Dreiecken, `cube_uniform`: 12 n² Dreiecke), `--k-per-n c` (k = c·n),
-`--k`/`--ki` Wellenzahl, `--eps` ACA-Toleranz, `--mode joint|comp`, `--leaf`, `--eta`, `--sep`,
+`--k`/`--ki` Wellenzahl, `--eps` ACA-Toleranz, `--mode joint|comp|mv`, `--leaf`, `--eta`, `--sep`,
 `--check` Zahl der exakt geprüften Zeilen.
 
 ### Ergebnis (Kugel, k = 1,5, ε = 10⁻⁴, ein Kern, g++ -O3)
@@ -167,6 +171,9 @@ feste Elementzahl je Wellenlänge, gradierter Würfel) in `docs/results_compress
 Kanten und Ecken ändern das O(N log² N)-Wachstum nicht; bei konstanter Auflösung je Wellenlänge
 kostet die Frequenz bis kD ≈ 16 nur etwa 10 %; stark gradierte Netze sind derzeit durch die
 Nahfeldkriterien dicht-dominiert.
+
+Multivektor-ACA (`mv`): bei gleicher Genauigkeit 2,3–2,9-mal mehr Speicher als `joint` (siehe
+`docs/results_aca_multivector.md`).
 
 Gemeinsame (`joint`) gegen komponentenweise (`comp`) ACA, Niedrigrang-Speicher bei gleicher
 Genauigkeit: 25/31 MB (N = 1 280), 221/273 MB (5 120), 644/793 MB (11 520); das sind etwa

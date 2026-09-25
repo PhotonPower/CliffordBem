@@ -22,7 +22,7 @@
   \sffamily
   {\Large\textbf{Clifford-BEM: Zusammenfassung der Vorarbeiten}}\\[0.3cm]
   {\large Ergebnisse zu AP 1 (Theorie), AP 2 (Diskretisierung) und AP 3 (Kompression)}\\[0.3cm]
-  {\small Stand: Arbeitspapiere AP1 v0.17, AP2 v0.3, AP3 v0.3; C++-Kern v0.4}
+  {\small Stand: Arbeitspapiere AP1 v0.17, AP2 v0.3, AP3 v0.3; C++-Kern v0.11}
 \end{center}
 
 \section*{Vorbemerkung}
@@ -285,8 +285,11 @@ Gold, $\omega a=0{,}5$ & 25 (konstant) & 0,60764 & 0,59247 & 0,59002\\
     wie vorhergesagt: instabil in $L^2$ innerhalb der Schleifen, in der gewichteten Norm
     teilweise stabilisiert, wobei ein Eckgewicht fehlt. Ein Stabilitätsbeweis
     (Gårding-Ungleichung) fehlt.
-  \item[H3 (Kompression):] Der erste Teil ist mäßig gestützt (etwa 19\,\% weniger
-    Niedrigrang-Speicher). Der zweite Teil ist bis etwa 160\,000 Unbekannte und $kD\lesssim16$
+  \item[H3 (Kompression):] Der erste Teil ist in der Form „Multivektor-Pivots senken den
+    Speicher“ widerlegt: Eine Kreuzapproximation über der Algebra braucht bei gleicher Genauigkeit
+    2,3- bis 2,9-mal mehr Speicher als die gemeinsame skalare ACA, weil der Kern skalar separabel ist.
+    Gestützt ist die gemeinsame Behandlung der Grade mit skalaren Zeilen- und Paravektor-Spaltenfaktoren
+    (etwa 19\,\% weniger Niedrigrang-Speicher als komponentenweise). Der zweite Teil ist bis etwa 160\,000 Unbekannte und $kD\lesssim16$
     gestützt: $\mathcal{O}(N\log^2N)$. Offen sind stark gradierte Netze und elektrisch große
     Streuer.
 \end{description}
