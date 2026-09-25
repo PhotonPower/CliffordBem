@@ -17,7 +17,7 @@
 using namespace cbem;
 static std::vector<std::string> split(const std::string& s, char c) { std::vector<std::string> v; std::stringstream ss(s); std::string t; while (std::getline(ss, t, c)) v.push_back(t); return v; }
 int main(int argc, char** argv) {
-    std::string precond = "point";   // point | cluster:G (Blockvorkonditionierung auf Clustern mit <= G Dreiecken)
+    std::string precond = "point";   // point | cluster:G (Bloecke auf Clustern mit <= G Dreiecken) | hodlr:eps[:leaf] (hierarchische Faktorisierung)
     std::string mesh, mats = "Au", chis = "0", pol = "lin", lam = "500:600:50", csv, datadir = "data/materials";
     int sph = 0, orient = 1; bool verbose = false; double unit = 1.0, nbg = 1.0, heps = 1e-4, tol = 1e-6;
     for (int a = 1; a < argc; ++a) {
@@ -53,7 +53,8 @@ int main(int argc, char** argv) {
         for (std::size_t b = 0; b < parts.size(); ++b) med.push_back(Medium{mat[b]->eps(L), 1.0, chi[b]});
         HMatrixParams hp; hp.eps = heps; SolveOptions so; so.tol = tol;
         ScatteringProblem P(parts, med, om, Medium{nbg * nbg, 1.0, 0.0}, hp);
-        if (precond.rfind("cluster:", 0) == 0) P.use_block_preconditioner(group_by_clusters(P.mesh(), std::stoul(precond.substr(8))));
+        if (precond.rfind("hodlr:", 0) == 0) { auto q = precond.substr(6); auto c = q.find(':'); HodlrParams hpar; hpar.eps = std::stod(q.substr(0, c)); if (c != std::string::npos) hpar.leaf = std::stoul(q.substr(c + 1)); P.use_hodlr_preconditioner(hpar); std::printf("HODLR: eps %.0e, max. Rang %zu, %.0f MB, Aufbau %.1f s\n", hpar.eps, P.hodlr()->max_rank(), P.hodlr()->bytes() / 1048576.0, P.hodlr()->seconds()); }
+        else if (precond.rfind("cluster:", 0) == 0) P.use_block_preconditioner(group_by_clusters(P.mesh(), std::stoul(precond.substr(8))));
         real s = 0, sp = 0, sm = 0; int its = 0;
         for (const auto& dw : dirs) {
             if (pol == "circ") {

@@ -10,6 +10,11 @@ resonanzfreie Gleichung T₁ h = h_inc (Transmissionsabbildung J mit Standardwah
 Fernfeld/Extinktion, GMRES mit punktweiser Vorkonditionierung). Validiert gegen Mie bis
 92 160 Unbekannte (`docs/results_scattering.md`).
 
+Stand 0.10: **Hierarchische Faktorisierung** des Gesamtsystems im HODLR-Format (`HodlrSolver`,
+`ScatteringProblem::use_hodlr_preconditioner`, `--precond hodlr:eps`): direkter Löser mit feiner Toleranz,
+Vorkonditionierer mit grober Toleranz; lohnt sich bei vielen rechten Seiten, an Plasmonresonanzen nur begrenzt
+(`docs/results_preconditioning.md`).
+
 Stand 0.9: **Blockvorkonditionierung für mehrere Körper und chirale Medien** (`ScatteringProblem::use_block_preconditioner`,
 Gruppen nach Kanten/Ecken oder Clustern). Würfel-Dimer: Iterationen nahezu unabhängig von der Kantenauflösung;
 bei glatten plasmonischen Körpern kein Zeitgewinn (`docs/results_preconditioning.md`).
@@ -66,6 +71,8 @@ Tests:
 - `test_scattering`: Kugelstreuung, identisch mit der dichten Lösung des Python-Prototyps.
 - `test_block_precond`: Blockvorkonditionierung (gleiche Lösung, weniger Iterationen; voller Block = exakte Inverse),
   auch für mehrere Körper mit chiralem Medium.
+- `test_hodlr`: Einzeleinträge des Systems gegen den Operator, hierarchische Faktorisierung als direkter Löser
+  (2 Iterationen) und als Vorkonditionierer.
 - `test_sauter_schwab`: Gewichtssummen, Exaktheit für glatte Integranden, exponentielle Konvergenz für
   die singulären Kernintegrale (gleiches Dreieck, gemeinsame Kante, gemeinsame Ecke).
 - `test_nearfield`: Nahfeldregeln auf dem gradierten Würfel gegen feine Referenz; Nahfeld-Cache.

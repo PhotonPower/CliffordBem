@@ -56,3 +56,54 @@ Bei glatten Körpern gibt es keine lokale Ursache für die Iterationszahl: Sie k
 den ganzen Stab umfassen. Lokale Blöcke sparen bis 40 % der Iterationen, aber Aufbau und Anwendung der Blöcke
 kosten ebenso viel. Wirksam wäre hier eine Vorkonditionierung, die ganze Körper erfasst (H-LU je Körper, AP 3.4)
 oder Deflation der resonanten Moden.
+
+## Hierarchische Faktorisierung (v0.10)
+
+`HodlrSolver` zerlegt das Gesamtsystem T₁ (alle Körper, auch chiral) hierarchisch im HODLR-Format: Auf jeder
+Stufe des geometrischen Clusterbaums werden die beiden Nebendiagonalblöcke mit einer Block-ACA (8×8-Pivots,
+Pseudoinverse des Pivotblocks, Nachkompression) niedrigrangig approximiert, die Blätter dicht per LU zerlegt,
+und die Inverse über die Woodbury-Formel angewandt. Die Einträge liefert `ScatteringProblem::system_entry`
+(T_ij als 8×8-Block aus den gespeicherten Nahfeld- bzw. Fernfeldregeln; gegen `T.apply` auf 6,5·10⁻¹³ geprüft).
+Das ist eine hierarchische LU mit **schwacher Zulässigkeit**; die klassische H-LU mit starker Zulässigkeit
+(H-Matrix-Arithmetik mit gekürzten Produkten) ist nicht umgesetzt.
+
+**Korrektheit** (`test_hodlr`, Dimer aus plasmonischer und chiraler Kugel, 2 880 Unbekannte):
+
+| Toleranz | GMRES (punktweise: 63) | max. Rang | Speicher | σ_ext |
+|---:|---:|---:|---:|---:|
+| 10⁻⁹ | 2 | 617 | 334 MB | 26,3047285276 |
+| 10⁻² | 19 | 131 | 47 MB | 26,3047285279 |
+
+Mit feiner Toleranz ist die Faktorisierung ein direkter Löser.
+
+**Würfel-Dimer** (zwei gradierte Goldwürfel, L = 3, 12 288 Unbekannte, Spalt 0,5; eine rechte Seite):
+
+| Vorkonditionierung | GMRES | Lösen | Aufbau | Rang | Speicher |
+|---|---:|---:|---:|---:|---:|
+| punktweise | 62 | 4,7 s | – | – | – |
+| Kanten/Ecken (v0.9) | 52 | – | < 1 s | – | – |
+| HODLR 10⁻¹ | 30 | 3,2 s | 10,8 s | 100 | 156 MB |
+| HODLR 10⁻² | 19 | 2,6 s | 37,8 s | 182 | 352 MB |
+
+**Born-Kuhn-Dimer an der Resonanz** (λ = 725 nm, 9 184 Unbekannte, zwei rechte Seiten):
+
+| Vorkonditionierung | GMRES | Aufbau | Rang | Gesamtzeit |
+|---|---:|---:|---:|---:|
+| punktweise | 68 | – | – | 12 s |
+| HODLR 10⁻¹ | 51 | 3,4 s | 38 | 15 s |
+| HODLR 10⁻² | 36 | 13,7 s | 111 | 24 s |
+| HODLR 10⁻³ | 26 | 60,7 s | 272 | 71 s |
+
+**Bewertung.**
+- Die Faktorisierung lohnt sich nur bei vielen rechten Seiten für denselben Operator. Beim Würfel-Dimer liegt
+  der Break-even bei etwa 7 (Toleranz 10⁻¹) bzw. 18 (10⁻²) rechten Seiten; eine Orientierungsmittelung mit 26
+  Richtungen und zwei Polarisationen hat 52.
+- An der Plasmonresonanz ist sie schwach: T₁ hat dort sehr kleine Singulärwerte, und der Fehler der
+  Näherungsinverse wird mit der Kondition verstärkt. Erst Toleranzen um 10⁻³ senken die Iterationen deutlich,
+  dann dominieren Aufbau und Speicher.
+- Die Ränge mit schwacher Zulässigkeit wachsen, weil benachbarte Cluster auf derselben Fläche direkt aneinander
+  grenzen (bis 272 bei 10⁻³). Eine H-LU mit starker Zulässigkeit hätte kleinere Ränge, würde am
+  Konditionsproblem an der Resonanz aber nichts ändern.
+- Für Resonanzen mit vielen rechten Seiten sind Krylov-Recycling über die rechten Seiten (z. B. GCRO-DR) oder
+  Deflation der resonanten Moden die geeigneteren Werkzeuge. Der Aufbau der Faktorisierung ist noch nicht
+  parallelisiert.

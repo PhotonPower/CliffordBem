@@ -29,7 +29,7 @@
 | operators | Cauchy-Operator E_k, chiraler Cauchy-Operator, blockdiagonaler Mehrkörper-Innenoperator, Transmissionsoperator T₁ (Medium je Dreieck) | chirale Außenmedien, Substrate (geschichtete Außenmedien) |
 | problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, ebene Wellen) | mehrere rechte Seiten gleichzeitig (Block-GMRES), Wiederverwendung über Wellenlängen |
 | core | Grundtypen, Materialmodelle (konstant, n/k-Tabellen) | Drude-Lorentz-Fits, Größenkorrektur der Dämpfung |
-| solvers | GMRES, punktweise 2(1+J)⁻¹, Blockvorkonditionierung (Kanten/Ecken oder Cluster, mehrere Körper, chiral; dichte LU) | H-LU je Körper, Deflation resonanter Moden, Block-GMRES |
+| solvers | GMRES, punktweise 2(1+J)⁻¹, Blockvorkonditionierung (Kanten/Ecken oder Cluster, mehrere Körper, chiral; dichte LU), hierarchische Faktorisierung | HODLR-Faktorisierung (schwache Zulässigkeit, Woodbury) | H-LU mit starker Zulässigkeit, Krylov-Recycling (GCRO-DR), Deflation resonanter Moden, parallele Faktorisierung |
 | sources | ebene Welle (linear/zirkular), Fernfeld, Extinktion, Lebedev-Richtungen | Dipolquellen, Nahfeld, Streuquerschnitt, Streumatrix |
 | apps | Kompressionsbenchmark, Kugel- und Würfelstreuung | Parameterstudien, AP-4-Geometrien |
 | bindings | – | pybind11-Modul für Skripting und Vergleich mit dem Prototyp |

@@ -8,6 +8,7 @@
 #include "cbem/operators/multibody_operator.hpp"
 #include "cbem/operators/transmission_operator.hpp"
 #include "cbem/solvers/block_preconditioner.hpp"
+#include "cbem/solvers/hodlr.hpp"
 #include "cbem/solvers/gmres.hpp"
 
 namespace cbem {
@@ -26,6 +27,10 @@ public:
     // Blockvorkonditionierung einschalten (Gruppen z. B. aus group_by_clusters / group_by_features)
     void use_block_preconditioner(const std::vector<std::vector<std::size_t>>& groups);
     const BlockPreconditioner* block_preconditioner() const { return prec_.get(); }
+    // 8x8-Block T_ij des Gesamtsystems (exakte Eintraege) und hierarchische Faktorisierung als Vorkonditionierer
+    Mat8 system_entry(std::size_t i, std::size_t j) const;
+    void use_hodlr_preconditioner(HodlrParams p = {});
+    const HodlrSolver* hodlr() const { return hodlr_.get(); }
     const TriangleMesh& mesh() const { return mb_.all; }
     const MultiBodyMesh& multibody() const { return mb_; }
     const TransmissionOperator& T() const { return *T_; }
@@ -42,6 +47,9 @@ private:
     const CauchyOperator* outer_op_ = nullptr;
     std::unique_ptr<TransmissionOperator> T_;
     std::unique_ptr<BlockPreconditioner> prec_;
+    std::unique_ptr<HodlrSolver> hodlr_;
+    std::vector<std::array<Mat8, 4>> Lcn_;          // L(e_c n_j) je Dreieck
+    std::vector<std::size_t> body_of_;              // Koerper je Dreieck (Innenoperator)
     const KernelEntries* outer_entries_ = nullptr;
     // je Koerper: Teile des Innenoperators (Eintraege, Helizitaet 0/+1/-1) und Dreiecksbereich
     struct InnerPart { const KernelEntries* E; int helicity; };
