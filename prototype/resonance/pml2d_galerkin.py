@@ -40,7 +40,7 @@ class GalerkinGeo(Geo):
         else: off = -r_t[:, None]*self.U[k][None, :]; Y = V[(k + 1) % 4][None, :] + off; xx = 2 - r_t
         self._off = off                                  # Versatz zur Ecke (fuer Paare an derselben Ecke)
         return Y, ww*drt(rr, self.th, self.r0), xx
-def build(ng, kappa, th=0.0, r0=0.25, q=0.5, q0=0.5):
+def build(ng, kappa, th=0.0, r0=0.25, q=0.5, q0=0.5, parts_only=False):
     if r0 < q0: r0 = q0*q**round(np.log(r0/q0)/np.log(q))     # Beginn der Streckung auf einen Netzknoten legen (Knick der Abbildung)
     g = GalerkinGeo(ng, th, r0, q, q0); Ns = len(g.S0)
     corner = (g.S0 == 0.0) | (g.S1 == 2.0)
@@ -81,11 +81,15 @@ def build(ng, kappa, th=0.0, r0=0.25, q=0.5, q0=0.5):
         n = g.Nn[g.SD[j]]
         M = -2*(Vall[:, j, 0, None, None]*E1m + Vall[:, j, 1, None, None]*E2m)@vec_mat(n)
         Eg[:, 8*j:8*j + 8] = M.reshape(8*Ns, 8)
-    Mm = np.diag(np.repeat(Mass, 8))
-    Jb = np.zeros_like(Eg)
-    for j in range(Ns): n = g.Nn[g.SD[j]]; Jb[8*j:8*j + 8, 8*j:8*j + 8] = Jblock(np.array([n[0], n[1], 0.]), kappa, 1.0, 1.0, np.sqrt(kappa))
-    G = 0.5*(Mm + Eg) + 0.5*(Mm - Eg)@Jb
-    return G, Mass, g, P
+    if parts_only: return Eg, Mass, g, P
+    return assemble(Eg, Mass, g, [kappa]*Ns), Mass, g, P
+def assemble(Eg, Mass, g, kappas):
+    """G = 1/2 (M + Eg) + 1/2 (M - Eg) J mit einem Kontrast je Element (quasistatisch geht kappa nur ueber J ein)."""
+    Ns = len(Mass); Mm = np.diag(np.repeat(Mass, 8)); Jb = np.zeros_like(Eg)
+    for j in range(Ns):
+        n = g.Nn[g.SD[j]]; kj = kappas[j]
+        Jb[8*j:8*j + 8, 8*j:8*j + 8] = Jblock(np.array([n[0], n[1], 0.]), kj, 1.0, 1.0, np.sqrt(kj))
+    return 0.5*(Mm + Eg) + 0.5*(Mm - Eg)@Jb
 def far_field(ng, kappa, th=0.0, r0=0.25, q=0.5, x=np.array([5.0, 3.0])):
     G, Mass, g, P = build(ng, kappa, th, r0, q); Ns = len(Mass)
     hin = np.zeros((Ns, 8), complex); hin[:, 1] = 1.0

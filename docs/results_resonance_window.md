@@ -180,3 +180,31 @@ kaum gedämpft nach außen läuft. Die Streckung vermeidet das, weil sie über v
 gradierte Netz selbstähnlich ist, ist das diskrete Eckproblem in der Schichtnummer ein blockweises
 Toeplitz-System; seine ausfallenden diskreten Lösungen ließen sich aus der Rekursion bestimmen (diskrete
 DtN-Bedingung). Das wäre auch auf die Querrichtung gradierter 3D-Kantennetze übertragbar.
+
+## Absorber im Material (`absorber2d.py`, `absorber_study.py`)
+
+Idee: Quasistatisch geht κ nur über die elementweise Transmissionsabbildung J ein. Ein Absorber lässt sich deshalb
+ohne komplexe Geometrie und ohne neue Grenzflächen einbauen: κ_j = κ + iδ(r_j) mit glattem Anstieg in log r
+unterhalb von r_abs (δ = δ_max S(ln(r_abs/r)/L), S(x) = 3x² − 2x³). Das wäre direkt auf 3D-Kanten übertragbar.
+
+Ergebnis (κ = −2,8 + 0,3i, q = 0,7, Tiefe 10⁻⁸; Referenz 0,060029 + 0,033137i):
+
+| r_abs | Anstieg | δ_max | F₁ |
+|---:|---:|---:|---:|
+| – (ohne) | | | 0,060163 + 0,033323i |
+| 10⁻² | 3 Dekaden | 1,5 | 0,062186 + 0,025189i |
+| 10⁻³ | 3 Dekaden | 1,5 | 0,064396 + 0,028971i |
+| 10⁻⁴ | 3 Dekaden | 1,5 | 0,064435 + 0,032289i |
+| 0,25 | 7 Dekaden | 1,5 / 3 / 6 | 0,0596 + 0,0258i / 0,0578 + 0,0230i / 0,0554 + 0,0203i |
+
+Der Absorber funktioniert nicht. Grund: Die Eckwelle r^{−iτ} hat in ln r die Wellenlänge 2π/τ ≈ 26, das sind etwa
+11,5 Dekaden. Ein reflexionsarmer (adiabatischer) Anstieg müsste sich über mehrere solcher Wellenlängen
+erstrecken, also über Dutzende Dekaden, und gleichzeitig weit genug innen liegen, um das Feld außen nicht zu
+verändern. Beides zusammen ist numerisch nicht erreichbar (in 2D verliert schon eine Tiefe von 10⁻¹⁰ in der
+Parametrisierung Stellen). Ein kurzer Anstieg reflektiert, ein weit außen beginnender verändert die Physik.
+Die komplexe Streckung hat dieses Problem nicht: Sie ist eine exakte Koordinatentransformation und bei
+kontinuierlicher Betrachtung für jedes Profil reflexionsfrei, deshalb genügen wenige Dekaden.
+
+hp-BEM (Vorschlag B) wurde nicht getestet: Das innerste Element müsste die unendlich vielen Oszillationen von
+r^{a−1} auf [0, r_min] darstellen, der Fehler dort fällt nur wie r_min^c, und die Dispersion des Galerkin-Verfahrens
+in log r ist nach den Streckungsrechnungen bei q = 0,7 bereits klein.
