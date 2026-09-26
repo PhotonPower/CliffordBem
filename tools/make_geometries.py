@@ -2,7 +2,8 @@
 Jeder Koerper erhaelt eine physikalische Flaechengruppe (Tag 1, 2, ...) aus allen seinen Randflaechen.
   python3 tools/make_geometries.py sphere 0.15 examples/sphere_h015.msh
   python3 tools/make_geometries.py rod 0.12 examples/rod.msh            (Stab: Laenge 4, Radius 0.5, Achse x)
-  python3 tools/make_geometries.py bornkuhn 0.1 examples/bornkuhn.msh --angle 60   (zwei gekreuzte Staebe)"""
+  python3 tools/make_geometries.py bornkuhn 0.1 examples/bornkuhn.msh --angle 60   (zwei gekreuzte Staebe)
+  python3 tools/make_geometries.py roundcube 0.2 examples/rc.msh --radius 0.2 [--curv 16]   (Wuerfel mit gerundeten Kanten)"""
 import sys, math, argparse
 import gmsh
 def capsule(L, r, angle_deg=0.0, z=0.0):
@@ -17,19 +18,35 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument('kind'); ap.add_argument('h', type=float); ap.add_argument('out')
     ap.add_argument('--angle', type=float, default=60.0); ap.add_argument('--gap', type=float, default=1.2)
     ap.add_argument('--length', type=float, default=3.0); ap.add_argument('--radius', type=float, default=0.3)
+    ap.add_argument('--curv', type=float, default=12, help='Elemente je 2 pi Kruemmung')
     a = ap.parse_args()
     gmsh.initialize(); gmsh.option.setNumber("General.Terminal", 0); gmsh.model.add(a.kind)
     occ = gmsh.model.occ
     if a.kind == 'sphere': vols = [[(3, occ.addSphere(0, 0, 0, 1.0))]]
     elif a.kind == 'rod': vols = [capsule(4.0, 0.5)]
     elif a.kind == 'bornkuhn': vols = [capsule(a.length, a.radius, 0.0, -a.gap/2), capsule(a.length, a.radius, a.angle, +a.gap/2)]
+    elif a.kind == 'roundcube':                       # Wuerfel [-1,1]^3, alle Kanten (und damit Ecken) mit Radius --radius gerundet
+        b = occ.addBox(-1, -1, -1, 2, 2, 2); occ.synchronize()
+        edges = [e[1] for e in gmsh.model.getEntities(1)]
+        v = occ.fillet([b], edges, [a.radius]); vols = [v]
     else: raise SystemExit('unbekannte Geometrie')
     occ.synchronize()
     for i, v in enumerate(vols):
         surf = [s[1] for s in gmsh.model.getBoundary(v, oriented=False)]
         gmsh.model.addPhysicalGroup(2, surf, i + 1)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", a.h); gmsh.option.setNumber("Mesh.MeshSizeMin", 0.3*a.h)
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 12)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", a.h); gmsh.option.setNumber("Mesh.MeshSizeMin", 0.02*a.h)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", a.curv)
+    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)   # flache Teile mit MeshSizeMax, Rundungen ueber Kruemmung
+    if a.kind == 'roundcube':
+        # Groessenfeld: auf den Rundungen 2 pi rho / curv, auf den flachen Seiten mit dem Abstand linear bis h wachsend
+        curved = [s2[1] for s2 in gmsh.model.getEntities(2) if gmsh.model.getType(2, s2[1]) != 'Plane']
+        fd = gmsh.model.mesh.field.add("Distance"); gmsh.model.mesh.field.setNumbers(fd, "SurfacesList", curved)
+        ft = gmsh.model.mesh.field.add("Threshold"); hmin = 2*math.pi*a.radius/a.curv
+        gmsh.model.mesh.field.setNumber(ft, "InField", fd); gmsh.model.mesh.field.setNumber(ft, "SizeMin", hmin)
+        gmsh.model.mesh.field.setNumber(ft, "SizeMax", a.h); gmsh.model.mesh.field.setNumber(ft, "DistMin", 0.0)
+        gmsh.model.mesh.field.setNumber(ft, "DistMax", max(a.h, 3*a.radius))
+        gmsh.model.mesh.field.setAsBackgroundMesh(ft)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
     gmsh.option.setNumber("Mesh.Algorithm", 6)
     gmsh.model.mesh.generate(2)
     gmsh.option.setNumber("Mesh.MshFileVersion", 4.1); gmsh.option.setNumber("Mesh.Binary", 0)
