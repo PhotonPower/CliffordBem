@@ -35,6 +35,7 @@
 #include <memory>
 #include <vector>
 #include "cbem/operators/transmission_operator.hpp"
+#include "cbem/operators/multibody_operator.hpp"
 #include "cbem/problems/layered_problem.hpp"
 
 namespace cbem {
@@ -45,6 +46,11 @@ struct SurfaceFV {
     std::vector<std::array<Edge, 3>> edges;                                    // (nach aussen), LSQ-Gewicht fuer grad
     std::vector<Vec3> nsm;                                                     // glatte Normale am Schwerpunkt (Mittel der Knotennormalen)
     std::vector<std::array<real, 9>> shape;                                    // Formoperator S = grad_G nsm (symmetrisch, tangential)
+    // Quadratische Anpassung ueber alle Dreiecke mit gemeinsamem Knoten (Tangentialkoordinaten zur glatten Normalen):
+    // phi_j - phi_t = g.r + 1/2 r^T H r; Gewichte fuer den Gradienten (O(h^2)) und fuer Delta_G = tr H (O(h)).
+    struct Ring { std::vector<std::size_t> nb; std::vector<Vec3> gw; std::vector<real> lw; };
+    std::vector<Ring> ring;
+    std::vector<real> meancurv;                                                // H = tr S / 2
     explicit SurfaceFV(const TriangleMesh& m);
     const TriangleMesh& mesh;
     // grad_G phi (tangential im Dreieck), div_G v (v tangential je Dreieck)
@@ -52,9 +58,15 @@ struct SurfaceFV {
     void div(const std::vector<std::array<cplx, 3>>& v, std::vector<cplx>& dv) const;
     // tangentialer Dirac-Operator D F = sum_c grad_G(F_c) * e_c je Dreieck (Werte); optional D_S F (mit S gewichtet)
     void dirac(const std::vector<Multivector>& F, std::vector<Multivector>& DF, std::vector<Multivector>* DSF = nullptr) const;
+    // mit der quadratischen Anpassung: D F, D_S F und D D F = sum_c [Delta_G F_c - (S grad F_c) n] e_c (punktweise konsistent)
+    void dirac_fit(const std::vector<Multivector>& F, std::vector<Multivector>& DF, std::vector<Multivector>& DSF,
+                   std::vector<Multivector>& DDF) const;
+    void laplace_fit(const std::vector<cplx>& phi, std::vector<cplx>& lap) const;
 };
 
-enum class ThinLayerModel { Jump1, Dirac1, Dirac2 };   // Sprungform 1. Ordnung (v0.14), Dirac-Form 1. bzw. 2. Ordnung
+// Sprungform 1. Ordnung (v0.14), Dirac-Form 1. bzw. 2. Ordnung mit zusammengesetzten Gradienten (v0.15), Dirac-Form
+// 2. Ordnung mit quadratischer Anpassung und geschlossener Form B^2 F = -k^2 F - DDF - 2H n (ikF - DF) (v0.16)
+enum class ThinLayerModel { Jump1, Dirac1, Dirac2, Dirac2Fit };
 
 class ThinLayerTransmissionOperator {
 public:
@@ -81,23 +93,37 @@ private:
     void apply_dirac(const std::vector<cplx>& x, std::vector<cplx>& y) const;
 };
 
-// Streuproblem: ein homogener Koerper mit duennen Schichten erster Ordnung (eine Flaeche)
+// Koerper mit duennen Schichten: Flaeche (Referenzflaeche), Kernmedium, Schichten von innen nach aussen, Anteil der
+// Schichten innerhalb der Referenzflaeche (0: Referenz = Kernoberflaeche, empfohlen fuer Metallkerne)
+struct ThinBody { TriangleMesh surface; Medium core; std::vector<Coating> coatings; real inner_fraction = 0.0; };
+
+// Streuproblem: ein oder mehrere Koerper mit duennen Schichten (je eine Flaeche). Aussen wirkt E_2 auf der Vereinigung
+// aller Flaechen, innen ein blockdiagonaler Operator (ein Cauchy-Operator je Kern), J_eff je Koerper.
 class ThinLayerScatteringProblem {
 public:
     ThinLayerScatteringProblem(const TriangleMesh& surface, const Medium& core, const std::vector<Coating>& coatings,
                                real omega, Medium outer = {}, real inner_fraction = 0.0, HMatrixParams hp = {}, EntryParams ep = {},
-                               ThinLayerModel model = ThinLayerModel::Dirac2);
+                               ThinLayerModel model = ThinLayerModel::Dirac2Fit);
+    ThinLayerScatteringProblem(const std::vector<ThinBody>& bodies, real omega, Medium outer = {}, HMatrixParams hp = {},
+                               EntryParams ep = {}, ThinLayerModel model = ThinLayerModel::Dirac2Fit);
     LayeredResult solve_plane_wave(const Vec3& d, const CVec3& p, const SolveOptions& o = {}) const;
-    const TriangleMesh& mesh() const { return m_; }
-    double hmatrix_bytes() const { return H1_->stats().bytes() + H2_->stats().bytes(); }
+    const TriangleMesh& mesh() const { return all_.all; }
+    std::size_t body_begin(std::size_t b) const { return all_.body_begin[b]; }
+    void apply(const std::vector<cplx>& x, std::vector<cplx>& y) const;         // T_eff
+    void precondition(const std::vector<cplx>& x, std::vector<cplx>& y) const;
+    double hmatrix_bytes() const;
 private:
-    TriangleMesh m_;
-    Medium core_, outer_;
+    void build(const std::vector<ThinBody>& bodies, HMatrixParams hp, EntryParams ep, ThinLayerModel model);
+    Medium outer_;
     real omega_;
-    std::unique_ptr<KernelEntries> K1_, K2_;
-    std::unique_ptr<KernelHMatrix> H1_, H2_;
-    std::unique_ptr<CauchyOperator> E1_, E2_;
-    std::unique_ptr<ThinLayerTransmissionOperator> T_;
+    MultiBodyMesh all_;
+    std::vector<std::unique_ptr<TriangleMesh>> body_mesh_;
+    std::vector<std::unique_ptr<KernelEntries>> ents_;
+    std::vector<std::unique_ptr<KernelHMatrix>> hms_;
+    std::vector<std::unique_ptr<CauchyOperator>> cops_;
+    std::unique_ptr<BlockDiagonalOperator> E1_;
+    const CauchyOperator* E2_ = nullptr;
+    std::vector<std::unique_ptr<ThinLayerTransmissionOperator>> maps_;          // J_eff je Koerper (lokale Nummerierung)
 };
 
 }  // namespace cbem

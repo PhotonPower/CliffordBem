@@ -8,7 +8,8 @@
 //   Schichtwirkung ist dann die Differenz zu --bare (gleiches Netz), ohne neutrale Rechnung.
 //   --thin-ref f: Referenzflaeche im Anteil f der Schicht von innen (0 = Innenrand, 1/2 = Mitte, 1 = Aussenrand);
 //   Standard: Kernoberflaeche (nach aussen) bzw. Aussenflaeche (--inward). --bare rechnet die Kugel mit Radius 1.
-//   --thin-model jump|dirac1|dirac2: Sprungform 1. Ordnung, Dirac-Form 1. bzw. 2. Ordnung (Standard dirac2).
+//   --thin-model jump|dirac1|dirac2|dirac2fit: Sprungform 1. Ordnung, Dirac-Form 1. bzw. 2. Ordnung (Standard dirac2fit).
+//   Mit --mesh und --thin: alle Koerper der Gmsh-Datei mit denselben Schichten (Referenz = Netzflaeche bzw. --thin-ref).
 // --bare: dieselbe Flaeche ohne Schicht; --neutral: dieselben Netze, Schichten aus dem Aussenmedium. Die Wirkung einer
 // duennen Schicht ist als Differenz zur neutralen Rechnung genauer als zur Rechnung ohne Schicht (docs/results_coated.md).
 // Beispiele:
@@ -28,7 +29,7 @@ static std::vector<std::string> split(const std::string& s, char c) { std::vecto
 static cplx cval(const std::string& s) { auto c = s.find(','); return {std::stod(s.substr(0, c)), c == std::string::npos ? 0.0 : std::stod(s.substr(c + 1))}; }
 int main(int argc, char** argv) {
     std::string ns = "4,6,8", path, core = "-11,1.2", coat = "0.05,2.25,0", pol = "lin", csv, nbs = "1";
-    double om = 0.5, heps = 1e-4, tol = 1e-6, scale = 1.0; bool offset = false, inward = false, bare = false, neutral = false, oldnear = false, thin = false; double thinref = -1; ThinLayerModel tmodel = ThinLayerModel::Dirac2; std::string tmname = "dirac2"; Vec3 d(0, 0, 1);
+    double om = 0.5, heps = 1e-4, tol = 1e-6, scale = 1.0; bool offset = false, inward = false, bare = false, neutral = false, oldnear = false, thin = false; double thinref = -1; ThinLayerModel tmodel = ThinLayerModel::Dirac2Fit; std::string tmname = "dirac2fit"; Vec3 d(0, 0, 1);
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
         if (o == "--n") ns = nxt(); else if (o == "--mesh") path = nxt(); else if (o == "--scale") scale = std::stod(nxt());
@@ -37,7 +38,7 @@ int main(int argc, char** argv) {
         else if (o == "--dir") { auto v = split(nxt(), ','); d = Vec3(std::stod(v[0]), std::stod(v[1]), std::stod(v[2])); d = d / norm(d); }
         else if (o == "--offset") offset = true; else if (o == "--inward") inward = true;
         else if (o == "--bare") bare = true;              // zusaetzlich dieselbe Flaeche ohne Schicht (Differenzen; Q auf denselben Radius bezogen)
-        else if (o == "--thin-model") { thin = true; tmname = nxt(); tmodel = tmname == "dirac2" ? ThinLayerModel::Dirac2 : tmname == "dirac1" ? ThinLayerModel::Dirac1 : ThinLayerModel::Jump1; }
+        else if (o == "--thin-model") { thin = true; tmname = nxt(); tmodel = tmname == "dirac2fit" ? ThinLayerModel::Dirac2Fit : tmname == "dirac2" ? ThinLayerModel::Dirac2 : tmname == "dirac1" ? ThinLayerModel::Dirac1 : ThinLayerModel::Jump1; }
         else if (o == "--thin") thin = true; else if (o == "--thin-ref") { thin = true; thinref = std::stod(nxt()); }
         else if (o == "--neutral") neutral = true;        // zusaetzlich dieselben Netze mit Schichten aus Aussenmedium (Referenz fuer Differenzen)
         else if (o == "--oldnear") oldnear = true;        // Nahfeldregel ohne Randabstand (Vergleich der Kosten)
@@ -85,6 +86,23 @@ int main(int argc, char** argv) {
         report(label, n, P.mesh().size(), r, Aref, P.near_pairs(), P.near_seconds(), tb, ts);
     };
     std::vector<Coating> ncoats = coats; for (auto& c : ncoats) c.medium = ext;
+    if (!path.empty() && thin) {                                    // Gmsh-Koerper mit Duennschicht-Naeherung
+        auto bodies = read_gmsh(path, scale);
+        const real f = thinref >= 0 ? thinref : (inward ? 1.0 : 0.0);
+        const real off = inward ? -(1.0 - f) * total : f * total;
+        auto solve = [&](const std::string& label, const std::vector<Coating>& cs) {
+            std::vector<ThinBody> tb;
+            for (auto& b : bodies) tb.push_back(ThinBody{cs.empty() || off == 0.0 ? b.mesh : offset_surface(b.mesh, off), mcore, cs, cs.empty() ? 0.0 : f});
+            auto t0 = std::chrono::steady_clock::now();
+            ThinLayerScatteringProblem P(tb, om, ext, hp, EntryParams{}, tmodel);
+            double tb_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(); t0 = std::chrono::steady_clock::now();
+            auto r = P.solve_plane_wave(d, p, so);
+            report(label, 0, P.mesh().size(), r, 1.0, 0, 0.0, tb_s, std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
+        };
+        solve("thin", coats);
+        if (bare) solve("bare", {});
+        return 0;
+    }
     if (!path.empty()) {
         auto bodies = read_gmsh(path, scale);
         LayeredGeometry g(ext), g0(ext), gn(ext);

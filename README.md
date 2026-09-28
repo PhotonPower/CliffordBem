@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.15.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.16.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche), dispersive
@@ -20,7 +20,7 @@ Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 | Chirale Medien | Pasteur-Medien innen, Helizitätszerlegung, chirale J | chirale Mie-Lösung: Q₊, Q₋, CD auf 10⁻⁴ |
 | Mehrere Körper | eigenes Medium je Körper, blockdiagonaler Innenoperator | Additivität bei großem Abstand, zwei unabhängige Formulierungen, Enantiomere mit entgegengesetztem CD |
 | Beschichtete Grenzflächen | verschachtelte Gebiete (Grenzflächengraph), Parallelflächen, Schichten nach außen/innen, chirale Schichten, Vorwärtsamplitude S(0) mit Phase | beschichtete Kugel gegen Aden–Kerker: Q_ext und S(0) Ordnung 2; dünne Schichten (d/h bis 0,04) als Differenz zur neutralen Rechnung auf 1–5 % |
-| Dünnschicht-Näherung | eine Fläche; zweite Ordnung in Dirac-Form (Schritte ∂_ν F = n(ik − D)F auf Parallelflächen, mit Formoperator), glatte Normalen; erste Ordnung als Sprungform | Schichtwirkung gegen Aden–Kerker: 0,1–0,7 % bis d/a = 0,05, −3,7 % bei 0,1 (erste Ordnung: 1,5 d/a) |
+| Dünnschicht-Näherung | eine Fläche je Körper, auch mehrere Körper; zweite Ordnung in Dirac-Form (Schritte ∂_ν F = n(ik − D)F auf Parallelflächen, Formoperator, quadratische Anpassung der zweiten Ableitungen), glatte Normalen; erste Ordnung als Sprungform | Schichtwirkung gegen Aden–Kerker: 0,1–0,7 % bis d/a = 0,05; Dimer und Silberwürfel gegen die exakte Rechnung extrapoliert ≈ 1 % |
 | Kanten und Ecken | gradierte Netze, Kanten-/Eckblöcke, Kriterien für gestreckte Elemente | Iterationen unabhängig von der Kantenauflösung (Würfel, Würfel-Dimer) |
 | Kompression | ACA (gemeinsam, komponentenweise, Multivektor-Pivots) | Speicher O(N log² N) bis 163 840 Unbekannte; gemeinsame ACA am günstigsten |
 | Spektren | Johnson-Christy Au/Ag, Hintergrundmedium, Lebedev-Mittelung | Goldkugel in Wasser gegen Mie (≤ 1,5 % bei 1 280 Dreiecken) |
@@ -57,7 +57,7 @@ ctest --test-dir build --output-on-failure         # 18 Tests
 | `test_materials` | Materialtabellen, Lebedev-Momente |
 | `test_hodlr` | Systemeinträge gegen Operator, HODLR als direkter Löser und Vorkonditionierer |
 | `test_layered` | Parallelflächen, ohne Schicht = T₁, beschichtete Kugel gegen Aden–Kerker, neutrale Schale, chirale Schale |
-| `test_thin_layer` | Flächenoperatoren und Formoperator auf der Kugel, ohne Schicht = T₁, neutrale Schicht ohne Wirkung, Schichtwirkung erster und zweiter Ordnung gegen Aden–Kerker |
+| `test_thin_layer` | Flächenoperatoren, Formoperator und Laplace–Beltrami auf der Kugel, ohne Schicht = T₁, neutrale Schicht ohne Wirkung, Schichtwirkung erster und zweiter Ordnung gegen Aden–Kerker (auch nach innen), mehrere Körper |
 
 ## Anwendungen
 
@@ -70,7 +70,7 @@ ctest --test-dir build --output-on-failure         # 18 Tests
 | `scatter_multi` | Kugel-Dimer, auch chiral | `--n 8 --dist 3 --pol circ` |
 | `scatter_mesh` | beliebige Gmsh-Geometrie | `--mesh stab.msh --media "-11,1.2" --pol circ --precond hodlr:1e-2` |
 | `spectrum` | Spektren, Orientierungsmittelung, Beschichtungen | `--mesh x.msh --unit 25 --materials Ag --nbg 1.33 --lambda 340:520:20 [--coating "2:2.89,0"]` |
-| `scatter_coated` | beschichtete Kugel/Gmsh-Körper, gegen Aden–Kerker, neutrale Referenz, Dünnschicht-Näherung | `--n 4,8 --omega 0.5 --core -11,1.2 --coat 0.02,2.25,0 --neutral` bzw. `--thin --bare` (`--thin-model jump\|dirac1\|dirac2`) |
+| `scatter_coated` | beschichtete Kugel/Gmsh-Körper, gegen Aden–Kerker, neutrale Referenz, Dünnschicht-Näherung | `--n 4,8 --omega 0.5 --core -11,1.2 --coat 0.02,2.25,0 --neutral` bzw. `--thin --bare` (`--thin-model jump\|dirac1\|dirac2\|dirac2fit`, auch mit `--mesh`) |
 | `bench_compression` | Asymptotik der Kompression | `--geometry sphere --n 8,16,24 --mode joint` |
 
 Vorkonditionierung in `spectrum`, `scatter_mesh`, `scatter_multi`: `--precond point | cluster:G | hodlr:eps[:leaf]`.
@@ -103,7 +103,9 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
   zusätzlich eine Dünnschicht-Näherung erster Ordnung auf einer Fläche (Greensche Funktion der Schichtfolge in
   erster Ordnung, Ableitungen auf der Dichte statt im Kern), seit v0.15 in zweiter Ordnung mit Krümmung: Kosten wie ohne
   Schicht, keine neutrale Rechnung, Schichtwirkung bis d/a = 0,05 auf 0,1–0,7 % (Extinktion und Phase), Silberkugel mit
-  2 nm Oxid so genau wie die exakte Rechnung. Referenzfläche auf der Metallseite (`results_coated.md`).
+  2 nm Oxid so genau wie die exakte Rechnung; seit v0.16 punktweise konsistente zweite Ableitungen und mehrere Körper.
+  Referenzfläche auf der Metallseite; die Krümmung muss auf dem Netz aufgelöst sein (Silberwürfel mit groben Rundungen:
+  5–13 % Unterschied zur exakten Rechnung, extrapoliert ≈ 1 %) (`results_coated.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).
@@ -135,7 +137,7 @@ Siehe `docs/ARCHITECTURE.md`. Wichtigste: reflexionsfreier Abschluss an 3D-Kante
 Streckung um Spitzen im C++-Kern, Krylov-Recycling für viele rechte Seiten, Substrate, gekrümmte Elemente,
 Ansätze höherer Ordnung, parallele Tests auf Mehrkernrechnern, Python-Anbindung; für beschichtete Körper:
 Block-/HODLR-Vorkonditionierung, ein Eindeutigkeitsbeweis für verschachtelte Gebiete; für die Dünnschicht-Näherung
-konsistente zweite Ableitungen (quadratische Anpassung), Stabilität für d ≳ h, mehrere Körper.
+Stabilität für d ≳ h (nichtlokale Formulierung) und Krümmungssprünge (Übergang von ebenen Seiten zu Rundungen).
 
 Die Beweise und Aussagen in den Arbeitspapieren sind vorläufig und nicht unabhängig geprüft.
 

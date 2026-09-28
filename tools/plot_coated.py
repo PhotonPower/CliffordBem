@@ -118,8 +118,18 @@ if os.path.exists('results/agcube_rho0.4_ox2_neutral.csv'):
     ax[0].set_ylabel(r'$\sigma_{ext}$ (10$^3$ nm$^2$)'); ax[0].legend(fontsize=7)
     ax[0].set_title('Silberwürfel 50 nm, Rundung 10 nm, Wasser; Oxid n = 1,7', fontsize=10)
     ax[1].plot(L, np.angle(Sc) - np.angle(Sn), 'C3s-', label='beschichtet − neutral'); ax[1].axhline(0, color='k', lw=0.5)
+    if os.path.exists('results/agcube_rho0.4_ox2_thin.csv'):
+        _, sth, Sth = spectrum_pair('results/agcube_rho0.4_ox2_thin.csv')
+        ax[0].plot(L, sth / 1e3, 'C1x--', label='2 nm Oxid: Dünnschicht 2. Ordnung')
+        ax[0].legend(fontsize=7)
+        S0c = np.array([complex(float(r['S_re']), float(r['S_im'])) for r in rb]) if 'S_re' in rb[0] else None
     ax[1].set_ylabel(r'$\Delta\arg S(0)$ (rad)'); ax[1].set_xlabel('Wellenlänge (nm)'); ax[1].legend(fontsize=7)
     fig.tight_layout(); fig.savefig('docs/fig_coated_agcube.png', dpi=130)
+    if os.path.exists('results/agcube_rho0.4_ox2_thin.csv'):
+        print('\nSilberwuerfel: Schichtwirkung zwei Flaechen (gegen neutral) und Duennschicht 2. Ordnung (gegen v0.12 ohne Schicht)')
+        for i, l in enumerate(L):
+            d2 = sc[i] - sn[i]; dt = sth[i] - s0i[i]
+            print(f"  {l:5.0f}  ohne {s0i[i]:8.0f}  zwei Fl. {corr[i]:8.0f} (Delta {d2:+7.0f})  Duennschicht {sth[i]:8.0f} (Delta {dt:+7.0f}, {dt / d2 - 1:+6.1%})")
     print('\nSilberwuerfel 50 nm, Rundung 10 nm, 2 nm Oxid')
     print(f"{'lam':>5} {'ohne':>8} {'mit Oxid':>9} {'Delta':>8} {'dArg':>9} {'arg S neutral':>13}")
     for i, l in enumerate(L):

@@ -4,7 +4,8 @@ An Materialgrenzen liegen meist dünne Schichten (Oxide, Sulfide, Hüllen von we
 des gestreuten Lichts verändern. Seit v0.13 behandelt der Kern verschachtelte Gebiete exakt: jede Schichtgrenze ist
 eine eigene Fläche, jedes Gebiet hat seinen eigenen Cauchy-Operator (`LayeredScatteringProblem`, Theorie: AP 1,
 Nachtrag „Verschachtelte Gebiete“). Seit v0.14 gibt es zusätzlich eine Dünnschicht-Näherung auf einer Fläche
-(`ThinLayerScatteringProblem`), seit v0.15 in zweiter Ordnung einschließlich Krümmung (Abschnitte „Dünnschicht-Näherung“).
+(`ThinLayerScatteringProblem`), seit v0.15 in zweiter Ordnung einschließlich Krümmung, seit v0.16 mit punktweise konsistenten
+zweiten Ableitungen und für mehrere Körper (Abschnitte „Dünnschicht-Näherung“).
 
 ## Formulierung
 
@@ -358,11 +359,91 @@ Abweichung bei 380 nm (Quadrupol) haben beide Verfahren gleichermaßen; sie stam
 Netz. Die zweite Ordnung erreicht hier also die Genauigkeit der exakten Rechnung, bei etwa halben Kosten (20–32 s je
 Wellenlänge gegen etwa 30 s beschichtet plus 30–50 s neutral; die Iterationen steigen auf 42–86).
 
+### Quadratische Anpassung der zweiten Ableitungen (v0.16)
+
+`ThinLayerModel::Dirac2Fit` (jetzt Voreinstellung) bestimmt Gradient und Hesse-Matrix jeder Komponente mit einer
+quadratischen Anpassung über alle Dreiecke mit gemeinsamem Knoten (etwa 12, Tangentialkoordinaten zur glatten Normalen)
+und verwendet die geschlossene Form
+
+    B²F = −k²F − DDF − 2H n(ikF − DF),     DDF = Σ_c [Δ_Γ F_c − (S ∇_Γ F_c) ∧ n] e_c
+
+(aus D(nX) = 2H X − n DX und ∇_a∇_b φ = Hess_ab − n_b (S∇_Γφ)_a für die normal konstante Fortsetzung; H = tr S / 2).
+Laplace–Beltrami von Y₂ auf der Kugel:
+
+| n | zusammengesetzt L² / max | quadratische Anpassung L² / max |
+|---:|---:|---:|
+| 6 | 0,129 / 0,36 | 0,078 / 0,17 |
+| 12 | 0,071 / 0,50 | 0,020 / 0,042 |
+| 24 | 0,043 / 0,67 | 0,0054 / 0,016 |
+| 48 | 0,029 / 0,75 | 0,0015 / 0,0086 |
+
+Die Anpassung ist punktweise konsistent (L² etwa Ordnung 2, max. Ordnung 1,4); zusammengesetzt stagniert der
+Maximalfehler an den singulären Ikosaederecken. Wirkung im Streuproblem (n = 8, Δσ / Δ arg S gegen Aden–Kerker):
+
+| Fall | Dirac2 (zusammengesetzt) | Dirac2Fit |
+|---|---:|---:|
+| Vakuumschicht nach innen, d = 0,02 (Extrapolation im Gold) | −1,5 / −3,6 % | +0,2 / −0,6 % |
+| Vakuumschicht nach innen, d = 0,05 | −2,4 / −5,3 % | 0,0 / −0,7 % |
+| Schicht aus Kernmaterial (Gold), d = 0,05 | −1,9 / −2,8 % (88 It.) | −1,1 / −1,4 % (55 It.) |
+| Glas außen, d = 0,02 | +0,4 / +0,7 % | −0,7 / −0,5 % |
+| Glas außen, d = 0,05 | −0,4 / 0,0 % | −1,6 / −1,1 % |
+
+Bei Metallpropagation hilft die Anpassung deutlich. Bei dielektrischen Schichten liegt sie auf groben Netzen etwa 1 %
+tiefer, konvergiert aber gegen denselben Grenzwert (Glas, d = 0,02: −2,3 → −0,7 → −0,4 % für n = 4, 8, 12; zusammengesetzt
++1,8 → +0,4 → +0,2 %). Silberkugel mit 2 nm Oxid: beide Varianten gleichwertig (Phase an der Resonanz 1–4 %,
+`results/agsphere20_ox2_thin2fit.csv`), die Anpassung braucht weniger Iterationen (58–63 statt 67–74). Wegen der
+punktweisen Konsistenz und der Metallfälle ist Dirac2Fit die Voreinstellung.
+
+### Mehrere Körper (v0.16)
+
+`ThinLayerScatteringProblem(std::vector<ThinBody>, …)`: E₂ auf der Vereinigung aller Flächen, blockdiagonaler Innenoperator,
+J_eff je Körper; `spectrum --thin` und `scatter_coated --mesh … --thin` verarbeiten Gmsh-Dateien mit mehreren Körpern.
+Zwei Körper im Abstand 60 sind auf 0,1 % additiv. Dimer aus Goldkugeln mit Glasschale (d = 0,05, Spalt zwischen den
+Schalen 0,3, Polarisation entlang der Achse): Die Kopplung verstärkt die Schichtwirkung auf das 6-Fache des Einzelkörpers.
+
+| n | Δσ Dünnschicht | Δσ zwei Flächen (gegen neutral) | Δ arg S Dünnschicht | Δ arg S zwei Flächen |
+|---:|---:|---:|---:|---:|
+| 6 | 5,627 | 5,818 | 0,0972 | 0,0976 |
+| 8 | 5,809 | 5,951 | 0,0989 | 0,0996 |
+| extrapoliert (Ordnung 2) | ≈ 6,04 | ≈ 6,12 | ≈ 0,101 | ≈ 0,102 |
+
+Beide Verfahren konvergieren aufeinander zu und stimmen extrapoliert auf gut 1 % überein.
+
+### Silberwürfel mit Oxid (nicht kugelförmig)
+
+Abgerundeter Silberwürfel (50 nm, Rundung 10 nm, Wasser), Referenzfläche auf der Metalloberfläche (`spectrum --thin 0`),
+verglichen mit der exakten Zwei-Flächen-Rechnung (Differenz zur neutralen Rechnung) auf demselben Netz
+(`results/agcube_rho0.4_ox*_thin.csv`, orange Kurve in der Abbildung des Silberwürfels). Schichtwirkung Δσ:
+
+| λ (nm) | 2 nm: zwei Flächen | 2 nm: Dünnschicht | 1 nm: zwei Flächen | 1 nm: Dünnschicht |
+|---:|---:|---:|---:|---:|
+| 440 | −13 670 | −13 114 (−4,1 %) | −7 196 | −6 277 (−12,8 %) |
+| 460 | +11 430 | +12 245 (+7,1 %) | +8 334 | +7 920 (−5,0 %) |
+| 480 | +11 646 | +10 110 (−13,2 %) | +5 437 | +4 834 (−11,1 %) |
+| 500 | +5 097 | +4 123 (−19,1 %) | +2 313 | +2 046 (−11,6 %) |
+
+Der Unterschied hängt nicht von der Schichtdicke ab. Ein Modellfehler (∼ (d/ρ)² mit dem Rundungsradius ρ) würde bei halber
+Dicke auf ein Viertel fallen; es ist also ein Diskretisierungsfehler. Netzverfeinerung bei 480 nm und 1 nm Oxid:
+
+| Netz | Δσ Dünnschicht | Δσ zwei Flächen | Unterschied |
+|---|---:|---:|---:|
+| 1 208 Dreiecke (h = 0,3, 3 Elemente je Viertelrundung) | +4 834 | +5 437 | −11,1 % |
+| 2 048 Dreiecke (h = 0,22, 4 Elemente je Viertelrundung) | +5 260 | +5 611 | −6,3 % |
+| extrapoliert (Ordnung 2) | ≈ 5 755 | ≈ 5 813 | ≈ −1 % |
+
+Beide konvergieren aufeinander zu; die Dünnschicht-Näherung ändert sich mit dem Netz aber dreimal so stark (+8,8 % gegen
++3,2 %). Ursache ist die Krümmung: Am Übergang von der ebenen Seite zur Rundung springt sie von 0 auf 1/ρ, und
+glatte Normalen, Formoperator und quadratische Anpassung verschmieren diesen Sprung über einige Elemente. Die
+Dünnschicht-Näherung braucht daher eine gut aufgelöste Krümmung; auf groben Netzen mit engen Rundungen ist die
+Zwei-Flächen-Rechnung robuster. Die Resonanzlage und -höhe stimmen schon auf dem groben Netz überein
+(460 nm: 43 854 gegen 43 039 nm²). Die Iterationen steigen am Würfel auf 90–132 (ohne Schicht 30–80).
+
 ### Einordnung
 
 | | exakt (zwei Flächen) | Dünnschicht 2. Ordnung |
 |---|---|---|
-| Gültigkeit | beliebige Dicke, Mehrfachschichten, chiral | d/a ≲ 0,1 (Fehler ≈ 4 (d/a)² bei dielektrischen Schichten), d ≲ h, achiral, ein Körper |
+| Gültigkeit | beliebige Dicke, Mehrfachschichten, chiral | d/a ≲ 0,1 (Fehler ≈ 4 (d/a)² bei dielektrischen Schichten), d ≲ h, achiral; ein oder mehrere Körper |
+| Netz | auch auf groben Rundungen robust | Krümmung aufgelöst (mehrere Elemente je Rundung) |
 | dünne Schichten (d ≪ h) | Differenz zur neutralen Rechnung nötig | direkt, Absolutwerte |
 | Kosten | zwei Flächen, dazu die neutrale Rechnung | wie ohne Schicht (plus lokale Operatoren) |
 | Genauigkeit bei d/a ≤ 0,05 | 0,6–1,3 % (Extinktion), 3–9 % (Phase) | 0,1–0,7 % in beiden |
@@ -384,4 +465,5 @@ zweite Ordnung überholt.
   erzeugen, die nur teilweise erkannt werden (umklappende Dreiecke, Umstülpen).
 - Eindeutigkeit für verschachtelte Gebiete ist nicht bewiesen (AP 1, Vermutung).
 - Für d ≲ h und d/a ≲ 0,1 ist die Dünnschicht-Näherung zweiter Ordnung vorzuziehen (Abschnitt „Dünnschicht-Näherung
-  zweiter Ordnung“).
+  zweiter Ordnung“), sofern die Krümmung auf dem Netz aufgelöst ist; auf groben Netzen mit engen Rundungen ist die
+  Zwei-Flächen-Rechnung robuster (Silberwürfel: Unterschied 5–13 % auf dem groben, extrapoliert ≈ 1 %).

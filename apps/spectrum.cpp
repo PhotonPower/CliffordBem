@@ -7,9 +7,10 @@
 // Beschichtungen (alle Koerper, von innen nach aussen, Dicke in nm, Material wie --materials):
 //   spectrum --sphere 12 --unit 20 --materials Ag --nbg 1.33 --coating "1.5:2.89,0" --lambda 360:460:5
 //   --coat-inward: Schichten innerhalb der Netzflaeche (verdraengen Kernmaterial). Nur punktweise Vorkonditionierung.
-//   --thin f: Duennschicht-Naeherung erster Ordnung auf einer Flaeche (ThinLayerScatteringProblem, ein Koerper);
+//   --thin f: Duennschicht-Naeherung auf einer Flaeche je Koerper (ThinLayerScatteringProblem, auch mehrere Koerper);
 //             Referenzflaeche im Anteil f der Schicht von innen (0 = Netzflaeche), per Parallelflaeche.
-//   --thin-model jump|dirac1|dirac2: Sprungform 1. Ordnung, Dirac-Form 1. bzw. 2. Ordnung (Standard dirac2, mit --thin 0).
+//   --thin-model jump|dirac1|dirac2|dirac2fit: Sprungform 1. Ordnung, Dirac-Form 1. bzw. 2. Ordnung (zusammengesetzte
+//             Gradienten bzw. quadratische Anpassung; Standard dirac2fit, mit --thin 0 = Referenz auf der Metallseite).
 // Ausgabe zusaetzlich: Vorwaertsamplitude S(0) (Mittel ueber Richtungen/Polarisationen) und ihre Phase arg S.
 #include <chrono>
 #include <cstdio>
@@ -27,7 +28,7 @@ static std::vector<std::string> split(const std::string& s, char c) { std::vecto
 int main(int argc, char** argv) {
     std::string precond = "point";   // point | cluster:G (Bloecke auf Clustern mit <= G Dreiecken) | hodlr:eps[:leaf] (hierarchische Faktorisierung)
     std::string mesh, mats = "Au", chis = "0", pol = "lin", lam = "500:600:50", csv, datadir = "data/materials";
-    int sph = 0, orient = 1; bool verbose = false, coat_inward = false; std::string coating; double thin = -1; ThinLayerModel tmodel = ThinLayerModel::Dirac2; std::string tmname = "dirac2"; double unit = 1.0, nbg = 1.0, heps = 1e-4, tol = 1e-6;
+    int sph = 0, orient = 1; bool verbose = false, coat_inward = false; std::string coating; double thin = -1; ThinLayerModel tmodel = ThinLayerModel::Dirac2Fit; std::string tmname = "dirac2fit"; double unit = 1.0, nbg = 1.0, heps = 1e-4, tol = 1e-6;
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
         if (o == "--precond") precond = nxt();
@@ -36,7 +37,7 @@ int main(int argc, char** argv) {
         else if (o == "--lambda") lam = nxt(); else if (o == "--pol") pol = nxt(); else if (o == "--orient") orient = std::stoi(nxt());
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt());
         else if (o == "--coating") coating = nxt(); else if (o == "--coat-inward") coat_inward = true; else if (o == "--thin") thin = std::stod(nxt());
-        else if (o == "--thin-model") { tmname = nxt(); tmodel = tmname == "jump" ? ThinLayerModel::Jump1 : tmname == "dirac1" ? ThinLayerModel::Dirac1 : ThinLayerModel::Dirac2; }
+        else if (o == "--thin-model") { tmname = nxt(); tmodel = tmname == "jump" ? ThinLayerModel::Jump1 : tmname == "dirac1" ? ThinLayerModel::Dirac1 : tmname == "dirac2fit" ? ThinLayerModel::Dirac2Fit : ThinLayerModel::Dirac2; }
         else if (o == "--csv") csv = nxt(); else if (o == "--data") datadir = nxt(); else if (o == "--verbose") verbose = true;
         else { std::printf("unbekannte Option %s\n", o.c_str()); return 1; }
     }
@@ -53,10 +54,10 @@ int main(int argc, char** argv) {
     std::vector<std::pair<real, std::shared_ptr<Material>>> coat_mat;           // Dicke in nm, Material
     for (auto& c : split(coating, ';')) { if (c.empty()) continue; auto q = c.find(':'); coat_mat.push_back({std::stod(c.substr(0, q)), make_material(c.substr(q + 1), datadir)}); }
     if (!coat_mat.empty() && precond != "point") { std::printf("Beschichtung: nur --precond point\n"); return 1; }
-    if (thin >= 0 && (coat_mat.empty() || parts.size() != 1)) { std::printf("--thin: genau ein Koerper mit --coating\n"); return 1; }
-    TriangleMesh thin_ref;                                     // Referenzflaeche der Duennschicht-Naeherung
+    if (thin >= 0 && coat_mat.empty()) { std::printf("--thin: nur mit --coating\n"); return 1; }
+    std::vector<TriangleMesh> thin_ref;                        // Referenzflaechen der Duennschicht-Naeherung (je Koerper)
     if (thin >= 0) { real t = 0; for (auto& c : coat_mat) t += c.first / unit; const real off = coat_inward ? -(1.0 - thin) * t : thin * t;
-                     thin_ref = off == 0.0 ? parts[0] : offset_surface(parts[0], off); }
+                     for (auto& pm : parts) thin_ref.push_back(off == 0.0 ? pm : offset_surface(pm, off)); }
     std::vector<double> lams; { auto r = split(lam, ':'); if (r.size() == 3) for (double l = std::stod(r[0]); l <= std::stod(r[1]) + 1e-9; l += std::stod(r[2])) lams.push_back(l); else for (auto& t : split(lam, ',')) lams.push_back(std::stod(t)); }
     const auto dirs = lebedev(orient);
     std::ofstream f; if (!csv.empty()) { f.open(csv, std::ios::app); f.seekp(0, std::ios::end); if (f.tellp() == 0) f << "lambda_nm,unit_nm,nbg,N,orient,pol,sigma_nm2,sigma_plus_nm2,sigma_minus_nm2,CD_nm2,iterations,t_s,coating,S_re,S_im\n"; }
@@ -75,7 +76,9 @@ int main(int argc, char** argv) {
         if (coat_mat.empty()) PP = std::make_unique<ScatteringProblem>(parts, med, om, bg, hp);
         else if (thin >= 0) {
             std::vector<Coating> cs; for (auto& c : coat_mat) cs.push_back(Coating{c.first / unit, Medium{c.second->eps(L), 1.0, 0.0}});
-            PT = std::make_unique<ThinLayerScatteringProblem>(thin_ref, med[0], cs, om, bg, thin, hp, EntryParams{}, tmodel);
+            std::vector<ThinBody> tb;
+            for (std::size_t b = 0; b < parts.size(); ++b) tb.push_back(ThinBody{thin_ref[b], med[b], cs, thin});
+            PT = std::make_unique<ThinLayerScatteringProblem>(tb, om, bg, hp, EntryParams{}, tmodel);
         }
         else {
             LayeredGeometry g(bg); std::vector<Coating> cs;

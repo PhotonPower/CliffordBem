@@ -1,4 +1,5 @@
 #include "cbem/problems/thin_layer_problem.hpp"
+#include <algorithm>
 #include <map>
 #include <stdexcept>
 #include "cbem/sources/fields.hpp"
@@ -68,18 +69,88 @@ SurfaceFV::SurfaceFV(const TriangleMesh& m) : mesh(m) {
             edges[t][a].lsq = u * x + v * y;
         }
     }
+    // Quadratische Anpassung ueber die Knotennachbarschaft
+    {
+        std::vector<std::vector<std::size_t>> vt(m.P.size());
+        for (std::size_t t = 0; t < N; ++t) for (int a = 0; a < 3; ++a) vt[m.T[t][a]].push_back(t);
+        ring.resize(N);
+        for (std::size_t t = 0; t < N; ++t) {
+            std::vector<std::size_t> nb;
+            for (int a = 0; a < 3; ++a) for (std::size_t q : vt[m.T[t][a]]) if (q != t && std::find(nb.begin(), nb.end(), q) == nb.end()) nb.push_back(q);
+            const Vec3& n = nsm[t];
+            Vec3 u = cross(n, std::abs(n.x) < 0.9 ? Vec3(1, 0, 0) : Vec3(0, 1, 0)); u = u / norm(u); const Vec3 v = cross(n, u);
+            const std::size_t k = nb.size();
+            if (k < 5) throw std::runtime_error("SurfaceFV: zu wenige Nachbarn fuer die quadratische Anpassung");
+            std::vector<std::array<real, 5>> A(k); real M[5][5] = {};
+            real hs = 0;
+            for (std::size_t j = 0; j < k; ++j) { const Vec3 r = m.centroid[nb[j]] - m.centroid[t]; hs = std::max(hs, norm(r)); }
+            for (std::size_t j = 0; j < k; ++j) {
+                const Vec3 r = m.centroid[nb[j]] - m.centroid[t]; const real x = dot(r, u) / hs, y = dot(r, v) / hs;   // skaliert
+                A[j] = {x, y, 0.5 * x * x, x * y, 0.5 * y * y};
+                for (int p = 0; p < 5; ++p) for (int q = 0; q < 5; ++q) M[p][q] += A[j][p] * A[j][q];
+            }
+            // Inverse der Normalmatrix (Gauss-Jordan)
+            real I[5][5] = {}; for (int p = 0; p < 5; ++p) I[p][p] = 1;
+            for (int c = 0; c < 5; ++c) {
+                int piv = c; for (int r = c + 1; r < 5; ++r) if (std::abs(M[r][c]) > std::abs(M[piv][c])) piv = r;
+                if (std::abs(M[piv][c]) < 1e-12) throw std::runtime_error("SurfaceFV: entartete Nachbarschaft (quadratische Anpassung)");
+                for (int q = 0; q < 5; ++q) { std::swap(M[c][q], M[piv][q]); std::swap(I[c][q], I[piv][q]); }
+                const real d = M[c][c]; for (int q = 0; q < 5; ++q) { M[c][q] /= d; I[c][q] /= d; }
+                for (int r = 0; r < 5; ++r) if (r != c) { const real f = M[r][c]; for (int q = 0; q < 5; ++q) { M[r][q] -= f * M[c][q]; I[r][q] -= f * I[c][q]; } }
+            }
+            Ring& R = ring[t]; R.nb = nb; R.gw.resize(k); R.lw.resize(k);
+            for (std::size_t j = 0; j < k; ++j) {
+                real c[5]; for (int p = 0; p < 5; ++p) { c[p] = 0; for (int q = 0; q < 5; ++q) c[p] += I[p][q] * A[j][q]; }
+                R.gw[j] = (u * c[0] + v * c[1]) * (1.0 / hs);
+                R.lw[j] = (c[2] + c[4]) / (hs * hs);
+            }
+        }
+    }
     // Formoperator: Kleinste-Quadrate-Gradient der Normalenkomponenten, symmetrisiert und tangential projiziert
     shape.assign(N, std::array<real, 9>{});
     for (std::size_t t = 0; t < N; ++t) {
         real M[3][3] = {};
-        for (const Edge& e : edges[t]) {
-            const Vec3 dn = nsm[e.nb] - nsm[t];
-            for (int a = 0; a < 3; ++a) for (int b = 0; b < 3; ++b) M[a][b] += e.lsq[a] * dn[b];
+        const Ring& Rg = ring[t];                                           // Gradient der Normalen aus der quadratischen Anpassung
+        for (std::size_t j = 0; j < Rg.nb.size(); ++j) {
+            const Vec3 dn = nsm[Rg.nb[j]] - nsm[t];
+            for (int a = 0; a < 3; ++a) for (int b = 0; b < 3; ++b) M[a][b] += Rg.gw[j][a] * dn[b];
         }
         const Vec3& n = nsm[t]; real P[3][3], Sy[3][3], R[3][3];
         for (int a = 0; a < 3; ++a) for (int b = 0; b < 3; ++b) { P[a][b] = (a == b) - n[a] * n[b]; Sy[a][b] = 0.5 * (M[a][b] + M[b][a]); }
         for (int a = 0; a < 3; ++a) for (int b = 0; b < 3; ++b) { R[a][b] = 0; for (int c = 0; c < 3; ++c) R[a][b] += P[a][c] * Sy[c][b]; }
         for (int a = 0; a < 3; ++a) for (int b = 0; b < 3; ++b) { real s = 0; for (int c = 0; c < 3; ++c) s += R[a][c] * P[c][b]; shape[t][3 * a + b] = s; }
+    }
+    meancurv.resize(N);
+    for (std::size_t t = 0; t < N; ++t) meancurv[t] = 0.5 * (shape[t][0] + shape[t][4] + shape[t][8]);
+}
+
+void SurfaceFV::laplace_fit(const std::vector<cplx>& phi, std::vector<cplx>& lap) const {
+    lap.assign(phi.size(), cplx(0));
+    for (std::size_t t = 0; t < phi.size(); ++t)
+        for (std::size_t j = 0; j < ring[t].nb.size(); ++j) lap[t] += ring[t].lw[j] * (phi[ring[t].nb[j]] - phi[t]);
+}
+
+void SurfaceFV::dirac_fit(const std::vector<Multivector>& F, std::vector<Multivector>& DF, std::vector<Multivector>& DSF,
+                          std::vector<Multivector>& DDF) const {
+    const std::size_t N = F.size();
+    DF.assign(N, Multivector{}); DSF.assign(N, Multivector{}); DDF.assign(N, Multivector{});
+    for (std::size_t t = 0; t < N; ++t) {
+        std::array<CVec3, 8> g{}; std::array<cplx, 8> lap{};
+        const Ring& R = ring[t];
+        for (std::size_t j = 0; j < R.nb.size(); ++j)
+            for (int c = 0; c < 8; ++c) {
+                const cplx w = F[R.nb[j]].c[c] - F[t].c[c];
+                g[c][0] += w * R.gw[j].x; g[c][1] += w * R.gw[j].y; g[c][2] += w * R.gw[j].z; lap[c] += w * R.lw[j];
+            }
+        const auto& S = shape[t]; const Multivector n = Multivector::vector(nsm[t]);
+        for (int c = 0; c < 8; ++c) {
+            CVec3 sg{};
+            for (int a = 0; a < 3; ++a) for (int b = 0; b < 3; ++b) sg[a] += S[3 * a + b] * g[c][b];
+            const Multivector ec = Multivector::blade(c);
+            DF[t] = DF[t] + Multivector::vector(g[c]) * ec;
+            DSF[t] = DSF[t] + Multivector::vector(sg) * ec;
+            DDF[t] = DDF[t] + (Multivector::blade(0, lap[c]) - Multivector::vector(sg) * n) * ec;
+        }
     }
 }
 
@@ -164,6 +235,19 @@ ThinLayerTransmissionOperator::ThinLayerTransmissionOperator(const TriangleMesh&
 void ThinLayerTransmissionOperator::propagate(std::vector<Multivector>& F, const Medium& md, real nu0, real nu1) const {
     const real s = nu1 - nu0; if (s == 0.0) return;
     const std::size_t N = F.size(); const cplx ik = cplx(0, 1) * md.k(omega_);
+    if (model_ == ThinLayerModel::Dirac2Fit) {                            // geschlossene Form mit quadratischer Anpassung
+        std::vector<Multivector> DF, DSF, DDF;
+        fv_.dirac_fit(F, DF, DSF, DDF);
+        const cplx k2 = md.k(omega_) * md.k(omega_);
+        for (std::size_t t = 0; t < N; ++t) {
+            const Multivector n = Multivector::vector(fv_.nsm[t]);
+            const Multivector X = F[t] * ik - DF[t];                           // (ik - D) F
+            const Multivector BF = n * X;
+            const Multivector BBF = F[t] * (-k2) - DDF[t] - (n * X) * (2.0 * fv_.meancurv[t]);
+            F[t] = F[t] + BF * s + BBF * (0.5 * s * s) + (n * DSF[t]) * (s * nu0 + 0.5 * s * s);
+        }
+        return;
+    }
     const bool second = model_ == ThinLayerModel::Dirac2;
     std::vector<Multivector> DF, DSF, G1(N), DG, G2;
     fv_.dirac(F, DF, second ? &DSF : nullptr);
@@ -249,24 +333,73 @@ void ThinLayerTransmissionOperator::precondition(const std::vector<cplx>& x, std
 ThinLayerScatteringProblem::ThinLayerScatteringProblem(const TriangleMesh& surface, const Medium& core, const std::vector<Coating>& coatings,
                                                        real omega, Medium outer, real inner_fraction, HMatrixParams hp, EntryParams ep,
                                                        ThinLayerModel model)
-    : m_(surface), core_(core), outer_(outer), omega_(omega) {
-    if (m_.normal.size() != m_.size()) m_.compute_geometry();
-    K1_ = std::make_unique<KernelEntries>(m_, core.k(omega), ep); K2_ = std::make_unique<KernelEntries>(m_, outer.k(omega), ep);
-    H1_ = std::make_unique<KernelHMatrix>(*K1_, hp); H2_ = std::make_unique<KernelHMatrix>(*K2_, hp);
-    E1_ = std::make_unique<CauchyOperator>(m_, *H1_); E2_ = std::make_unique<CauchyOperator>(m_, *H2_);
-    T_ = std::make_unique<ThinLayerTransmissionOperator>(m_, *E1_, *E2_, core, outer, coatings, inner_fraction, omega, model);
+    : outer_(outer), omega_(omega) {
+    build({ThinBody{surface, core, coatings, inner_fraction}}, hp, ep, model);
 }
+
+ThinLayerScatteringProblem::ThinLayerScatteringProblem(const std::vector<ThinBody>& bodies, real omega, Medium outer, HMatrixParams hp,
+                                                       EntryParams ep, ThinLayerModel model)
+    : outer_(outer), omega_(omega) {
+    build(bodies, hp, ep, model);
+}
+
+void ThinLayerScatteringProblem::build(const std::vector<ThinBody>& bodies, HMatrixParams hp, EntryParams ep, ThinLayerModel model) {
+    if (bodies.empty()) throw std::invalid_argument("ThinLayerScatteringProblem: keine Koerper");
+    std::vector<TriangleMesh> parts;
+    for (const ThinBody& b : bodies) { parts.push_back(b.surface); if (parts.back().normal.size() != parts.back().size()) parts.back().compute_geometry(); }
+    all_ = make_multibody(parts);
+    auto add = [&](const TriangleMesh& mesh, cplx k) {
+        ents_.push_back(std::make_unique<KernelEntries>(mesh, k, ep));
+        hms_.push_back(std::make_unique<KernelHMatrix>(*ents_.back(), hp));
+        cops_.push_back(std::make_unique<CauchyOperator>(mesh, *hms_.back()));
+        return cops_.back().get();
+    };
+    E2_ = add(all_.all, outer_.k(omega_));
+    std::vector<const BoundaryOperator*> inner;
+    for (std::size_t b = 0; b < bodies.size(); ++b) {
+        body_mesh_.push_back(std::make_unique<TriangleMesh>(parts[b]));
+        const CauchyOperator* E1 = add(*body_mesh_.back(), bodies[b].core.k(omega_));
+        inner.push_back(E1);
+        maps_.push_back(std::make_unique<ThinLayerTransmissionOperator>(*body_mesh_.back(), *E1, *E1, bodies[b].core, outer_,
+                                                                        bodies[b].coatings, bodies[b].inner_fraction, omega_, model));
+    }
+    E1_ = std::make_unique<BlockDiagonalOperator>(inner, all_.body_begin);
+}
+
+void ThinLayerScatteringProblem::apply(const std::vector<cplx>& x, std::vector<cplx>& y) const {
+    std::vector<cplx> Jx(x.size()), xb, yb, E1Jx, E2x;
+    for (std::size_t b = 0; b < maps_.size(); ++b) {
+        const std::size_t o = 8 * all_.body_begin[b], n = 8 * (all_.body_begin[b + 1] - all_.body_begin[b]);
+        xb.assign(x.begin() + o, x.begin() + o + n); maps_[b]->apply_Jeff(xb, yb);
+        std::copy(yb.begin(), yb.end(), Jx.begin() + o);
+    }
+    E2_->apply(x, E2x); E1_->apply(Jx, E1Jx);
+    y.resize(x.size());
+    for (std::size_t i = 0; i < x.size(); ++i) y[i] = 0.5 * (x[i] + E2x[i]) + 0.5 * (Jx[i] - E1Jx[i]);
+}
+
+void ThinLayerScatteringProblem::precondition(const std::vector<cplx>& x, std::vector<cplx>& y) const {
+    y.resize(x.size()); std::vector<cplx> xb, yb;
+    for (std::size_t b = 0; b < maps_.size(); ++b) {
+        const std::size_t o = 8 * all_.body_begin[b], n = 8 * (all_.body_begin[b + 1] - all_.body_begin[b]);
+        xb.assign(x.begin() + o, x.begin() + o + n); maps_[b]->precondition(xb, yb);
+        std::copy(yb.begin(), yb.end(), y.begin() + o);
+    }
+}
+
+double ThinLayerScatteringProblem::hmatrix_bytes() const { double s = 0; for (auto& h : hms_) s += h->stats().bytes(); return s; }
 
 LayeredResult ThinLayerScatteringProblem::solve_plane_wave(const Vec3& d, const CVec3& p, const SolveOptions& o) const {
     const cplx k = outer_.k(omega_);
-    const std::vector<cplx> b = project_plane_wave(m_, k, outer_.eps, d, p);
-    LinOp A = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { T_->apply(x, y); };
-    LinOp M = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { T_->precondition(x, y); };
+    const TriangleMesh& m = all_.all;
+    const std::vector<cplx> b = project_plane_wave(m, k, outer_.eps, d, p);
+    LinOp A = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { apply(x, y); };
+    LinOp M = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { precondition(x, y); };
     LayeredResult r; GmresResult g = gmres(A, b, r.h, &M, o.tol, o.restart, o.max_iter);
     r.iterations = g.iterations; r.residual = g.rel_residual;
     std::vector<cplx> hs(b.size()); for (std::size_t i = 0; i < b.size(); ++i) hs[i] = r.h[i] - b[i];
-    r.sigma_ext = extinction_cross_section(m_, hs, k, outer_.eps, d, p);
-    r.forward = forward_amplitude(m_, hs, k, outer_.eps, d, p);
+    r.sigma_ext = extinction_cross_section(m, hs, k, outer_.eps, d, p);
+    r.forward = forward_amplitude(m, hs, k, outer_.eps, d, p);
     return r;
 }
 

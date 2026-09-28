@@ -44,7 +44,7 @@
   {\Large\textbf{Clifford-BEM: Mathematische Ausarbeitung zu AP 1}}\\[0.3cm]
   {\large Teil I: Grundlagen, Cauchy-Darstellung, Transmission, chirale Medien\\
   Teil II: Resonanzfreiheit und Kugel, Teil III: Eindeutigkeit und Torus}\\[0.3cm]
-  {\small Arbeitsstand, Version 0.21}
+  {\small Arbeitsstand, Version 0.22}
 \end{center}
 
 \section*{Überblick und Status}
@@ -2825,7 +2825,23 @@ $d/a=0{,}1$): Phasenänderung an der Resonanz auf 1--3\,\%, so genau wie die Zwe
 Kette durch ein Medium mit großem $|\varepsilon|$, werden die Terme zweiter Ordnung um Kontraste wie
 $\varepsilon_2/\varepsilon_1$ verstärkt (Schicht nach innen mit Extrapolation im Gold: Fehler von $\sigma$ 1,58\,\% statt
 0,71\,\%); die Referenzfläche gehört daher auf die Seite des größten $|\varepsilon|$, bei Metallteilchen auf die
-Metalloberfläche. Für $d\gtrsim h$
+Metalloberfläche.
+
+\paragraph{Konsistente zweite Ableitungen und Grenzen.} Mit einer quadratischen Anpassung über die Knotennachbarschaft
+(Tangentialkoordinaten zu $\tilde\n$) erhält man je Komponente Gradient und Hesse-Matrix punktweise konsistent. Für die
+normal konstante Fortsetzung gilt $(\nabla_\Gamma)_a(\nabla_\Gamma)_b\varphi=\mathrm{Hess}_{ab}\varphi-n_b(S\nabla_\Gamma\varphi)_a$
+und $D(\n X)=2HX-\n DX$ ($H=\tfrac12\operatorname{tr}S$); daraus folgt die geschlossene Form
+\[
+  B^2F=-k^2F-DDF-2H\,\n(ikF-DF),\qquad DDF=\textstyle\sum_c\big[\Delta_\Gamma F_c-(S\nabla_\Gamma F_c)\wedge\n\big]e_c ,
+\]
+ohne zweimalige Anwendung von $D$. Der Laplace-Beltrami-Operator ist damit punktweise konsistent (maximaler Fehler bei
+$Y_2$ für $n=48$: 0,0086 statt 0,75), und bei Propagation im Metall fällt der Fehler der Schichtwirkung von 1,5--2,4\,\% auf
+0--0,2\,\%. Für mehrere Körper wirkt $E_2$ auf der Vereinigung der Flächen und $E_1$ blockdiagonal; ein Dimer mit engem
+Spalt stimmt mit der exakten Rechnung extrapoliert auf gut 1\,\% überein. Am abgerundeten Silberwürfel (Rundung 10\,nm,
+drei Elemente je Viertelrundung) unterscheiden sich beide Verfahren um 5--13\,\%, unabhängig von der Schichtdicke; bei
+Netzverfeinerung konvergieren sie aufeinander zu (extrapoliert $\approx1\,\%$). Die Dünnschicht-Näherung braucht also eine
+aufgelöste Krümmung: Am Übergang von ebenen Seiten zu Rundungen springt $S$, und glatte Normalen, Formoperator und
+Anpassung verschmieren den Sprung über einige Elemente. Für $d\gtrsim h$
 wachsen die Terme wie $(d/h)^2$, und die Iterationen steigen stark ($d/h=1{,}5$: 476); dort ist die exakte Formulierung
 zu verwenden.
 
