@@ -1,11 +1,11 @@
-# Architektur und Ausbauplan
+# Architektur und Ausbauplan (Stand 0.12)
 
 ## Leitlinien
 
 1. **Eintragsauswertung als zentrale Schnittstelle.** Alle Operatoren werden über
-   `KernelEntries` ausgewertet: Fernfeld (Gauß), Nahfeld (analytisch plus Gauß), später
-   Sauter-Schwab. H-Matrix, dichte Referenz und Vorkonditionierer rufen nur diese Schnittstelle
-   auf. Neue Kerne (Helmholtz, Elastodynamik) kommen als weitere Implementierungen hinzu.
+   `KernelEntries` ausgewertet: Fernfeld (Gauß), benachbarte Paare (Sauter-Schwab bzw. halbanalytisch),
+   nahe Paare (analytisches Innenintegral, adaptive Außenregel), einmal vorberechnet im Nahfeld-Cache.
+   H-Matrix, dichte Blöcke, Systemeinträge und Vorkonditionierer rufen nur diese Schnittstelle auf. Neue Kerne (Helmholtz, Elastodynamik) kommen als weitere Implementierungen hinzu.
 2. **Kernkomponenten statt 8×8-Blöcke.** Für den Cauchy-Operator werden je Dreieckspaar die vier
    Komponenten K_c = ∬ Φ_k (Skalar + Vektor) komprimiert. Die Multivektorstruktur
    E_ij = −2/√(|τ_i||τ_j|) L((s + v) n_j) steckt im Operator (`CauchyOperator`). Das spart Faktor 16
@@ -20,26 +20,32 @@
 
 ## Module und nächste Schritte
 
-| Modul | Stand 0.1 | Nächste Schritte |
+| Modul | Stand 0.12 | Nächste Schritte |
 |---|---|---|
-| geometry | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörpernetze, Gmsh-Import (2.2/4.1), Dunavant, Sauter-Schwab | gekrümmte Elemente, nichtkonforme Kantennetze |
-| kernel | Dirac-Kern, Wilton-Integrale | – |
-| assembly | Fernfeld (Gauß 7×7); benachbarte Paare: Sauter-Schwab (gleichseitig) bzw. halbanalytisch gradiert (gestreckt); nahe Paare: adaptive Außenregel; Nahfeld-Cache | nichtkonforme Nachbarschaften, schnellere Nahpaare auf gestreckten Elementen |
-| hmatrix | Clusterbaum, ACA (joint/comp/Multivektor-Pivots), Nachkompression, ACA mit exakten Einträgen (gestreckte Elemente) | ACA+, complex64-Speicher, parallele Mat-Vek |
-| operators | Cauchy-Operator E_k, chiraler Cauchy-Operator, blockdiagonaler Mehrkörper-Innenoperator, Transmissionsoperator T₁ (Medium je Dreieck) | chirale Außenmedien, Substrate (geschichtete Außenmedien) |
-| problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, ebene Wellen) | mehrere rechte Seiten gleichzeitig (Block-GMRES), Wiederverwendung über Wellenlängen |
 | core | Grundtypen, Materialmodelle (konstant, n/k-Tabellen) | Drude-Lorentz-Fits, Größenkorrektur der Dämpfung |
-| solvers | GMRES, punktweise 2(1+J)⁻¹, Blockvorkonditionierung (Kanten/Ecken oder Cluster, mehrere Körper, chiral; dichte LU), hierarchische Faktorisierung | HODLR-Faktorisierung (schwache Zulässigkeit, Woodbury) | H-LU mit starker Zulässigkeit, Krylov-Recycling (GCRO-DR), Deflation resonanter Moden, parallele Faktorisierung |
+| clifford | Multivektoren, geometrisches Produkt, Inverse (Nullteiler-Erkennung), Linksmultiplikation | spezialisierte Grad-Darstellungen |
+| geometry | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörpernetze, Gmsh-Import (2.2/4.1), Dunavant, Sauter-Schwab | gekrümmte Elemente, nichtkonforme Kantennetze |
+| kernel | Dirac-Kern, Wilton-Integrale (asinh-Form) | analytisch fortgesetzter Kern für komplexe Punkte (Streckung um Spitzen) |
+| assembly | Fernfeld (Gauß 7×7); benachbarte Paare: Sauter-Schwab (gleichseitig) bzw. halbanalytisch gradiert (gestreckt); nahe Paare: adaptive Außenregel; Nahfeld-Cache | nichtkonforme Nachbarschaften, schnellere Nahpaare auf gestreckten Elementen |
+| hmatrix | Clusterbaum, ACA (gemeinsam, komponentenweise, Multivektor-Pivots), Nachkompression, ACA mit exakten Einträgen | ACA+, complex64-Speicher, parallele Mat-Vek |
+| operators | Cauchy-Operator, chiraler Innenoperator, blockdiagonaler Mehrkörper-Innenoperator, T₁ mit Medium je Dreieck, dichte Blöcke | chirale Außenmedien, Substrate (geschichtete Außenmedien) |
+| solvers | GMRES, punktweise 2(1+J)⁻¹, Blockvorkonditionierung (Kanten/Ecken, Cluster; mehrere Körper, chiral), HODLR-Faktorisierung | H-LU mit starker Zulässigkeit, Krylov-Recycling (GCRO-DR), Deflation resonanter Moden, Parallelisierung |
 | sources | ebene Welle (linear/zirkular), Fernfeld, Extinktion, Lebedev-Richtungen | Dipolquellen, Nahfeld, Streuquerschnitt, Streumatrix |
-| apps | Kompressionsbenchmark, Kugel- und Würfelstreuung | Parameterstudien, AP-4-Geometrien |
-| bindings | – | pybind11-Modul für Skripting und Vergleich mit dem Prototyp |
+| problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, Systemeinträge) | mehrere rechte Seiten gleichzeitig, Wiederverwendung über Wellenlängen |
+| apps | Kugel, chirale Kugel, Würfel, Würfel-Dimer, Kugel-Dimer, Gmsh-Geometrien, Spektren, Kompressionsbenchmark | Parameterstudien für AP 4 |
+| prototype/resonance | 2D-Galerkin mit Streckung in log r, Absorber, angereicherte Eckelemente, 3D-Nullstellenanalyse | transparenter Kantenabschluss (diskrete DtN, Hardy-Raum-Ansatz) |
+| bindings | – | pybind11-Modul für Skripting |
 
 ## Bekannte Grenzen
 
-- Auf gestreckten Elementen ist die Zahl der Nahpaare groß (D < 2,5 h_max ist für die Fernfeldregel
-  nötig); die Vorberechnung dominiert dort die Aufbauzeit (L = 9: 93 s je Wellenzahl auf einem Kern).
-- Sauter-Schwab konvergiert auf gestreckten Dreiecken langsam und orientierungsabhängig; es wird
-  daher nur bis Seitenverhältnis 1,6 verwendet.
-- Sauter-Schwab setzt konforme Netze voraus (Nachbarschaft über gemeinsame Knotenindizes). Bei
-  hängenden Knoten fällt der Kern auf das analytische Innenintegral zurück.
-- Resonanzfenster an Ecken (AP 1, Teil IV): kein reflexionsfreier Eckabschluss vorhanden.
+- **Resonanzfenster an scharfen 3D-Kanten:** Für Kontraste im kritischen Intervall (rechter Winkel: [−3, −1/3])
+  laufen Eckwellen in die Kante, die am innersten Element reflektiert werden. In 2D löst Galerkin mit komplexer
+  Streckung in log r das Problem; an 3D-Kanten erzeugt dieselbe Streckung Kernsingularitäten (z·z = 0 auf dem
+  komplexen Rand), an Spitzen ist sie zulässig, ist im C++-Kern aber noch nicht umgesetzt
+  (`results_resonance_window.md`). Praktischer Weg: abgerundete Kanten mit aufgelöstem Radius (`results_roundcube.md`).
+- **Nahfeld auf gestreckten Elementen:** Die Zahl der Nahpaare ist groß (D < 2,5 h_max ist für die Fernfeldregel
+  nötig); die Vorberechnung dominiert dort die Aufbauzeit. Sauter-Schwab wird nur bis Seitenverhältnis 1,6 verwendet.
+- **Sauter-Schwab** setzt konforme Netze voraus (Nachbarschaft über gemeinsame Knoten).
+- **Vorkonditionierung an Plasmonresonanzen:** lokale Blöcke und HODLR senken die Iterationen nur begrenzt; nahe
+  Resonanzen ist T₁ schlecht konditioniert.
+- **Rechenumgebung der Studien:** ein Kern, 3 GB Speicher; die Netzgrößen der Berichte sind dadurch begrenzt.
