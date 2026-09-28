@@ -1,4 +1,4 @@
-# Architektur und Ausbauplan (Stand 0.16)
+# Architektur und Ausbauplan (Stand 0.17)
 
 ## Leitlinien
 
@@ -31,7 +31,7 @@
 | operators | Cauchy-Operator, chiraler Innenoperator, blockdiagonaler Mehrkörper-Innenoperator, T₁ mit Medium je Dreieck, geschichtete Transmission (Gebietsoperatoren je Gebiet), dichte Blöcke | chirale Außenmedien, Substrate (geschichtete Außenmedien, Green-Funktion der Schichtung) |
 | solvers | GMRES, punktweise 2(1+J)⁻¹, Blockvorkonditionierung (Kanten/Ecken, Cluster; mehrere Körper, chiral), HODLR-Faktorisierung | H-LU mit starker Zulässigkeit, Krylov-Recycling (GCRO-DR), Deflation resonanter Moden, Parallelisierung |
 | sources | ebene Welle (linear/zirkular), Fernfeld, Extinktion, Vorwärtsamplitude S(0) (Betrag, Phase), Lebedev-Richtungen | Dipolquellen, Nahfeld, Streuquerschnitt, Streumatrix |
-| problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, Systemeinträge); LayeredScatteringProblem (Grenzflächengraph: Kern-Schale, Mehrfachschichten, Einschlüsse, chirale Schichten); ThinLayerScatteringProblem (eine Fläche je Körper, mehrere Körper; Dirac-Form 2. Ordnung mit Formoperator, glatten Normalen und quadratischer Anpassung der zweiten Ableitungen über die Knotennachbarschaft; Sprungform 1. Ordnung mit Kleinste-Quadrate-Gradient und Divergenz in Flussform) | mehrere rechte Seiten gleichzeitig, Wiederverwendung über Wellenlängen; Block-/HODLR-Vorkonditionierung für geschichtete Körper; neutrale Referenz mit gemeinsamem Aufbau; Dünnschicht: Stabilität für d ≳ h, Krümmungssprünge an Rundungsübergängen, chirale Schichten |
+| problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, Systemeinträge); LayeredScatteringProblem (Grenzflächengraph: Kern-Schale, Mehrfachschichten, Einschlüsse, chirale Schichten); ThinLayerScatteringProblem (eine Fläche je Körper, mehrere Körper; Dirac-Form 2. Ordnung mit Formoperator, glatten Normalen und quadratischer Anpassung der zweiten Ableitungen über die Knotennachbarschaft; Sprungform 1. Ordnung mit Kleinste-Quadrate-Gradient und Divergenz in Flussform; chirale Schichten und Kerne über den zentralen Multivektor K = k₊P₊ + k₋P₋) | mehrere rechte Seiten gleichzeitig, Wiederverwendung über Wellenlängen; Block-/HODLR-Vorkonditionierung für geschichtete Körper; neutrale Referenz mit gemeinsamem Aufbau; Dünnschicht: Stabilität für d ≳ h, Krümmungssprünge an Rundungsübergängen, chirale Außenmedien |
 | apps | Kugel, chirale Kugel, Würfel, Würfel-Dimer, Kugel-Dimer, Gmsh-Geometrien, Spektren (auch beschichtet), beschichtete Körper, Kompressionsbenchmark | Parameterstudien für AP 4 |
 | prototype/resonance | 2D-Galerkin mit Streckung in log r, Absorber, angereicherte Eckelemente, 3D-Nullstellenanalyse | transparenter Kantenabschluss (diskrete DtN, Hardy-Raum-Ansatz) |
 | bindings | – | pybind11-Modul für Skripting |
@@ -54,5 +54,8 @@
 - **Dünnschicht-Näherung:** zweite Ordnung mit Restfehler ≈ 4 (d/a)² bei dielektrischen Schichten, grob um |ε_Metall| verstärkt,
   wenn die Kette durch Metall propagiert (Referenzfläche daher auf die Metallseite). Die Terme wachsen wie (d/h)², für d ≳ h
   steigen die Iterationen stark (d/h = 1,5: 476). Die Krümmung muss aufgelöst sein: am Silberwürfel mit 3 Elementen je
-  Viertelrundung 5–13 % Unterschied zur exakten Rechnung (Diskretisierung, fällt mit dem Netz). Nur achirale Medien.
+  Viertelrundung 5–13 % Unterschied zur exakten Rechnung (Diskretisierung, fällt mit dem Netz). Chirale Schichten und
+  Kerne nur in der Dirac-Form; das Außenmedium muss achiral sein.
+- **CD dünner chiraler Schalen:** Die exakte Zwei-Flächen-Rechnung verfehlt ihn bei d/h ≲ 0,4 um 30–50 %; die
+  Dünnschicht-Näherung ist dort vorzuziehen.
 - **Rechenumgebung der Studien:** ein Kern, 3 GB Speicher; die Netzgrößen der Berichte sind dadurch begrenzt.

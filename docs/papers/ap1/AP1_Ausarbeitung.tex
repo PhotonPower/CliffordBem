@@ -44,7 +44,7 @@
   {\Large\textbf{Clifford-BEM: Mathematische Ausarbeitung zu AP 1}}\\[0.3cm]
   {\large Teil I: Grundlagen, Cauchy-Darstellung, Transmission, chirale Medien\\
   Teil II: Resonanzfreiheit und Kugel, Teil III: Eindeutigkeit und Torus}\\[0.3cm]
-  {\small Arbeitsstand, Version 0.22}
+  {\small Arbeitsstand, Version 0.23}
 \end{center}
 
 \section*{Überblick und Status}
@@ -103,6 +103,7 @@ Verschachtelte Gebiete: Fredholm, getrennte Flächen (Prop.\ \ref{prop:schicht})
 Verschachtelte Gebiete: Eindeutigkeit (Verm.\ \ref{verm:schicht}) & Verm., num.\ gestützt & \texttt{scatter\_coated}\\
 Dünnschicht-Näherung erster Ordnung (\ref{sec:schicht}) & hergeleitet, num.\ belegt & \texttt{test\_thin\_layer}\\
 Dünnschicht zweiter Ordnung, Dirac-Form (\ref{sec:schicht}) & hergeleitet, num.\ belegt & \texttt{test\_thin\_layer}\\
+Dünnschicht mit chiralen Schichten (\ref{sec:schicht}) & hergeleitet, num.\ belegt & \texttt{test\_thin\_layer}\\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -2841,7 +2842,21 @@ Spalt stimmt mit der exakten Rechnung extrapoliert auf gut 1\,\% überein. Am ab
 drei Elemente je Viertelrundung) unterscheiden sich beide Verfahren um 5--13\,\%, unabhängig von der Schichtdicke; bei
 Netzverfeinerung konvergieren sie aufeinander zu (extrapoliert $\approx1\,\%$). Die Dünnschicht-Näherung braucht also eine
 aufgelöste Krümmung: Am Übergang von ebenen Seiten zu Rundungen springt $S$, und glatte Normalen, Formoperator und
-Anpassung verschmieren den Sprung über einige Elemente. Für $d\gtrsim h$
+Anpassung verschmieren den Sprung über einige Elemente.
+
+\paragraph{Chirale Schichten.} In einem Pasteur-Medium zerfällt das Feld mit den zentralen Projektoren
+$P_\pm=\tfrac12(1\pm iI)$ in $F_\pm=P_\pm F$ mit $(\nabla-ik_\pm)F_\pm=0$ (Satz~\ref{satz:chiral}). Mit dem zentralen
+Multivektor $K=k_+P_++k_-P_-$ gilt also $(\nabla-iK)F=0$, und da $K$ mit $\n$ und $D$ vertauscht und räumlich konstant
+ist, bleiben alle Umformungen gültig:
+\[
+  B=\n\,(iK-D^{(\nu)}),\qquad B^2F=-K^2F-DDF-2H\,\n(iKF-DF),\qquad K^2=k_+^2P_++k_-^2P_- .
+\]
+Die Transmissionsabbildungen zwischen chiralen Medien sind die von Lemma~\ref{lem:Jchiral}; chirale Kerne erhalten den
+Innenoperator $P_+E_{k_+}+P_-E_{k_-}$. Das Außenmedium bleibt achiral. Als Referenz dient eine Mie-Lösung für geschichtete
+Kugeln mit chiralen Schichten (Beltrami-Felder $W_{A,B}=M\pm N$ je chiralem Gebiet, reguläre und irreguläre
+Radialfunktionen in den Schalen, Stetigkeit von $E_{\tan}$ und $H_{\tan}$; \texttt{tools/mie\_chiral\_layered.py}); sie
+reproduziert die achirale beschichtete Kugel und die homogene chirale Kugel auf $10^{-15}$. Ergebnisse in
+\texttt{docs/results\_coated.md}. Für $d\gtrsim h$
 wachsen die Terme wie $(d/h)^2$, und die Iterationen steigen stark ($d/h=1{,}5$: 476); dort ist die exakte Formulierung
 zu verwenden.
 

@@ -185,3 +185,26 @@ if os.path.exists('results/thin_layer.csv'):
     ax[0].set_ylabel(r'rel. Fehler von $\Delta\sigma_{ext}$'); ax[1].set_ylabel(r'rel. Fehler von $\Delta\arg S(0)$')
     ax[0].set_title('Extinktionsänderung (feinstes Netz)', fontsize=10); ax[1].set_title('Phasenänderung (feinstes Netz)', fontsize=10)
     ax[0].legend(fontsize=6, loc='upper left'); fig.tight_layout(); fig.savefig('docs/fig_coated_thinlayer.png', dpi=130)
+
+# 5. Chirale Schichten: Fehler des CD gegen das Netz (results/thin_chiral.csv, tools/analyze_chiral_thin.py)
+if os.path.exists('results/thin_chiral.csv'):
+    import mie_chiral_layered as mcl
+    from collections import defaultdict
+    g = defaultdict(dict)
+    for r in rd('results/thin_chiral.csv'):
+        if float(r['core_re']) != -11.0: continue
+        g[(int(r['n']), r['coat'])][int(r['pol'])] = float(r['sigma_ext'])
+    gold = (-11 + 1.2j, 1.0, 0.0)
+    fig, ax = plt.subplots(figsize=(5.4, 3.8))
+    for j, d in enumerate([0.02, 0.05, 0.1]):
+        m = mcl.cross_sections(om, [1, 1 + d], [gold, (2.25, 1.0, 0.1)], +1)[0] - mcl.cross_sections(om, [1, 1 + d], [gold, (2.25, 1.0, 0.1)], -1)[0]
+        for meth, st in [('thin-dirac2fit:', 'o-'), ('', 's--')]:
+            key = f"{meth}{d},2.25,0,0.1"
+            pts = sorted((n, abs((v[+1] - v[-1]) / m - 1)) for (n, c), v in g.items() if c == key and +1 in v and -1 in v)
+            if not pts: continue
+            lab = f"d = {d}: {'Dünnschicht 2. Ordnung' if meth else 'zwei Flächen'}"
+            ax.loglog([1.05 / p[0] for p in pts], [max(p[1], 1e-4) for p in pts], st, color=f'C{j}', mfc='none' if not meth else None, label=lab)
+    hh = np.array([0.08, 0.27]); ax.loglog(hh, 0.1 * (hh / 0.27) ** 2, 'k:', lw=1, label='Ordnung 2')
+    ax.set_xlabel('Elementgröße h (Kernradius 1)'); ax.set_ylabel('rel. Fehler des CD'); ax.grid(True, which='both', alpha=0.3)
+    ax.set_title('Goldkern mit chiraler Schale (χ = 0,1), CD gegen Mie', fontsize=10); ax.legend(fontsize=6.5)
+    fig.tight_layout(); fig.savefig('docs/fig_coated_chiral.png', dpi=130)

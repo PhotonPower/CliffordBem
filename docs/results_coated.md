@@ -1,4 +1,4 @@
-# Ergebnisse: beschichtete Grenzflächen (dünne Schichten, Kern-Schale, Dünnschicht-Näherung 1. und 2. Ordnung)
+# Ergebnisse: beschichtete Grenzflächen (dünne Schichten, Kern-Schale, Dünnschicht-Näherung 1. und 2. Ordnung, chirale Schichten)
 
 An Materialgrenzen liegen meist dünne Schichten (Oxide, Sulfide, Hüllen von wenigen nm), die Amplitude und Phase
 des gestreuten Lichts verändern. Seit v0.13 behandelt der Kern verschachtelte Gebiete exakt: jede Schichtgrenze ist
@@ -438,11 +438,53 @@ Dünnschicht-Näherung braucht daher eine gut aufgelöste Krümmung; auf groben 
 Zwei-Flächen-Rechnung robuster. Die Resonanzlage und -höhe stimmen schon auf dem groben Netz überein
 (460 nm: 43 854 gegen 43 039 nm²). Die Iterationen steigen am Würfel auf 90–132 (ohne Schicht 30–80).
 
+### Chirale Schichten (v0.17)
+
+In einem Pasteur-Medium zerfällt das Feld mit den zentralen Projektoren P_± = (1 ± iI)/2 in F_± = P_± F mit
+(∇ − ik_±)F_± = 0. Mit dem zentralen Multivektor K = k₊P₊ + k₋P₋ ist also (∇ − iK)F = 0; weil K mit n und D vertauscht,
+bleiben alle Umformungen der Dirac-Form gültig:
+
+    B = n (iK − D),   B²F = −K²F − DDF − 2H n(iKF − DF),   K² = k₊²P₊ + k₋²P₋.
+
+Chirale Schichten und chirale Kerne (Innenoperator P₊E_{k₊} + P₋E_{k₋}) sind damit in `Dirac1`, `Dirac2` und `Dirac2Fit`
+möglich; die Sprungform bleibt achiral, das Außenmedium ebenfalls. `scatter_coated`: Chiralität als vierter Wert der
+Schicht (`--coat d,re,im,χ`) bzw. dritter Wert des Kerns, `--cd` rechnet beide Helizitäten auf demselben Aufbau.
+
+**Referenz:** `tools/mie_chiral_layered.py`, eine Mie-Lösung für geschichtete Kugeln mit chiralen Schichten
+(Beltrami-Felder W_{A,B} = M ± N je chiralem Gebiet, reguläre und irreguläre Radialfunktionen in den Schalen, Stetigkeit
+von E_tan und H_tan, 4 Gleichungen je Grenzfläche). Sie reproduziert die achirale beschichtete Kugel (`mie_coated.py`)
+und die homogene chirale Kugel (`mie_chiral.py`) auf 10⁻¹⁵, erfüllt σ_s(χ) = σ_{−s}(−χ) und bei verlustfreien Medien
+Extinktion = Streuung.
+
+**Genauigkeit** (Goldkern ε = −11 + 1,2i, Schale ε = 2,25, χ = 0,1, ωa = 0,5; `results/thin_chiral.csv`,
+`tools/analyze_chiral_thin.py`); relativer Fehler des CD = σ₊ − σ₋ gegen Mie:
+
+| d | CD Mie | n = 4 | n = 6 | n = 8 | n = 12 | zwei Flächen n = 6 / 8 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0,02 | 2,307·10⁻³ | +9,2 % | +4,3 % | +2,4 % | +1,0 % | – |
+| 0,05 | 7,121·10⁻³ | +6,7 % | +3,0 % | +1,6 % | +0,5 % | −51 % / −30 % |
+| 0,1 | 1,970·10⁻² | +2,0 % | 0,0 % | −0,8 % | −1,3 % | – |
+
+![Chirale Schicht](fig_coated_chiral.png)
+
+- Der CD konvergiert mit Ordnung 2; bei d = 0,1 bleibt ein Modellrest von etwa −1,5 %. Der CD beträgt nur 0,1–0,7 % von σ,
+  die Rechnung muss also die Differenz zweier nahezu gleicher Querschnitte auflösen; Diskretisierungsfehler, die beide
+  Helizitäten gleich treffen, heben sich dabei heraus.
+- Die exakte Zwei-Flächen-Rechnung verfehlt den CD dünner chiraler Schalen grob (−51 % bzw. −30 %) und konvergiert nur
+  langsam: Ihr systematischer Fehler dünner Schalen (d/h = 0,3–0,4) ist für beide Helizitäten verschieden und hebt sich im
+  CD nicht heraus. Für dünne chirale Schichten ist die Dünnschicht-Näherung daher das geeignete Verfahren.
+- Chiraler Kern (ε = 2,25, χ = 0,2) mit achiraler Schale (ε = 4, d = 0,05): CD −3,1 % (n = 6), −1,8 % (n = 8); mit Schale
+  entgegengesetzter Chiralität (χ = −0,1): −3,2 %, −1,9 %. Das entspricht dem Diskretisierungsfehler des chiralen Kerns
+  selbst (σ₊ −1,7 % bei n = 8).
+- Spiegelsymmetrie σ₊(χ) = σ₋(−χ) auf 1,6·10⁻⁷ relativ (H-Matrix- und GMRES-Toleranz); ein chiraler Kern ohne Schicht
+  reproduziert `ScatteringProblem` bitgenau.
+
 ### Einordnung
 
 | | exakt (zwei Flächen) | Dünnschicht 2. Ordnung |
 |---|---|---|
-| Gültigkeit | beliebige Dicke, Mehrfachschichten, chiral | d/a ≲ 0,1 (Fehler ≈ 4 (d/a)² bei dielektrischen Schichten), d ≲ h, achiral; ein oder mehrere Körper |
+| Gültigkeit | beliebige Dicke, Mehrfachschichten, chiral | d/a ≲ 0,1 (Fehler ≈ 4 (d/a)² bei dielektrischen Schichten), d ≲ h, auch chiral (Außenmedium achiral); ein oder mehrere Körper |
+| CD dünner chiraler Schichten | grob falsch bei d/h ≲ 0,4 (−30 … −51 %) | Ordnung 2, 0,5–1 % bei n = 12 |
 | Netz | auch auf groben Rundungen robust | Krümmung aufgelöst (mehrere Elemente je Rundung) |
 | dünne Schichten (d ≪ h) | Differenz zur neutralen Rechnung nötig | direkt, Absolutwerte |
 | Kosten | zwei Flächen, dazu die neutrale Rechnung | wie ohne Schicht (plus lokale Operatoren) |

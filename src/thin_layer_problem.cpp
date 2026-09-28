@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <map>
 #include <stdexcept>
+#include "cbem/operators/chiral_cauchy_operator.hpp"
 #include "cbem/sources/fields.hpp"
 
 namespace cbem {
@@ -197,10 +198,12 @@ ThinLayerTransmissionOperator::ThinLayerTransmissionOperator(const TriangleMesh&
                                                              const Medium& in, const Medium& out, const std::vector<Coating>& coatings,
                                                              real f, real omega, ThinLayerModel model)
     : m_(m), E1_(E1), E2_(E2), in_(in), out_(out), fv_(m), omega_(omega), model_(model) {
-    if (std::abs(in.chi) > 0 || std::abs(out.chi) > 0) throw std::invalid_argument("ThinLayer: nur achirale Medien");
+    // Chirale Medien: nur in der Dirac-Form (zentraler Multivektor K = k_+ P_+ + k_- P_-); aussen achiral (ebene Welle)
+    if (std::abs(out.chi) > 0) throw std::invalid_argument("ThinLayer: chirales Aussenmedium nicht unterstuetzt");
+    if (model == ThinLayerModel::Jump1 && std::abs(in.chi) > 0) throw std::invalid_argument("ThinLayer: Sprungform nur achiral (Dirac-Form verwenden)");
     if (!(f >= 0.0 && f <= 1.0)) throw std::invalid_argument("ThinLayer: inner_fraction muss in [0, 1] liegen");
     for (const Coating& c : coatings) {
-        if (std::abs(c.medium.chi) > 0) throw std::invalid_argument("ThinLayer: nur achirale Schichten");
+        if (model == ThinLayerModel::Jump1 && std::abs(c.medium.chi) > 0) throw std::invalid_argument("ThinLayer: Sprungform nur achiral (Dirac-Form verwenden)");
         for (int side = 0; side < 2; ++side) {                  // Anteil innen (verdraengt in) und aussen (verdraengt out)
             const Medium& X = side == 0 ? in : out; const real d = c.thickness * (side == 0 ? f : 1.0 - f);
             aE_ += d * (1.0 / c.medium.eps - 1.0 / X.eps); bE_ += d * (c.medium.eps - X.eps);
@@ -234,16 +237,19 @@ ThinLayerTransmissionOperator::ThinLayerTransmissionOperator(const TriangleMesh&
 
 void ThinLayerTransmissionOperator::propagate(std::vector<Multivector>& F, const Medium& md, real nu0, real nu1) const {
     const real s = nu1 - nu0; if (s == 0.0) return;
-    const std::size_t N = F.size(); const cplx ik = cplx(0, 1) * md.k(omega_);
+    const std::size_t N = F.size();
+    // i K mit K = k_+ P_+ + k_- P_-, P_pm = (1 +- i I)/2 zentral (achiral: K = k); K^2 = k_+^2 P_+ + k_-^2 P_-
+    const cplx kp = md.k(omega_, +1), km = md.k(omega_, -1);
+    auto central = [](cplx a, cplx b) { return Multivector::blade(0, 0.5 * (a + b)) + Multivector::blade(7, cplx(0, 0.5) * (a - b)); };
+    const Multivector iK = central(kp, km) * cplx(0, 1), K2 = central(kp * kp, km * km);
     if (model_ == ThinLayerModel::Dirac2Fit) {                            // geschlossene Form mit quadratischer Anpassung
         std::vector<Multivector> DF, DSF, DDF;
         fv_.dirac_fit(F, DF, DSF, DDF);
-        const cplx k2 = md.k(omega_) * md.k(omega_);
         for (std::size_t t = 0; t < N; ++t) {
             const Multivector n = Multivector::vector(fv_.nsm[t]);
-            const Multivector X = F[t] * ik - DF[t];                           // (ik - D) F
+            const Multivector X = iK * F[t] - DF[t];                           // (iK - D) F
             const Multivector BF = n * X;
-            const Multivector BBF = F[t] * (-k2) - DDF[t] - (n * X) * (2.0 * fv_.meancurv[t]);
+            const Multivector BBF = (K2 * F[t]) * (-1.0) - DDF[t] - (n * X) * (2.0 * fv_.meancurv[t]);
             F[t] = F[t] + BF * s + BBF * (0.5 * s * s) + (n * DSF[t]) * (s * nu0 + 0.5 * s * s);
         }
         return;
@@ -251,13 +257,13 @@ void ThinLayerTransmissionOperator::propagate(std::vector<Multivector>& F, const
     const bool second = model_ == ThinLayerModel::Dirac2;
     std::vector<Multivector> DF, DSF, G1(N), DG, G2;
     fv_.dirac(F, DF, second ? &DSF : nullptr);
-    for (std::size_t t = 0; t < N; ++t) G1[t] = Multivector::vector(fv_.nsm[t]) * (F[t] * ik - DF[t]);     // B F
+    for (std::size_t t = 0; t < N; ++t) G1[t] = Multivector::vector(fv_.nsm[t]) * (iK * F[t] - DF[t]);     // B F
     if (second) fv_.dirac(G1, DG);
     for (std::size_t t = 0; t < N; ++t) {
         Multivector R = F[t] + G1[t] * s;
         if (second) {
             const Multivector n = Multivector::vector(fv_.nsm[t]);
-            const Multivector BB = n * (G1[t] * ik - DG[t]);                                                  // B^2 F
+            const Multivector BB = n * (iK * G1[t] - DG[t]);                                                  // B^2 F
             R = R + BB * (0.5 * s * s) + (n * DSF[t]) * (s * nu0 + 0.5 * s * s);                              // + B' F
         }
         F[t] = R;
@@ -358,7 +364,13 @@ void ThinLayerScatteringProblem::build(const std::vector<ThinBody>& bodies, HMat
     std::vector<const BoundaryOperator*> inner;
     for (std::size_t b = 0; b < bodies.size(); ++b) {
         body_mesh_.push_back(std::make_unique<TriangleMesh>(parts[b]));
-        const CauchyOperator* E1 = add(*body_mesh_.back(), bodies[b].core.k(omega_));
+        const Medium& core = bodies[b].core;
+        const BoundaryOperator* E1;
+        if (std::abs(core.chi) > 0) {                                       // chiraler Kern: P_+ E_{k+} + P_- E_{k-}
+            const CauchyOperator* Ep = add(*body_mesh_.back(), core.k(omega_, +1));
+            const CauchyOperator* Em = add(*body_mesh_.back(), core.k(omega_, -1));
+            chops_.push_back(std::make_unique<ChiralCauchyOperator>(*Ep, *Em)); E1 = chops_.back().get();
+        } else E1 = add(*body_mesh_.back(), core.k(omega_));
         inner.push_back(E1);
         maps_.push_back(std::make_unique<ThinLayerTransmissionOperator>(*body_mesh_.back(), *E1, *E1, bodies[b].core, outer_,
                                                                         bodies[b].coatings, bodies[b].inner_fraction, omega_, model));

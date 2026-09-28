@@ -28,6 +28,9 @@
 // Schichten bis in Medium 1 und zurueck zu nu = 0. Dirac1 ist die erste Ordnung (dieselbe Naeherung wie die Sprungform,
 // anders diskretisiert), Dirac2 die zweite Ordnung einschliesslich Kruemmung (Fehler O(d^3)). Zweite Flaechenableitungen
 // sind hintereinandergeschaltete Kleinste-Quadrate-Gradienten (im L^2-Mittel konsistent).
+// Chirale Medien (Kern und Schichten, v0.17): Mit den zentralen Helizitaetsprojektoren P_pm = (1 +- iI)/2 und
+// (nabla - i k_pm) F_pm = 0 wird ik durch den zentralen Multivektor iK, K = k_+ P_+ + k_- P_-, ersetzt; alle Umformungen
+// bleiben gueltig (K vertauscht mit n und D), B^2 F = -K^2 F - DDF - 2H n (iKF - DF). Das Aussenmedium bleibt achiral.
 // Normalen: Die Facettennormale eines ebenen Dreiecks weicht um O(h) von der glatten Normalen am Schwerpunkt ab; abgeleitet
 // ueber den Abstand h wird daraus ein Fehler O(1) (Formoperator auf der Kugel: 15 % von 1/R, nicht konvergent). Alle
 // Schichtkorrekturen verwenden deshalb die glatte Normale nsm (Mittel der winkelgewichteten Knotennormalen). Damit ohne
@@ -35,6 +38,7 @@
 #include <memory>
 #include <vector>
 #include "cbem/operators/transmission_operator.hpp"
+#include "cbem/operators/chiral_cauchy_operator.hpp"
 #include "cbem/operators/multibody_operator.hpp"
 #include "cbem/problems/layered_problem.hpp"
 
@@ -121,6 +125,7 @@ private:
     std::vector<std::unique_ptr<KernelEntries>> ents_;
     std::vector<std::unique_ptr<KernelHMatrix>> hms_;
     std::vector<std::unique_ptr<CauchyOperator>> cops_;
+    std::vector<std::unique_ptr<ChiralCauchyOperator>> chops_;               // chirale Kerne
     std::unique_ptr<BlockDiagonalOperator> E1_;
     const CauchyOperator* E2_ = nullptr;
     std::vector<std::unique_ptr<ThinLayerTransmissionOperator>> maps_;          // J_eff je Koerper (lokale Nummerierung)

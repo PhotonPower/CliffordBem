@@ -2,7 +2,9 @@
 // exakt ohne Wirkung, Schichtwirkung gegen Aden-Kerker (tools/mie_coated.py); Dirac-Form 2. Ordnung (Formoperator,
 // Fehler O((d/a)^2)).
 #include <cmath>
+#include <stdexcept>
 #include "cbem/problems/thin_layer_problem.hpp"
+#include "cbem/sources/fields.hpp"
 #include "check.hpp"
 using namespace cbem;
 int main() {
@@ -103,6 +105,26 @@ int main() {
         const auto one = ThinLayerScatteringProblem(s, gold, {Coating{0.05, glass}}, om, {}, 0.0, hp).solve_plane_wave(d, px, so);
         std::printf("  zwei Koerper im Abstand 60: sigma %.6f, 2 x einzeln %.6f\n", two.sigma_ext, 2 * one.sigma_ext);
         CHECK(std::abs(two.sigma_ext / (2 * one.sigma_ext) - 1) < 0.02, "mehrere Koerper nicht additiv");
+    }
+    // 8. chirale Schichten (Dirac-Form): Spiegelsymmetrie, CD gegen tools/mie_chiral_layered.py, chiraler Kern = T_1
+    {
+        const Medium glass_c{2.25, 1.0, 0.1}, glass_m{2.25, 1.0, -0.1};
+        auto sig = [&](const Medium& shell, int sgn) {
+            return ThinLayerScatteringProblem(s, gold, {Coating{0.05, shell}}, om, {}, 0.0, hp).solve_plane_wave(d, circular_polarization(d, sgn), so).sigma_ext; };
+        const real sp = sig(glass_c, +1), sm = sig(glass_c, -1), sp_m = sig(glass_m, -1);
+        const real cd = sp - sm, cdx = 7.120608982e-3;
+        std::printf("  chirale Schale chi = 0,1, d = 0,05, n = 4: CD %.4e (Mie %.4e, %+.1f %%), sigma+(chi) - sigma-(-chi) = %.1e\n",
+                    cd, cdx, 100 * (cd / cdx - 1), sp - sp_m);
+        CHECK(std::abs(sp - sp_m) < 1e-6 * sp, "Spiegelsymmetrie der chiralen Schicht verletzt");
+        CHECK(std::abs(cd / cdx - 1) < 0.1, "CD der chiralen Schicht zu ungenau");
+        const Medium chiral_core{2.25, 1.0, 0.2};
+        const auto a = ThinLayerScatteringProblem(s, chiral_core, {}, om, {}, 0.0, hp).solve_plane_wave(d, circular_polarization(d, +1), so);
+        const auto b = ScatteringProblem({s}, {chiral_core}, om, {}, hp).solve_plane_wave(d, circular_polarization(d, +1), so);
+        CHECK(std::abs(a.sigma_ext - b.sigma_ext) < 1e-9 * b.sigma_ext, "chiraler Kern ohne Schicht nicht T_1");
+        bool thrown = false;
+        try { ThinLayerScatteringProblem(s, gold, {Coating{0.05, glass_c}}, om, {}, 0.0, hp, EntryParams{}, ThinLayerModel::Jump1); }
+        catch (const std::invalid_argument&) { thrown = true; }
+        CHECK(thrown, "Sprungform nimmt chirale Schicht an");
     }
     REPORT();
 }
