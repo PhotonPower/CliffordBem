@@ -8,6 +8,7 @@
 //   Schichtwirkung ist dann die Differenz zu --bare (gleiches Netz), ohne neutrale Rechnung.
 //   --thin-ref f: Referenzflaeche im Anteil f der Schicht von innen (0 = Innenrand, 1/2 = Mitte, 1 = Aussenrand);
 //   Standard: Kernoberflaeche (nach aussen) bzw. Aussenflaeche (--inward). --bare rechnet die Kugel mit Radius 1.
+//   --thin-model jump|dirac1|dirac2: Sprungform 1. Ordnung, Dirac-Form 1. bzw. 2. Ordnung (Standard dirac2).
 // --bare: dieselbe Flaeche ohne Schicht; --neutral: dieselben Netze, Schichten aus dem Aussenmedium. Die Wirkung einer
 // duennen Schicht ist als Differenz zur neutralen Rechnung genauer als zur Rechnung ohne Schicht (docs/results_coated.md).
 // Beispiele:
@@ -27,7 +28,7 @@ static std::vector<std::string> split(const std::string& s, char c) { std::vecto
 static cplx cval(const std::string& s) { auto c = s.find(','); return {std::stod(s.substr(0, c)), c == std::string::npos ? 0.0 : std::stod(s.substr(c + 1))}; }
 int main(int argc, char** argv) {
     std::string ns = "4,6,8", path, core = "-11,1.2", coat = "0.05,2.25,0", pol = "lin", csv, nbs = "1";
-    double om = 0.5, heps = 1e-4, tol = 1e-6, scale = 1.0; bool offset = false, inward = false, bare = false, neutral = false, oldnear = false, thin = false; double thinref = -1; Vec3 d(0, 0, 1);
+    double om = 0.5, heps = 1e-4, tol = 1e-6, scale = 1.0; bool offset = false, inward = false, bare = false, neutral = false, oldnear = false, thin = false; double thinref = -1; ThinLayerModel tmodel = ThinLayerModel::Dirac2; std::string tmname = "dirac2"; Vec3 d(0, 0, 1);
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
         if (o == "--n") ns = nxt(); else if (o == "--mesh") path = nxt(); else if (o == "--scale") scale = std::stod(nxt());
@@ -36,6 +37,7 @@ int main(int argc, char** argv) {
         else if (o == "--dir") { auto v = split(nxt(), ','); d = Vec3(std::stod(v[0]), std::stod(v[1]), std::stod(v[2])); d = d / norm(d); }
         else if (o == "--offset") offset = true; else if (o == "--inward") inward = true;
         else if (o == "--bare") bare = true;              // zusaetzlich dieselbe Flaeche ohne Schicht (Differenzen; Q auf denselben Radius bezogen)
+        else if (o == "--thin-model") { thin = true; tmname = nxt(); tmodel = tmname == "dirac2" ? ThinLayerModel::Dirac2 : tmname == "dirac1" ? ThinLayerModel::Dirac1 : ThinLayerModel::Jump1; }
         else if (o == "--thin") thin = true; else if (o == "--thin-ref") { thin = true; thinref = std::stod(nxt()); }
         else if (o == "--neutral") neutral = true;        // zusaetzlich dieselben Netze mit Schichten aus Aussenmedium (Referenz fuer Differenzen)
         else if (o == "--oldnear") oldnear = true;        // Nahfeldregel ohne Randabstand (Vergleich der Kosten)
@@ -60,7 +62,7 @@ int main(int argc, char** argv) {
         std::printf("%7s %7zu %11.6g %10.6f %11.6f %11.6f %9.6f %9.6f %5d %9zu %8.1f %8.1f\n", label.c_str(), N, r.sigma_ext, Q, r.forward.real(), r.forward.imag(),
                     std::abs(r.forward), std::arg(r.forward), r.iterations, np, tn, tb + ts);
         std::fflush(stdout);
-        if (f) { f << (path.empty() ? "sphere" : path) << ',' << n << ',' << N << ',' << om << ',' << mcore.eps.real() << ',' << mcore.eps.imag() << ",\"" << (label == "bare" ? "none" : label == "neutral" ? "neutral" : label == "thin" ? "thin" + (thinref >= 0 ? "@" + std::to_string(thinref).substr(0, 4) : std::string()) + ":" + coat : coat) << "\","
+        if (f) { f << (path.empty() ? "sphere" : path) << ',' << n << ',' << N << ',' << om << ',' << mcore.eps.real() << ',' << mcore.eps.imag() << ",\"" << (label == "bare" ? "none" : label == "neutral" ? "neutral" : label == "thin" ? "thin" + (tmname != "jump" ? "-" + tmname : std::string()) + (thinref >= 0 ? "@" + std::to_string(thinref).substr(0, 4) : std::string()) + ":" + coat : coat) << "\","
                    << inward << ',' << offset << ',' << r.sigma_ext << ',' << Q << ',' << r.forward.real() << ',' << r.forward.imag() << ',' << std::abs(r.forward) << ','
                    << std::arg(r.forward) << ',' << r.iterations << ',' << np << ',' << tn << ',' << tb << ',' << ts << '\n'; f.flush(); }
     };
@@ -68,7 +70,7 @@ int main(int argc, char** argv) {
         auto t0 = std::chrono::steady_clock::now();
         const real f = cs.empty() ? 0.0 : thinref >= 0 ? thinref : (inward ? 1.0 : 0.0);
         const real rlo = inward ? 1.0 - total : 1.0, rref = cs.empty() ? 1.0 : rlo + f * total;   // Radius der Referenzflaeche
-        ThinLayerScatteringProblem P(make_icosphere(n, rref), mcore, cs, om, ext, f, hp, EntryParams{});
+        ThinLayerScatteringProblem P(make_icosphere(n, rref), mcore, cs, om, ext, f, hp, EntryParams{}, tmodel);
         double tb = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(); t0 = std::chrono::steady_clock::now();
         auto r = P.solve_plane_wave(d, p, so);
         double ts = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();

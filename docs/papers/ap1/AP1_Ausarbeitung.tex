@@ -44,7 +44,7 @@
   {\Large\textbf{Clifford-BEM: Mathematische Ausarbeitung zu AP 1}}\\[0.3cm]
   {\large Teil I: Grundlagen, Cauchy-Darstellung, Transmission, chirale Medien\\
   Teil II: Resonanzfreiheit und Kugel, Teil III: Eindeutigkeit und Torus}\\[0.3cm]
-  {\small Arbeitsstand, Version 0.20}
+  {\small Arbeitsstand, Version 0.21}
 \end{center}
 
 \section*{Überblick und Status}
@@ -102,6 +102,7 @@ Verschachtelte Gebiete: Konsistenz (Prop.\ \ref{prop:schicht}) & bewiesen & \tex
 Verschachtelte Gebiete: Fredholm, getrennte Flächen (Prop.\ \ref{prop:schicht}) & bewiesen (glatt) & --\\
 Verschachtelte Gebiete: Eindeutigkeit (Verm.\ \ref{verm:schicht}) & Verm., num.\ gestützt & \texttt{scatter\_coated}\\
 Dünnschicht-Näherung erster Ordnung (\ref{sec:schicht}) & hergeleitet, num.\ belegt & \texttt{test\_thin\_layer}\\
+Dünnschicht zweiter Ordnung, Dirac-Form (\ref{sec:schicht}) & hergeleitet, num.\ belegt & \texttt{test\_thin\_layer}\\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -2784,5 +2785,48 @@ Schichtmitte ($f=\tfrac12$; an der Kernoberfläche etwa $2\,d/a$). Brauchbar ist
 $d/a\lesssim0{,}02$; für dickere Schichten braucht sie Terme zweiter Ordnung einschließlich der Formoperatoren. Die
 Norm von $L_d$ wächst wie $d/h$, entsprechend steigen die Iterationen für $d\gtrsim h$. Die exakte Formulierung
 \eqref{eq:schicht} und die Näherung ergänzen sich also: exakt für $d\gtrsim h$, genähert für $d\ll h$ und $d\ll a$.
+
+\paragraph{Zweite Ordnung in Dirac-Form.} Auf den Parallelflächen $\Gamma_\nu=\{x+\nu\n(x)\}$ bleibt die Normale entlang
+der Normalenlinien konstant, und der Dirac-Operator zerfällt in $\nabla=\n\partial_\nu+D^{(\nu)}$ mit
+$D^{(\nu)}=\sum_i(1+\nu\kappa_i)^{-1}e_i\partial_i=D-\nu D_S+\mathcal{O}(\nu^2)$. Dabei sind $\kappa_i$, $e_i$ die
+Hauptkrümmungen und -richtungen, $D=\sum_ie_i\partial_i$ ist der tangentiale Dirac-Operator und
+$D_S=\sum_i\kappa_ie_i\partial_i$ der mit dem Formoperator $S=\nabla_\Gamma\n$ gewichtete. Aus $(\nabla-ik)F=0$ und
+$\n^2=1$ folgt
+\[
+  \partial_\nu F=B(\nu)F,\qquad B(\nu)=\n\,(ik-D^{(\nu)}),\qquad B'=\partial_\nu B=\n D_S .
+\]
+Ein Schritt von $\nu_0$ nach $\nu_0+s$ in einem homogenen Medium ist
+$U=1+sB+\big(s\nu_0+\tfrac{s^2}{2}\big)B'+\tfrac{s^2}{2}B^2+\mathcal{O}(s^3)$ mit $B=B(0)$. Für die Schicht (Medium $c$
+auf $[-fd,(1-f)d]$) ist
+\[
+  J_{\mathrm{eff}}=U_1\big(0\leftarrow-fd\big)\,J_{1\leftarrow c}\,U_c\big(-fd\leftarrow(1-f)d\big)\,J_{c\leftarrow2}\,
+    U_2\big((1-f)d\leftarrow0\big),
+\]
+für mehrere Schichten entsprechend mit weiteren Faktoren. Die Terme erster Ordnung sind die Sprungbedingungen oben;
+die Krümmung geht über $D_S$ und über die Ortsabhängigkeit von $J(\n)$ ein. Der Fehler ist $\mathcal{O}(d^3)$, relativ zur
+Schichtwirkung $\mathcal{O}((d/a)^2)$.
+
+Diskretisierung. $D$ wird aus den Kleinste-Quadrate-Gradienten aller acht Komponenten gebildet, $B^2$ durch zweimalige
+Anwendung. Zusammengesetzte zweite Ableitungen sind nur im $L^2$-Mittel konsistent: Beim Laplace-Beltrami-Operator von
+$Y_2$ fällt der relative $L^2$-Fehler von 2,6\,\% auf 0,5\,\% ($n=6\ldots48$), punktweise bleibt er an den singulären
+Ikosaederecken bei etwa 7\,\%. Da $B^2$ nur eine Korrektur der relativen Größe $d/a$ ist, genügt das. Wesentlich ist
+dagegen die Normale: Die Facettennormale eines ebenen Dreiecks weicht um $\mathcal{O}(h)$ von der glatten Normalen am
+Schwerpunkt ab. Leitet man sie über den Abstand $h$ ab, entsteht ein Fehler $\mathcal{O}(1)$; der Formoperator auf der
+Kugel hatte mit Facettennormalen einen nicht konvergierenden Fehler von 15\,\% von $1/R$. Alle Schichtkorrekturen
+verwenden daher glatte Normalen $\tilde\n$, gemittelt aus den winkelgewichteten Knotennormalen. Damit fällt der Fehler von
+$S$ mit Ordnung~1. Damit ohne Schicht exakt $T_1$ bleibt, ist
+$J_{\mathrm{eff}}=J(\n)+[\text{Kette}(\tilde\n)-J(\tilde\n)]$; gleiche benachbarte Medien werden zusammengefasst, sodass
+eine neutrale Schicht exakt wirkungslos ist.
+
+Numerisch (Referenz an der Kernoberfläche, $f=0$): Die Schichtwirkung trifft Aden-Kerker für $d/a\le0{,}05$ auf
+$0{,}4$--$0{,}6\,\%$ in $\Delta\sigma$ und $0$--$0{,}7\,\%$ in $\Delta\arg S$ ($n=8$), statt 1,9--11\,\% in erster Ordnung. Der
+Restfehler wächst wie $(d/a)^2$: $-3{,}5\,\%$ bei $d/a=0{,}1$, $-19\,\%$ bei $0{,}2$. Silberkugel (20\,nm, 2\,nm Oxid,
+$d/a=0{,}1$): Phasenänderung an der Resonanz auf 1--3\,\%, so genau wie die Zwei-Flächen-Rechnung. Propagiert die
+Kette durch ein Medium mit großem $|\varepsilon|$, werden die Terme zweiter Ordnung um Kontraste wie
+$\varepsilon_2/\varepsilon_1$ verstärkt (Schicht nach innen mit Extrapolation im Gold: Fehler von $\sigma$ 1,58\,\% statt
+0,71\,\%); die Referenzfläche gehört daher auf die Seite des größten $|\varepsilon|$, bei Metallteilchen auf die
+Metalloberfläche. Für $d\gtrsim h$
+wachsen die Terme wie $(d/h)^2$, und die Iterationen steigen stark ($d/h=1{,}5$: 476); dort ist die exakte Formulierung
+zu verwenden.
 
 \end{document}

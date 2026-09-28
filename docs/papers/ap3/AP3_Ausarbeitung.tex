@@ -291,7 +291,7 @@ Konvergenz bei Gold lag also an der Nahfeldquadratur, nicht an Formulierung oder
 Damit ist H3 (zweiter Teil) im Bereich bis etwa 160\,000 Unbekannte und $kD\lesssim16$ numerisch
 gestützt: Der Aufwand ist $\mathcal{O}(N\log^\alpha N)$ mit $\alpha\approx2$ für den Speicher.
 
-\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.14)}\label{sec:cpp2}
+\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.15)}\label{sec:cpp2}
 Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
 \begin{itemize}[leftmargin=*]
   \item \emph{Nahfeld.} Sauter-Schwab-Quadratur für benachbarte Paare: Die bisherige Regel hatte an gemeinsamen
@@ -327,7 +327,11 @@ Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
   \item \emph{Dünnschicht-Näherung} (v0.14). Eine Fläche mit $J_{\mathrm{eff}}=J+L_d$ (Greensche Funktion der
     Schichtfolge in erster Ordnung, Ableitungen auf der Dichte): Die $\mathcal{H}$-Matrizen der unbeschichteten Rechnung
     werden unverändert verwendet, $L_d$ ist ein lokaler Operator über die Kantennachbarn. Kosten wie ohne Schicht;
-    Modellfehler $\approx1{,}5\,d/a$; für die Phase bei $d/a\lesssim0{,}03$ genauer als die Zwei-Flächen-Rechnung, bei etwa einem Fünftel der Kosten. Die $\mathcal{H}$-Matrizen der Schichtgebiete
+    Modellfehler $\approx1{,}5\,d/a$; für die Phase bei $d/a\lesssim0{,}03$ genauer als die Zwei-Flächen-Rechnung, bei etwa einem Fünftel der Kosten.
+  \item \emph{Dünnschicht zweiter Ordnung} (v0.15). Dirac-Form auf Parallelflächen mit Formoperator; die zweiten
+    Ableitungen sind zusammengesetzte Kleinste-Quadrate-Gradienten, alle Schichtkorrekturen nutzen glatte Normalen.
+    Schichtwirkung bis $d/a=0{,}05$ auf 0,1--0,7\,\%, Silberkugel mit 2\,nm Oxid so genau wie die exakte Rechnung. Die
+    zusätzlichen Kosten sind lokale Operatoren; die Iterationen steigen für $d\gtrsim h$. Die $\mathcal{H}$-Matrizen der Schichtgebiete
     enthalten mehr unzulässige Blöcke, weil sich die Cluster beider Flächen überlappen; Speicher und Nahpaare etwa
     verdoppeln sich je Schicht.
 \end{itemize}

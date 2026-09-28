@@ -1,10 +1,10 @@
-# Ergebnisse: beschichtete Grenzflächen (dünne Schichten, Kern-Schale, Dünnschicht-Näherung)
+# Ergebnisse: beschichtete Grenzflächen (dünne Schichten, Kern-Schale, Dünnschicht-Näherung 1. und 2. Ordnung)
 
 An Materialgrenzen liegen meist dünne Schichten (Oxide, Sulfide, Hüllen von wenigen nm), die Amplitude und Phase
 des gestreuten Lichts verändern. Seit v0.13 behandelt der Kern verschachtelte Gebiete exakt: jede Schichtgrenze ist
 eine eigene Fläche, jedes Gebiet hat seinen eigenen Cauchy-Operator (`LayeredScatteringProblem`, Theorie: AP 1,
-Nachtrag „Verschachtelte Gebiete“). Seit v0.14 gibt es zusätzlich eine Dünnschicht-Näherung erster Ordnung auf einer
-Fläche (`ThinLayerScatteringProblem`, Abschnitt „Dünnschicht-Näherung“).
+Nachtrag „Verschachtelte Gebiete“). Seit v0.14 gibt es zusätzlich eine Dünnschicht-Näherung auf einer Fläche
+(`ThinLayerScatteringProblem`), seit v0.15 in zweiter Ordnung einschließlich Krümmung (Abschnitte „Dünnschicht-Näherung“).
 
 ## Formulierung
 
@@ -280,17 +280,96 @@ Näherung die Verschiebung (400 nm: 13 453 gegen 15 740; 420 nm: 14 229 gegen 12
 Resonanz 8–20 % zu hoch. Das entspricht dem Modellfehler bei d/a = 0,1. Für diesen Fall ist die Zwei-Flächen-Rechnung
 (0,5–2 % in der Phase) die richtige Wahl.
 
+## Dünnschicht-Näherung zweiter Ordnung (Dirac-Form, v0.15)
+
+Auf Parallelflächen im Abstand ν bleibt die Normale entlang der Normalenlinien konstant, und der Dirac-Operator zerfällt
+in ∇ = n∂_ν + D^(ν) mit D^(ν) = D − νD_S + O(ν²). D = Σ e_i ∂_i ist der tangentiale Dirac-Operator, D_S = Σ κ_i e_i ∂_i
+der mit dem Formoperator S = ∇_Γ n gewichtete. Aus (∇ − ik)F = 0 folgt ∂_ν F = B(ν)F mit B = n(ik − D^(ν)) und
+B′ = n D_S; ein Schritt s ab ν₀ in einem homogenen Medium ist
+
+    U = 1 + s B + (s ν₀ + s²/2) B′ + s²/2 B² + O(s³).
+
+J_eff ist das Produkt aus Schritten und Transmissionsabbildungen von der Außenspur (Medium 2 bei ν = 0) durch alle
+Schichten bis in Medium 1 und zurück zu ν = 0 (`ThinLayerModel::Dirac2`, jetzt Voreinstellung; `Dirac1` ist die erste
+Ordnung derselben Form). Mehrfachschichten sind weitere Faktoren. Die Krümmung geht über D_S und über die
+Ortsabhängigkeit von J(n) ein; der Fehler ist O(d³), relativ zur Schichtwirkung O((d/a)²).
+
+### Diskretisierung
+
+- **D und B²:** D aus den Kleinste-Quadrate-Gradienten aller acht Komponenten, B² durch zweimalige Anwendung.
+  Zusammengesetzte zweite Ableitungen sind nur im L²-Mittel konsistent (Laplace–Beltrami von Y₂: 2,6 % → 0,5 % für
+  n = 6 … 48, punktweise an den singulären Ikosaederecken etwa 7 %). Da B² nur eine Korrektur der relativen Größe d/a ist,
+  genügt das.
+- **Normalen:** Die Facettennormale eines ebenen Dreiecks weicht um O(h) von der glatten Normalen am Schwerpunkt ab;
+  abgeleitet über den Abstand h wird daraus ein Fehler O(1). Mit Facettennormalen hatte der Formoperator auf der Kugel
+  einen nicht konvergierenden Fehler von 15 % von 1/R. Alle Schichtkorrekturen verwenden deshalb glatte Normalen ñ
+  (Mittel der winkelgewichteten Knotennormalen). Damit fällt der Fehler von S mit Ordnung 1
+  (0,018 → 0,0095 → 0,0052 für n = 6, 12, 24). Die Sprungform erster Ordnung nutzt sie ebenfalls; ihre Werte ändern sich
+  dadurch um 0,03 % der Schichtwirkung.
+- **T₁ ohne Schicht:** J_eff = J(n) + [Kette(ñ) − J(ñ)], sodass ohne Schicht exakt T₁ entsteht. Gleiche benachbarte
+  Medien werden zusammengefasst, sodass eine neutrale Schicht exakt wirkungslos ist.
+
+### Genauigkeit
+
+Goldkern, Glasschale, ωa = 0,5, Referenzfläche an der Kernoberfläche (`results/thin_layer2.csv`,
+`tools/analyze_thin.py`); relativer Fehler der Schichtwirkung Δσ / Δ arg S gegen Aden–Kerker:
+
+| d/a | 1. Ordnung, n = 16 | 2. Ordnung, n = 8 | 2. Ordnung, n = 16 | zwei Flächen, n = 12 |
+|---:|---:|---:|---:|---:|
+| 0,005 | +1,0 / +1,0 % | +0,6 / +1,0 % | **+0,2 / 0,0 %** | – |
+| 0,01 | +1,9 / +1,9 % | +0,6 / +0,7 % | **+0,1 / +0,2 %** | −1,3 / −8,9 % |
+| 0,02 | +3,8 / +4,1 % | +0,4 / +0,7 % | **+0,1 / +0,1 %** | −1,2 / −6,2 % |
+| 0,05 | +10,4 / +10,8 % | −0,4 / 0,0 % | **−0,7 / −0,5 %** | −0,6 / −2,8 % |
+| 0,1 | +25,8 / +25,6 % (n = 8) | −3,5 / −2,3 % | −3,7 / −2,5 % (n = 12) | – |
+| 0,2 | – | −19 / −13 % | – | – |
+
+![Dünnschicht-Näherung](fig_coated_thinlayer.png)
+
+- Die zweite Ordnung senkt den Modellfehler um eine bis zwei Größenordnungen; der Rest wächst wie (d/a)² (von 0,05 auf
+  0,1 etwa Faktor 5, von 0,1 auf 0,2 Faktor 5,4). Bis d/a = 0,05 ist sie der exakten Zwei-Flächen-Rechnung
+  ebenbürtig (Extinktion) bzw. überlegen (Phase), bei etwa einem Fünftel der Kosten.
+- **Kontrollen** (n = 8): Doppelschicht (3 % Oxid ε = 4 + i, darüber 3 % Glas) −0,7 / 0,0 %, verlustbehaftete Schicht
+  (ε = 4 + i, d = 0,05) −0,5 / +0,2 %, Schicht aus Kernmaterial (Gold, d = 0,05) −1,9 / −2,8 %.
+- **Referenz auf der Metallseite:** Größere Fehler treten auf, wenn die Kette durch ein Medium mit großem |ε|
+  propagiert: Die Terme zweiter Ordnung enthalten Kontraste wie ε₂/ε₁ und werden grob um |ε_Metall/ε_Dielektrikum|
+  verstärkt, der Abbruchfehler wie der Diskretisierungsfehler der zweiten Ableitungen. Beispiel Schicht nach innen
+  (Glas ersetzt 5 % Gold, n = 12): Mit der Referenzfläche außen (Extrapolation im Gold) ist σ um 1,58 % zu groß, mit der
+  Referenzfläche auf der Metallseite (`--thin 0`, Netz um d nach innen versetzt) um 0,71 %, genauso viel wie ohne Schicht
+  (0,80 %); das Schichtmodell trägt dann praktisch nichts zum Fehler bei. Die Referenzfläche gehört deshalb auf die Seite
+  des Mediums mit dem größten |ε|, bei Metallteilchen mit Oxid also auf die Metalloberfläche.
+- **Stabilität:** Die Terme wachsen wie (d/h)², für d ≳ h steigen die Iterationen stark (d/h = 0,76: 95, 1,14: 241,
+  1,52: 476; bei 2,3 kein Abschluss in vertretbarer Zeit). Für d ≳ h ist die exakte Formulierung zu verwenden.
+
+### Silberkugel mit 2 nm Oxid (d/a = 0,1)
+
+`spectrum --thin 0 --thin-model dirac2` (`results/agsphere20_ox2_thin2.csv`, orange Kreuze in der Abbildung der
+Silberkugel), relativer Fehler der Phasenänderung gegen Aden–Kerker:
+
+| λ (nm) | Δ arg S exakt | 1. Ordnung (Mitte) | 2. Ordnung | zwei Flächen |
+|---:|---:|---:|---:|---:|
+| 390 | 0,342 | +7,7 % | +1,6 % | +2,2 % |
+| 400 | 0,880 | +8,2 % | −1,7 % | −0,5 % |
+| 410 | 0,712 | +19,9 % | −3,1 % | −0,4 % |
+| 420 | 0,292 | +26,4 % | −1,2 % | +1,7 % |
+| 430 | 0,137 | +25,5 % | 0,0 % | +2,5 % |
+
+σ bei 400 nm: 15 699 gegen 15 740 nm² (−0,3 %), bei 410 nm 25 951 gegen 27 135 (−4,4 %; zwei Flächen −3,0 %). Die
+Abweichung bei 380 nm (Quadrupol) haben beide Verfahren gleichermaßen; sie stammt aus der Rechnung ohne Schicht auf diesem
+Netz. Die zweite Ordnung erreicht hier also die Genauigkeit der exakten Rechnung, bei etwa halben Kosten (20–32 s je
+Wellenlänge gegen etwa 30 s beschichtet plus 30–50 s neutral; die Iterationen steigen auf 42–86).
+
 ### Einordnung
 
-| | exakt (zwei Flächen) | Dünnschicht-Näherung |
+| | exakt (zwei Flächen) | Dünnschicht 2. Ordnung |
 |---|---|---|
-| Gültigkeit | beliebige Dicke, Mehrfachschichten, chiral | d ≪ a (Fehler ≈ 1,5 d/a), d ≲ h, achiral, ein Körper |
-| dünne Schichten (d ≪ h) | Differenz zur neutralen Rechnung nötig | direkt |
-| Kosten | zwei Flächen, dazu die neutrale Rechnung | wie ohne Schicht |
-| stärkste Seite | Extinktion, dicke Schichten | Phase bei d/a ≲ 0,03 |
+| Gültigkeit | beliebige Dicke, Mehrfachschichten, chiral | d/a ≲ 0,1 (Fehler ≈ 4 (d/a)² bei dielektrischen Schichten), d ≲ h, achiral, ein Körper |
+| dünne Schichten (d ≪ h) | Differenz zur neutralen Rechnung nötig | direkt, Absolutwerte |
+| Kosten | zwei Flächen, dazu die neutrale Rechnung | wie ohne Schicht (plus lokale Operatoren) |
+| Genauigkeit bei d/a ≤ 0,05 | 0,6–1,3 % (Extinktion), 3–9 % (Phase) | 0,1–0,7 % in beiden |
+| Referenzfläche | – | auf der Seite des größten \|ε\| (Metalloberfläche) |
 
-Nächster Schritt wäre die zweite Ordnung in d: Terme d²∇_Γ² und die Formoperatoren der Fläche (Krümmung). Damit sollte
-der Modellfehler auf O((d/a)²) fallen und die Näherung auch für 2 nm auf 20-nm-Teilchen reichen.
+Die Sprungform erster Ordnung (`ThinLayerModel::Jump1`) bleibt als einfachere Variante erhalten; sie ist durch die
+zweite Ordnung überholt.
 
 ## Bewertung und Grenzen
 
@@ -304,4 +383,5 @@ der Modellfehler auf O((d/a)²) fallen und die Näherung auch für 2 nm auf 20-n
 - `offset_surface` kann an konkaven Stellen oder bei Versatz größer als der Krümmungsradius Selbstdurchdringungen
   erzeugen, die nur teilweise erkannt werden (umklappende Dreiecke, Umstülpen).
 - Eindeutigkeit für verschachtelte Gebiete ist nicht bewiesen (AP 1, Vermutung).
-- Für d ≪ h und d ≪ a gibt es die Dünnschicht-Näherung erster Ordnung (Abschnitt „Dünnschicht-Näherung“).
+- Für d ≲ h und d/a ≲ 0,1 ist die Dünnschicht-Näherung zweiter Ordnung vorzuziehen (Abschnitt „Dünnschicht-Näherung
+  zweiter Ordnung“).

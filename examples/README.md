@@ -19,5 +19,6 @@ python3 tools/make_geometries.py roundcube 0.3 examples/rc04.msh --radius 0.4 --
 ./build/spectrum --mesh examples/rc04.msh --unit 25 --materials Ag --nbg 1.33 --lambda 400:480:20 --coating "2:2.89,0"
 ./build/spectrum --mesh examples/rc04.msh --unit 25 --materials Ag --nbg 1.33 --lambda 400:480:20 --coating "2:1.7689,0"
 ./build/scatter_coated --n 4,8 --omega 0.5 --core -11,1.2 --coat 0.02,2.25,0 --neutral   # Kugel gegen tools/mie_coated.py
-./build/scatter_coated --n 4,8 --omega 0.5 --core -11,1.2 --coat 0.01,2.25,0 --thin-ref 0.5 --bare   # Dünnschicht-Näherung
+./build/scatter_coated --n 4,8 --omega 0.5 --core -11,1.2 --coat 0.05,2.25,0 --thin --bare   # Dünnschicht-Näherung 2. Ordnung
+./build/spectrum --mesh examples/rc04.msh --unit 25 --materials Ag --nbg 1.33 --lambda 400:480:20 --coating "2:2.89,0" --thin 0
 ```

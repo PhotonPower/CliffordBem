@@ -8,7 +8,8 @@
 //   spectrum --sphere 12 --unit 20 --materials Ag --nbg 1.33 --coating "1.5:2.89,0" --lambda 360:460:5
 //   --coat-inward: Schichten innerhalb der Netzflaeche (verdraengen Kernmaterial). Nur punktweise Vorkonditionierung.
 //   --thin f: Duennschicht-Naeherung erster Ordnung auf einer Flaeche (ThinLayerScatteringProblem, ein Koerper);
-//             Referenzflaeche im Anteil f der Schicht von innen (0,5 = Schichtmitte, empfohlen), per Parallelflaeche.
+//             Referenzflaeche im Anteil f der Schicht von innen (0 = Netzflaeche), per Parallelflaeche.
+//   --thin-model jump|dirac1|dirac2: Sprungform 1. Ordnung, Dirac-Form 1. bzw. 2. Ordnung (Standard dirac2, mit --thin 0).
 // Ausgabe zusaetzlich: Vorwaertsamplitude S(0) (Mittel ueber Richtungen/Polarisationen) und ihre Phase arg S.
 #include <chrono>
 #include <cstdio>
@@ -26,7 +27,7 @@ static std::vector<std::string> split(const std::string& s, char c) { std::vecto
 int main(int argc, char** argv) {
     std::string precond = "point";   // point | cluster:G (Bloecke auf Clustern mit <= G Dreiecken) | hodlr:eps[:leaf] (hierarchische Faktorisierung)
     std::string mesh, mats = "Au", chis = "0", pol = "lin", lam = "500:600:50", csv, datadir = "data/materials";
-    int sph = 0, orient = 1; bool verbose = false, coat_inward = false; std::string coating; double thin = -1; double unit = 1.0, nbg = 1.0, heps = 1e-4, tol = 1e-6;
+    int sph = 0, orient = 1; bool verbose = false, coat_inward = false; std::string coating; double thin = -1; ThinLayerModel tmodel = ThinLayerModel::Dirac2; std::string tmname = "dirac2"; double unit = 1.0, nbg = 1.0, heps = 1e-4, tol = 1e-6;
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
         if (o == "--precond") precond = nxt();
@@ -35,6 +36,7 @@ int main(int argc, char** argv) {
         else if (o == "--lambda") lam = nxt(); else if (o == "--pol") pol = nxt(); else if (o == "--orient") orient = std::stoi(nxt());
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt());
         else if (o == "--coating") coating = nxt(); else if (o == "--coat-inward") coat_inward = true; else if (o == "--thin") thin = std::stod(nxt());
+        else if (o == "--thin-model") { tmname = nxt(); tmodel = tmname == "jump" ? ThinLayerModel::Jump1 : tmname == "dirac1" ? ThinLayerModel::Dirac1 : ThinLayerModel::Dirac2; }
         else if (o == "--csv") csv = nxt(); else if (o == "--data") datadir = nxt(); else if (o == "--verbose") verbose = true;
         else { std::printf("unbekannte Option %s\n", o.c_str()); return 1; }
     }
@@ -73,7 +75,7 @@ int main(int argc, char** argv) {
         if (coat_mat.empty()) PP = std::make_unique<ScatteringProblem>(parts, med, om, bg, hp);
         else if (thin >= 0) {
             std::vector<Coating> cs; for (auto& c : coat_mat) cs.push_back(Coating{c.first / unit, Medium{c.second->eps(L), 1.0, 0.0}});
-            PT = std::make_unique<ThinLayerScatteringProblem>(thin_ref, med[0], cs, om, bg, thin, hp);
+            PT = std::make_unique<ThinLayerScatteringProblem>(thin_ref, med[0], cs, om, bg, thin, hp, EntryParams{}, tmodel);
         }
         else {
             LayeredGeometry g(bg); std::vector<Coating> cs;
@@ -118,7 +120,7 @@ int main(int argc, char** argv) {
         double ts = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         std::printf("%9.1f %13.5g %13.5g %13.5g %13.5g %9.5f %6d %7.1f\n", L, s * u2, sp * u2, sm * u2, (sp - sm) * u2, std::arg(Sf), its, ts); std::fflush(stdout);
         if (f) { f << L << ',' << unit << ',' << nbg << ',' << Ntri << ',' << dirs.size() << ',' << pol << ',' << s * u2 << ',' << sp * u2 << ',' << sm * u2 << ','
-                   << (sp - sm) * u2 << ',' << its << ',' << ts << ",\"" << coating << (coat_inward ? " (innen)" : "") << (thin >= 0 ? " thin@" + std::to_string(thin).substr(0, 4) : std::string()) << "\"," << Sf.real() << ',' << Sf.imag() << '\n'; f.flush(); }
+                   << (sp - sm) * u2 << ',' << its << ',' << ts << ",\"" << coating << (coat_inward ? " (innen)" : "") << (thin >= 0 ? " thin-" + tmname + "@" + std::to_string(thin).substr(0, 4) : std::string()) << "\"," << Sf.real() << ',' << Sf.imag() << '\n'; f.flush(); }
     }
     return 0;
 }

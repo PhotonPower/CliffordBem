@@ -1,4 +1,4 @@
-# Architektur und Ausbauplan (Stand 0.14)
+# Architektur und Ausbauplan (Stand 0.15)
 
 ## Leitlinien
 
@@ -31,7 +31,7 @@
 | operators | Cauchy-Operator, chiraler Innenoperator, blockdiagonaler Mehrkörper-Innenoperator, T₁ mit Medium je Dreieck, geschichtete Transmission (Gebietsoperatoren je Gebiet), dichte Blöcke | chirale Außenmedien, Substrate (geschichtete Außenmedien, Green-Funktion der Schichtung) |
 | solvers | GMRES, punktweise 2(1+J)⁻¹, Blockvorkonditionierung (Kanten/Ecken, Cluster; mehrere Körper, chiral), HODLR-Faktorisierung | H-LU mit starker Zulässigkeit, Krylov-Recycling (GCRO-DR), Deflation resonanter Moden, Parallelisierung |
 | sources | ebene Welle (linear/zirkular), Fernfeld, Extinktion, Vorwärtsamplitude S(0) (Betrag, Phase), Lebedev-Richtungen | Dipolquellen, Nahfeld, Streuquerschnitt, Streumatrix |
-| problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, Systemeinträge); LayeredScatteringProblem (Grenzflächengraph: Kern-Schale, Mehrfachschichten, Einschlüsse, chirale Schichten); ThinLayerScatteringProblem (eine Fläche, J_eff = J + L_d, Flächenableitungen über Kantennachbarn: Kleinste-Quadrate-Gradient, Divergenz in Flussform) | mehrere rechte Seiten gleichzeitig, Wiederverwendung über Wellenlängen; Block-/HODLR-Vorkonditionierung für geschichtete Körper; neutrale Referenz mit gemeinsamem Aufbau; Dünnschicht zweiter Ordnung (Formoperatoren), mehrere Körper und Gmsh-Netze in `scatter_coated --thin` |
+| problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, Systemeinträge); LayeredScatteringProblem (Grenzflächengraph: Kern-Schale, Mehrfachschichten, Einschlüsse, chirale Schichten); ThinLayerScatteringProblem (eine Fläche; Dirac-Form 2. Ordnung mit Formoperator und glatten Normalen, Sprungform 1. Ordnung; Flächenableitungen über Kantennachbarn: Kleinste-Quadrate-Gradient, Divergenz in Flussform) | mehrere rechte Seiten gleichzeitig, Wiederverwendung über Wellenlängen; Block-/HODLR-Vorkonditionierung für geschichtete Körper; neutrale Referenz mit gemeinsamem Aufbau; Dünnschicht: konsistente zweite Ableitungen (quadratische Anpassung über zwei Ringe), Stabilität für d ≳ h, mehrere Körper und Gmsh-Netze in `scatter_coated --thin` |
 | apps | Kugel, chirale Kugel, Würfel, Würfel-Dimer, Kugel-Dimer, Gmsh-Geometrien, Spektren (auch beschichtet), beschichtete Körper, Kompressionsbenchmark | Parameterstudien für AP 4 |
 | prototype/resonance | 2D-Galerkin mit Streckung in log r, Absorber, angereicherte Eckelemente, 3D-Nullstellenanalyse | transparenter Kantenabschluss (diskrete DtN, Hardy-Raum-Ansatz) |
 | bindings | – | pybind11-Modul für Skripting |
@@ -51,7 +51,8 @@
 - **Dünne Schichten (d ≪ h):** Die Absolutwerte tragen einen systematischen Fehler von der Größe des
   Diskretisierungsfehlers (diskret E² ≠ 1); die Schichtwirkung ist als Differenz zu einer neutralen Rechnung auf
   denselben Netzen zu bestimmen (`results_coated.md`). Eindeutigkeit für verschachtelte Gebiete ist nicht bewiesen.
-- **Dünnschicht-Näherung:** Modellfehler ≈ 1,3–1,7 d/a relativ zur Schichtwirkung (Referenzfläche in der Schichtmitte, an der Kernoberfläche ≈ 2 d/a);
-  die Norm von L_d wächst wie d/h, für d ≳ h steigen die Iterationen (d = 0,1, n = 12: 150). Nicht für Rundungen mit
-  Radius ~ d. Nur achirale Medien, ein Körper.
+- **Dünnschicht-Näherung:** zweite Ordnung mit Restfehler ≈ 4 (d/a)² bei dielektrischen Schichten, grob um |ε_Metall| verstärkt,
+  wenn die Kette durch Metall propagiert (Referenzfläche daher auf die Metallseite). Die Terme wachsen wie (d/h)², für d ≳ h
+  steigen die Iterationen stark (d/h = 1,5: 476). Zusammengesetzte zweite Ableitungen nur im L²-Mittel konsistent.
+  Nicht für Rundungen mit Radius ~ d. Nur achirale Medien, ein Körper.
 - **Rechenumgebung der Studien:** ein Kern, 3 GB Speicher; die Netzgrößen der Berichte sind dadurch begrenzt.
