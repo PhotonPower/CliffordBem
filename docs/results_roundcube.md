@@ -42,3 +42,29 @@ Parameter; einen Grenzwert für ρ → 0 gibt es bei kleinem Verlust nicht zu er
   als hier verfügbar.
 - Für AP 4 bedeutet das: Vorhersagen für Nanowürfel im Fenster sind nur zusammen mit dem Rundungsradius sinnvoll,
   der aus Elektronenmikroskopie bekannt sein muss. Das ist physikalisch realistisch und experimentell überprüfbar.
+
+## Spektrum eines Silberwürfels in Abhängigkeit vom Rundungsradius
+
+Silberwürfel, Kantenlänge 50 nm (Längeneinheit 25 nm), in Wasser (n = 1,33), Johnson-Christy-Daten, Netze mit
+c = 12 (1 208 / 1 930 / 3 294 Dreiecke für ρ = 10 / 7,5 / 5 nm), `spectrum` mit H-Toleranz 10⁻³.
+
+![Silberwürfel](fig_agcube_rounding.png)
+
+| λ (nm) | 340 | 360 | 380 | 400 | 420 | 440 | 460 | 480 | 500 | 520 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| ρ = 10 nm | 3 704 | 5 343 | 5 165 | 9 028 | 20 254 | **40 030** | 31 609 | 14 889 | 7 843 | 4 646 |
+| ρ = 7,5 nm | 4 617 | 4 601 | 8 598 | 5 970 | 18 715 | 30 834 | **43 610** | 23 880 | 11 808 | 6 539 |
+| ρ = 5 nm | 5 643 | 4 109 | 7 602 | 5 387 | 9 532 | 22 020 | **42 656** | 37 599 | 18 599 | 9 529 |
+
+(σ_ext in nm².) Die Hauptresonanz verschiebt sich mit schärferen Kanten nach Rot (Maximum grob bei 440, 460 und
+knapp 470 nm) und verbreitert sich zur langen Wellenlänge hin; zusätzlich gibt es eine schwächere Struktur bei
+360 bis 380 nm, deren Lage ebenfalls vom Radius abhängt. Die zugehörigen Kontraste κ = ε_Ag/ε_Wasser sind
+−1,91 + 0,11i (380 nm, im Resonanzfenster [−3, −1/3] der Kante) und −3,7 bis −4,9 (440 bis 480 nm, außerhalb des
+Fensters, aber innerhalb der L²-kritischen Schleifen der Kante). Für scharfe Kanten wären beide Bereiche mit dem
+L²-Verfahren nicht zuverlässig rechenbar.
+
+Netzkontrolle bei ρ = 7,5 nm (c = 8 / 12 / 16): 31 523 / 30 834 / 30 538 nm² bei 440 nm, 40 177 / 43 610 / 44 748 nm² bei
+460 nm. Mit c = 12 liegt der Fehler nahe der Resonanz also bei einigen Prozent; die Maxima verschieben sich mit
+feinerem Netz leicht nach Rot. Die Wellenlängenschritte von 20 nm sind grob. Die Spektren sind qualitativ
+belastbar (Richtung und Größenordnung der Verschiebung), für quantitative Vergleiche mit Messungen sind feinere
+Netze und Wellenlängenschritte nötig.
