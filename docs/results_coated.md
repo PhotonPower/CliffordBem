@@ -129,8 +129,21 @@ Zwei parallele Dreiecke (h ≈ 1) im Abstand d, Fehler gegen eine Referenz mit f
 | 0,01 | 1,2·10⁻⁴ | 1,5·10⁻⁴ |
 
 Der verbleibende Fehler kommt in beiden Fällen von der 7-Punkt-Regel für das glatte Restglied; die Rechenzeit sinkt
-um den Faktor 3–4 (d = 0,01: 0,069 s → 0,019 s je Paar). Für bestehende Rechnungen mit einer Fläche bleibt die
+je Paar um den Faktor 3–4 (d = 0,01: 0,069 s → 0,019 s). Im Gesamtproblem ist der Gewinn kleiner, weil die meisten
+Nahpaare keine eng benachbarten Paare über die Schicht hinweg sind (Goldkern mit Glasschale, n = 8, 2 560 Dreiecke,
+`results/coated_nearrule.csv`):
+
+| d | Nahfeld bisher | mit Randabstand | Ergebnis |
+|---:|---:|---:|---|
+| 0,05 (d/h = 0,38) | 5,9 s | 6,1 s | identisch auf 6 Stellen |
+| 0,01 (d/h = 0,08) | 18,4 s | 14,9 s | identisch auf 6 Stellen |
+
+Die Nahfeldzeit wächst mit abnehmendem d (d = 0,05 → 0,01: etwa Faktor 2,5); gegen die Gesamtzeit (Aufbau der
+H-Matrizen, GMRES) bleibt sie aber untergeordnet. Für bestehende Rechnungen mit einer Fläche bleibt die
 Voreinstellung unverändert (`adapt_to_boundary = false`).
+
+Parallelflächen statt konzentrischer Kugeln (`scatter_coated --offset`, d = 0,05, n = 8): Q_ext = 0,681306 statt
+0,680712 (0,09 %), entsprechend dem Radiusfehler der Parallelfläche von 4·10⁻⁴.
 
 ## Anwendung: Silberteilchen mit 2 nm Oxidschicht
 
@@ -166,6 +179,32 @@ Aden–Kerker mit denselben interpolierten Daten (`results/agsphere20_*.csv`, `t
 - Hier ist d/h ≈ 0,8; die Differenz zur Rechnung ohne Schicht stimmt deshalb mit der zur neutralen Rechnung auf
   10⁻³ überein. Bei gröberen Netzen oder dünneren Schichten gilt das nicht mehr (siehe oben).
 - Kosten je Wellenlänge (ein Kern): ohne Schicht 11 s, mit Schicht 30 s (2 560 Dreiecke, 22–61 Iterationen).
+
+### Silberwürfel, Kante 50 nm, Rundungsradius 10 nm, in Wasser
+
+Derselbe Würfel wie in `results_roundcube.md` (Gmsh, ρ = 0,4 Einheiten, c = 12, 1 208 Dreiecke, Einheit 25 nm),
+2 nm Oxid (n = 1,7) nach außen über `offset_surface` (auf den flachen Seiten h ≈ 7,5 nm, an den Rundungen ≈ 5 nm,
+d/h ≈ 0,3–0,4). `spectrum --coating`, H-Toleranz 10⁻³; ohne Schicht die Werte aus v0.12
+(`results/agcube_rho0.4.csv`), Schichtwirkung als Differenz zur neutralen Rechnung
+(`results/agcube_rho0.4_ox2*.csv`). Eine Referenz gibt es hier nicht.
+
+![Silberwürfel mit Oxid](fig_coated_agcube.png)
+
+| λ (nm) | 340 | 360 | 380 | 400 | 420 | 440 | 460 | 480 | 500 | 520 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| σ ohne Schicht | 3 704 | 5 343 | 5 165 | 9 028 | 20 254 | **40 030** | 31 609 | 14 889 | 7 842 | 4 646 |
+| σ mit 2 nm Oxid | 2 895 | 5 674 | 7 815 | 6 650 | 13 900 | 26 360 | **43 039** | 26 535 | 12 940 | 7 007 |
+| Δ arg S(0) (rad) | +0,07 | −0,27 | −0,13 | −0,11 | +0,23 | +0,40 | **+0,50** | +0,25 | +0,12 | +0,07 |
+
+- Die Hauptresonanz verschiebt sich um etwa 20 nm nach Rot (Maximum von etwa 440 auf etwa 460 nm, Raster 20 nm),
+  doppelt so stark wie bei der Kugel mit derselben Schicht: Das Feld ist an Kanten und Ecken konzentriert, wo die
+  Schicht den größten Anteil des Nahfelds füllt. Die Nebenstruktur bei 380 nm wird stärker.
+- Die Phase des vorwärts gestreuten Lichts ändert sich um bis zu 0,5 rad; unterhalb von 410 nm wechselt das Vorzeichen.
+  Die Verschiebung ist so groß wie die zwischen den Rundungsradien 10 und 7,5 nm (`results_roundcube.md`): Schicht
+  und Kantenform sind bei Nanowürfeln gleich wichtige Parameter und aus der Streuung allein kaum zu trennen.
+- Die neutrale Rechnung weicht hier nur um 0,5–3,5 % von der Rechnung ohne Schicht ab (d/h ≈ 0,3); die Korrektur
+  ist klein gegen die Schichtwirkung, aber an der Resonanzflanke nicht vernachlässigbar.
+- Kosten je Wellenlänge: 26–80 s mit Schicht (2 416 Dreiecke, 56–115 Iterationen), ohne Schicht 8–12 s.
 
 
 ## Bewertung und Grenzen

@@ -97,8 +97,9 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
   Ordnung 2 in Extinktion und Phase. Bei Schichten dünner als die Elemente trägt die Rechnung einen systematischen
   Fehler, der sich in der Differenz zu einer neutralen Rechnung (Schicht aus Außenmedium, gleiche Netze) heraushebt;
   so ist die Wirkung einer Oxidschicht schon bei d/h ≈ 0,04 auf wenige Prozent genau (`results_coated.md`).
-- **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius
-  (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`).
+- **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
+  Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
+  0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).
 
 ## Aufbau
 
