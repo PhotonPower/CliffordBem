@@ -1,9 +1,10 @@
-# Ergebnisse: beschichtete Grenzflächen (dünne Schichten, Kern-Schale)
+# Ergebnisse: beschichtete Grenzflächen (dünne Schichten, Kern-Schale, Dünnschicht-Näherung)
 
 An Materialgrenzen liegen meist dünne Schichten (Oxide, Sulfide, Hüllen von wenigen nm), die Amplitude und Phase
 des gestreuten Lichts verändern. Seit v0.13 behandelt der Kern verschachtelte Gebiete exakt: jede Schichtgrenze ist
 eine eigene Fläche, jedes Gebiet hat seinen eigenen Cauchy-Operator (`LayeredScatteringProblem`, Theorie: AP 1,
-Nachtrag „Verschachtelte Gebiete“).
+Nachtrag „Verschachtelte Gebiete“). Seit v0.14 gibt es zusätzlich eine Dünnschicht-Näherung erster Ordnung auf einer
+Fläche (`ThinLayerScatteringProblem`, Abschnitt „Dünnschicht-Näherung“).
 
 ## Formulierung
 
@@ -207,6 +208,90 @@ d/h ≈ 0,3–0,4). `spectrum --coating`, H-Toleranz 10⁻³; ohne Schicht die W
 - Kosten je Wellenlänge: 26–80 s mit Schicht (2 416 Dreiecke, 56–115 Iterationen), ohne Schicht 8–12 s.
 
 
+## Dünnschicht-Näherung erster Ordnung (eine Fläche)
+
+Idee: eine Greensche Funktion, die die Schichtfolge enthält. Exakt gibt es sie nur für ebene Schichtungen
+(Sommerfeld-Integrale); für eine dünne Schicht genügt die lokal ebene Näherung, Krümmung geht erst in O(d²) ein. In
+erster Ordnung in d ist die Wirkung der Schicht ein Sprung der Felder an der Referenzfläche Γ (X = verdrängtes
+Medium):
+
+    [E_t] = d ( ∇_Γ(D_n (1/ε_c − 1/ε_X)) − iω (μ_c − μ_X) n × H_t ),   [D_n] = −d (ε_c − ε_X) ∇_Γ·E_t
+    [H_t] = d ( ∇_Γ(B_n (1/μ_c − 1/μ_X)) + iω (ε_c − ε_X) n × E_t ),   [B_n] = −d (μ_c − μ_X) ∇_Γ·H_t
+
+In Dirac-Form ist das der Term erster Ordnung des Transfers exp(d n(ik_c − ∇_Γ)) über die Schicht. Die Innenspur wird
+J_eff h = J h + L_d h, und T_eff = E₂⁺ + E₁⁻ J_eff lebt auf **einer** Fläche (`ThinLayerScatteringProblem`). E₁(L_d h)
+ist das Cauchy-Integral der Schicht-Greenschen Funktion erster Ordnung, nach partieller Integration der Ableitungen
+vom Kern auf die Dichte.
+
+Diese Reihenfolge ist wesentlich: Als Kern angewandt wäre die Schichtkorrektur hypersingulär (∼ d/ρ³). Auf stückweise
+konstanten Dichten ergäbe das an jeder Elementkante Beiträge ∼ d log(h/d), also einen inkonsistenten Operator. Auf der
+Dichte genügen dagegen lokale Flächenableitungen über die drei Kantennachbarn (`SurfaceFV`), und alle H-Matrizen
+bleiben die der unbeschichteten Rechnung:
+
+- **Gradient:** Kleinste-Quadrate-Fit in der Tangentialebene (exakt für lineare Funktionen). Der naheliegende
+  Green-Gauß-Gradient mit Kantenmitteln ist auf Ikosaedernetzen inkonsistent: Sein maximaler Fehler bleibt bei
+  0,18 → 0,15 → 0,14 → 0,13 (n = 6 … 48) stehen, der Kleinste-Quadrate-Gradient fällt mit Ordnung 1
+  (0,023 → 0,011 → 0,006 → 0,003).
+- **Divergenz:** Flussform mit Kantenmitteln; konservativ (keine Nettoladung der Schicht), Ordnung 1
+  (max. Fehler 0,12 → 0,066 → 0,034 → 0,017 für div_Γ der tangentialen Projektion eines konstanten Feldes).
+
+Die Lage der Referenzfläche ist wählbar (Anteil f der Schicht innerhalb, `--thin-ref f`); beide Anteile addieren sich in
+erster Ordnung. Nutzung:
+
+```bash
+scatter_coated --n 8 --omega 0.5 --core -11,1.2 --coat 0.01,2.25,0 --thin-ref 0.5 --bare     # Kugel, Wirkung = Differenz zu bare
+spectrum --sphere 8 --unit 20 --materials Ag --nbg 1.33 --coating "2:2.89,0" --thin 0.5 ...
+```
+
+### Genauigkeit
+
+Goldkern, Glasschale, ωa = 0,5 (`results/thin_layer.csv`, `tools/analyze_thin.py`); Schichtwirkung als Differenz zur
+Rechnung ohne Schicht auf demselben Netz (keine neutrale Rechnung nötig), relative Fehler gegen Aden–Kerker, Δσ / Δ arg S:
+
+| d | n = 4 | n = 8 | n = 16 | Referenz Mitte, n = 12 | zwei Flächen, n = 12 |
+|---:|---:|---:|---:|---:|---:|
+| 0,005 | +4,0 / +4,4 % | +1,6 / +2,0 % | +1,0 / +1,0 % | – | – |
+| 0,01 | +4,9 / +5,3 % | +2,5 / +2,6 % | +1,9 / +1,9 % | – | −1,3 / −8,9 % |
+| 0,02 | +6,8 / +7,5 % | +4,4 / +4,7 % | +3,8 / +4,1 % | +2,6 / +2,6 % | −1,2 / −6,2 % |
+| 0,05 | +13,3 / +14,5 % | +10,9 / +11,5 % | +10,4 / +10,8 % | +7,0 / +6,9 % | −0,6 / −2,8 % |
+| 0,1 | +28,0 / +28,8 % | +25,8 / +25,6 % | – | +17,1 / +16,0 % | – |
+
+(Referenzfläche an der Kernoberfläche, außer „Referenz Mitte“; exakt: Δσ = 0,0446, 0,0900, 0,1833, 0,4830, 1,0535.)
+
+![Dünnschicht-Näherung](fig_coated_thinlayer.png)
+
+- **Diskretisierung:** Der Diskretisierungsfehler ist klein und fällt mit dem Netz; bei n = 8 liegt er unter 1 %,
+  mit Referenz in der Schichtmitte ist die Rechnung schon bei n = 4–6 konvergiert. Die Iterationen bleiben für d < h bei
+  35–60 (wie ohne Schicht) und steigen für d ≳ h (d = 0,1, n = 12: 150), weil die Norm von L_d wie d/h wächst.
+- **Modellfehler:** Übrig bleibt der Abbruchfehler erster Ordnung, etwa 2 d/a relativ zur Schichtwirkung
+  (Referenz an der Kernoberfläche) bzw. 1,3–1,7 d/a (Schichtmitte). Die Rechnung ist dabei nicht streng linear in d
+  (das System wird selbstkonsistent gelöst) und liegt näher an der exakten als an der linearisierten Lösung.
+- **Vergleich:** Für die Extinktionsänderung ist die exakte Zwei-Flächen-Rechnung mit neutraler Referenz auf feinen
+  Netzen genauer. Für die Phasenänderung ist die Näherung unterhalb von d/a ≈ 0,03 genauer (d = 0,01: 1,9 % gegen
+  8,9 %), und sie kostet etwa ein Fünftel (n = 12: rund 50 s gegen rund 300 s für beschichtete und neutrale Rechnung).
+- **Kontrollen** (n = 8, d = 0,02): Schicht aus Kernmaterial (entspricht der größeren Kugel) −1,6 / −1,8 %, Schicht
+  nach innen (verdrängt Gold) +2,7 / −0,3 %, verlustbehaftete Schicht (ε = 4 + i) +4,9 / +5,6 %.
+
+### Silberkugel mit 2 nm Oxid (d/a = 0,1)
+
+Derselbe Fall wie oben mit `spectrum --thin 0.5` (`results/agsphere20_ox2_thin.csv`, grüne Rauten in der Abbildung der
+Silberkugel). Das Maximum bei 410 nm trifft Aden–Kerker (27 116 gegen 27 135 nm²), an den Flanken überschätzt die
+Näherung die Verschiebung (400 nm: 13 453 gegen 15 740; 420 nm: 14 229 gegen 12 203), die Phasenänderung liegt an der
+Resonanz 8–20 % zu hoch. Das entspricht dem Modellfehler bei d/a = 0,1. Für diesen Fall ist die Zwei-Flächen-Rechnung
+(0,5–2 % in der Phase) die richtige Wahl.
+
+### Einordnung
+
+| | exakt (zwei Flächen) | Dünnschicht-Näherung |
+|---|---|---|
+| Gültigkeit | beliebige Dicke, Mehrfachschichten, chiral | d ≪ a (Fehler ≈ 1,5 d/a), d ≲ h, achiral, ein Körper |
+| dünne Schichten (d ≪ h) | Differenz zur neutralen Rechnung nötig | direkt |
+| Kosten | zwei Flächen, dazu die neutrale Rechnung | wie ohne Schicht |
+| stärkste Seite | Extinktion, dicke Schichten | Phase bei d/a ≲ 0,03 |
+
+Nächster Schritt wäre die zweite Ordnung in d: Terme d²∇_Γ² und die Formoperatoren der Fläche (Krümmung). Damit sollte
+der Modellfehler auf O((d/a)²) fallen und die Näherung auch für 2 nm auf 20-nm-Teilchen reichen.
+
 ## Bewertung und Grenzen
 
 - Die exakte Schichtformulierung ist allgemein (beliebige Dicke, Mehrfachschichten, chiral, mehrere Körper) und
@@ -219,6 +304,4 @@ d/h ≈ 0,3–0,4). `spectrum --coating`, H-Toleranz 10⁻³; ohne Schicht die W
 - `offset_surface` kann an konkaven Stellen oder bei Versatz größer als der Krümmungsradius Selbstdurchdringungen
   erzeugen, die nur teilweise erkannt werden (umklappende Dreiecke, Umstülpen).
 - Eindeutigkeit für verschachtelte Gebiete ist nicht bewiesen (AP 1, Vermutung).
-- Effektive Übergangsbedingungen (Schicht als Sprungbedingung auf einer Fläche) wurden hergeleitet, aber verworfen:
-  Die bei Nanoteilchen dominanten Terme enthalten Flächengradienten der Normalkomponenten, die mit stückweise
-  konstanten Dichten nicht darstellbar sind (AP 1, Nachtrag).
+- Für d ≪ h und d ≪ a gibt es die Dünnschicht-Näherung erster Ordnung (Abschnitt „Dünnschicht-Näherung“).

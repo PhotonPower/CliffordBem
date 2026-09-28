@@ -44,7 +44,7 @@
   {\Large\textbf{Clifford-BEM: Mathematische Ausarbeitung zu AP 1}}\\[0.3cm]
   {\large Teil I: Grundlagen, Cauchy-Darstellung, Transmission, chirale Medien\\
   Teil II: Resonanzfreiheit und Kugel, Teil III: Eindeutigkeit und Torus}\\[0.3cm]
-  {\small Arbeitsstand, Version 0.19}
+  {\small Arbeitsstand, Version 0.20}
 \end{center}
 
 \section*{Überblick und Status}
@@ -101,6 +101,7 @@ Helizitätszerlegung chiraler Medien (Satz \ref{satz:chiral}) & bewiesen, num.\ 
 Verschachtelte Gebiete: Konsistenz (Prop.\ \ref{prop:schicht}) & bewiesen & \texttt{test\_layered}\\
 Verschachtelte Gebiete: Fredholm, getrennte Flächen (Prop.\ \ref{prop:schicht}) & bewiesen (glatt) & --\\
 Verschachtelte Gebiete: Eindeutigkeit (Verm.\ \ref{verm:schicht}) & Verm., num.\ gestützt & \texttt{scatter\_coated}\\
+Dünnschicht-Näherung erster Ordnung (\ref{sec:schicht}) & hergeleitet, num.\ belegt & \texttt{test\_thin\_layer}\\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -2748,17 +2749,40 @@ Schicht aus dem Außenmedium) heraus; die Schichtwirkung ist so schon für $d/h\
 genau, während die Differenz zur Rechnung ohne Schicht dort sogar das Vorzeichen verfehlt
 (\texttt{docs/results\_coated.md}).
 
-\paragraph{Effektive Übergangsbedingungen.} Alternativ ließe sich die Schicht durch Sprungbedingungen erster
-Ordnung in $d$ auf einer Fläche ersetzen. Für eine Schicht aus Medium $c$ zwischen der Referenzfläche und dem
-verdrängten Medium $X$ ergibt die Integration der Maxwell-Gleichungen über die Schicht
-\[
-  [\mvec{E}_t]=d\big(\nabla_t\big(D_n(\tfrac1{\varepsilon_c}-\tfrac1{\varepsilon_X})\big)
-     -i\omega(\mu_c-\mu_X)\,\n\times\mvec{H}_t\big),\qquad
-  [D_n]=-d(\varepsilon_c-\varepsilon_X)\nabla_t\!\cdot\mvec{E}_t,
-\]
-und entsprechend für $\mvec{H}_t$, $B_n$. Bei Nanoteilchen ($ka\ll1$) dominieren die Terme mit Flächengradienten
-($\sim d/a$ gegenüber $\sim kd$); sie sind mit stückweise konstanten Dichten nicht verträglich und würden
-Flächenableitungen im Ansatzraum verlangen. Die exakte Formulierung \eqref{eq:schicht} vermeidet das und ist nicht
-auf kleine $d$ beschränkt.
+\paragraph{Dünnschicht-Näherung erster Ordnung (Greensche Funktion der Schichtfolge).}
+Für eine Schicht aus Medium $c$ auf der Referenzfläche $\Gamma$, die das Medium $X$ verdrängt ($X=2$: Schicht
+außen, $X=1$: innen), ergibt die Integration der Maxwell-Gleichungen über die Schicht für die Sprünge
+$[f]=f_2-f_1$ an $\Gamma$
+\begin{align*}
+  [\mvec{E}_t]&=d\big(\nabla_\Gamma\big(D_n(\tfrac1{\varepsilon_c}-\tfrac1{\varepsilon_X})\big)
+     -i\omega(\mu_c-\mu_X)\,\n\times\mvec{H}_t\big), &
+  [D_n]&=-d(\varepsilon_c-\varepsilon_X)\,\nabla_\Gamma\!\cdot\mvec{E}_t,\\
+  [\mvec{H}_t]&=d\big(\nabla_\Gamma\big(B_n(\tfrac1{\mu_c}-\tfrac1{\mu_X})\big)
+     +i\omega(\varepsilon_c-\varepsilon_X)\,\n\times\mvec{E}_t\big), &
+  [B_n]&=-d(\mu_c-\mu_X)\,\nabla_\Gamma\!\cdot\mvec{H}_t,
+\end{align*}
+bis auf $\mathcal{O}(d^2)$. Krümmungsterme heben sich in erster Ordnung heraus, weil $\mvec{E}_t$, $D_n$ usw.\ in erster
+Näherung stetig sind und die Krümmungsanteile von $\partial_\nu$ in beiden Medien gleich sind. Liegt ein Anteil $f$ der
+Schicht innerhalb, addieren sich die Beiträge mit $d_{\mathrm{innen}}=fd$ ($X=1$) und $d_{\mathrm{außen}}=(1-f)d$
+($X=2$). In der Dirac-Form ist das der Term erster Ordnung des Transfers $\exp\big(d\,\n(ik_c-\nabla_\Gamma)\big)$
+über die Schicht (aus $\nabla=\n\partial_\nu+\nabla_\Gamma$), dessen Symbol die Transfermatrix der ebenen Schicht ist.
+
+Die Innenspur wird damit $J_{\mathrm{eff}}h=Jh+L_dh$, und $T_{\mathrm{eff}}=E_2^++E_1^-J_{\mathrm{eff}}$ lebt auf
+\emph{einer} Fläche. Der Anteil $E_1(L_dh)$ ist das Cauchy-Integral einer Greenschen Funktion der Schichtfolge in
+erster Ordnung, nach partieller Integration der Ableitungen vom Kern auf die Dichte. Diese Reihenfolge ist
+wesentlich. Als Kern angewandt wäre die Schichtkorrektur hypersingulär ($\sim d/\rho^3$). Auf stückweise konstanten
+Dichten ergäbe das an jeder Elementkante Beiträge $\sim d\log(h/d)$ und damit einen inkonsistenten Operator.
+Auf der Dichte genügen dagegen lokale Flächenableitungen über die Kantennachbarn: ein Kleinste-Quadrate-Gradient
+(exakt für lineare Funktionen) und eine Divergenz in Flussform (konservativ, keine Nettoladung). Der
+Green-Gauß-Gradient mit Kantenmitteln ist auf Ikosaedernetzen inkonsistent: Sein maximaler Fehler bleibt bei
+0,13--0,18 stehen, statt mit $h$ zu fallen. Alle $\mathcal{H}$-Matrizen bleiben unverändert.
+
+Numerisch (Goldkern, Glasschale, $\omega a=0{,}5$, \texttt{docs/results\_coated.md}): Für $d/h\ll1$ ist die Näherung
+genauer als die Zwei-Flächen-Rechnung, vor allem in der Phase ($d=0{,}01$, $n=8$: $\Delta\arg S$ auf 2,6\,\% gegen
+15,5\,\%). Es bleibt ein Modellfehler $\approx1{,}3$--$1{,}7\,d/a$ relativ zur Schichtwirkung bei Referenzfläche in der
+Schichtmitte ($f=\tfrac12$; an der Kernoberfläche etwa $2\,d/a$). Brauchbar ist die Näherung daher für
+$d/a\lesssim0{,}02$; für dickere Schichten braucht sie Terme zweiter Ordnung einschließlich der Formoperatoren. Die
+Norm von $L_d$ wächst wie $d/h$, entsprechend steigen die Iterationen für $d\gtrsim h$. Die exakte Formulierung
+\eqref{eq:schicht} und die Näherung ergänzen sich also: exakt für $d\gtrsim h$, genähert für $d\ll h$ und $d\ll a$.
 
 \end{document}

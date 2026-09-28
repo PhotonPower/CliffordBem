@@ -4,6 +4,10 @@
 // Schichten von innen nach aussen: --coat "d,eps_re,eps_im;d,eps_re,eps_im" (d in Laengeneinheiten).
 // --inward: Schichten liegen innerhalb der angegebenen Flaeche (verdraengen Kernmaterial, z. B. Oxidation).
 // Ausgabe: Q_ext bzw. sigma_ext und die Vorwaertsamplitude S(0) mit Betrag und Phase.
+// --thin: Duennschicht-Naeherung erster Ordnung auf einer Flaeche (ThinLayerScatteringProblem, nur Kugel); die
+//   Schichtwirkung ist dann die Differenz zu --bare (gleiches Netz), ohne neutrale Rechnung.
+//   --thin-ref f: Referenzflaeche im Anteil f der Schicht von innen (0 = Innenrand, 1/2 = Mitte, 1 = Aussenrand);
+//   Standard: Kernoberflaeche (nach aussen) bzw. Aussenflaeche (--inward). --bare rechnet die Kugel mit Radius 1.
 // --bare: dieselbe Flaeche ohne Schicht; --neutral: dieselben Netze, Schichten aus dem Aussenmedium. Die Wirkung einer
 // duennen Schicht ist als Differenz zur neutralen Rechnung genauer als zur Rechnung ohne Schicht (docs/results_coated.md).
 // Beispiele:
@@ -16,13 +20,14 @@
 #include <string>
 #include "cbem/geometry/gmsh_io.hpp"
 #include "cbem/problems/layered_problem.hpp"
+#include "cbem/problems/thin_layer_problem.hpp"
 #include "cbem/sources/fields.hpp"
 using namespace cbem;
 static std::vector<std::string> split(const std::string& s, char c) { std::vector<std::string> v; std::stringstream ss(s); std::string t; while (std::getline(ss, t, c)) v.push_back(t); return v; }
 static cplx cval(const std::string& s) { auto c = s.find(','); return {std::stod(s.substr(0, c)), c == std::string::npos ? 0.0 : std::stod(s.substr(c + 1))}; }
 int main(int argc, char** argv) {
     std::string ns = "4,6,8", path, core = "-11,1.2", coat = "0.05,2.25,0", pol = "lin", csv, nbs = "1";
-    double om = 0.5, heps = 1e-4, tol = 1e-6, scale = 1.0; bool offset = false, inward = false, bare = false, neutral = false, oldnear = false; Vec3 d(0, 0, 1);
+    double om = 0.5, heps = 1e-4, tol = 1e-6, scale = 1.0; bool offset = false, inward = false, bare = false, neutral = false, oldnear = false, thin = false; double thinref = -1; Vec3 d(0, 0, 1);
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
         if (o == "--n") ns = nxt(); else if (o == "--mesh") path = nxt(); else if (o == "--scale") scale = std::stod(nxt());
@@ -31,6 +36,7 @@ int main(int argc, char** argv) {
         else if (o == "--dir") { auto v = split(nxt(), ','); d = Vec3(std::stod(v[0]), std::stod(v[1]), std::stod(v[2])); d = d / norm(d); }
         else if (o == "--offset") offset = true; else if (o == "--inward") inward = true;
         else if (o == "--bare") bare = true;              // zusaetzlich dieselbe Flaeche ohne Schicht (Differenzen; Q auf denselben Radius bezogen)
+        else if (o == "--thin") thin = true; else if (o == "--thin-ref") { thin = true; thinref = std::stod(nxt()); }
         else if (o == "--neutral") neutral = true;        // zusaetzlich dieselben Netze mit Schichten aus Aussenmedium (Referenz fuer Differenzen)
         else if (o == "--oldnear") oldnear = true;        // Nahfeldregel ohne Randabstand (Vergleich der Kosten)
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt()); else if (o == "--csv") csv = nxt();
@@ -49,19 +55,32 @@ int main(int argc, char** argv) {
     std::printf("%s, Schichten '%s' (%s), Gesamtdicke %.4g, omega %.4g, n_bg %.3f\n", path.empty() ? "Kugel" : path.c_str(), coat.c_str(),
                 inward ? "nach innen" : "nach aussen", total, om, nbg);
     std::printf("%7s %7s %11s %10s %11s %11s %9s %9s %5s %9s %8s %8s\n", "n", "N", "sigma", "Q_ext", "Re S", "Im S", "|S|", "arg S", "It.", "Nahpaare", "Nah s", "ges. s");
+    auto report = [&](const std::string& label, int n, std::size_t N, const LayeredResult& r, real Aref, std::size_t np, double tn, double tb, double ts) {
+        const real Q = r.sigma_ext / Aref;
+        std::printf("%7s %7zu %11.6g %10.6f %11.6f %11.6f %9.6f %9.6f %5d %9zu %8.1f %8.1f\n", label.c_str(), N, r.sigma_ext, Q, r.forward.real(), r.forward.imag(),
+                    std::abs(r.forward), std::arg(r.forward), r.iterations, np, tn, tb + ts);
+        std::fflush(stdout);
+        if (f) { f << (path.empty() ? "sphere" : path) << ',' << n << ',' << N << ',' << om << ',' << mcore.eps.real() << ',' << mcore.eps.imag() << ",\"" << (label == "bare" ? "none" : label == "neutral" ? "neutral" : label == "thin" ? "thin" + (thinref >= 0 ? "@" + std::to_string(thinref).substr(0, 4) : std::string()) + ":" + coat : coat) << "\","
+                   << inward << ',' << offset << ',' << r.sigma_ext << ',' << Q << ',' << r.forward.real() << ',' << r.forward.imag() << ',' << std::abs(r.forward) << ','
+                   << std::arg(r.forward) << ',' << r.iterations << ',' << np << ',' << tn << ',' << tb << ',' << ts << '\n'; f.flush(); }
+    };
+    auto run_thin = [&](const std::string& label, int n, const std::vector<Coating>& cs, real Aref) {
+        auto t0 = std::chrono::steady_clock::now();
+        const real f = cs.empty() ? 0.0 : thinref >= 0 ? thinref : (inward ? 1.0 : 0.0);
+        const real rlo = inward ? 1.0 - total : 1.0, rref = cs.empty() ? 1.0 : rlo + f * total;   // Radius der Referenzflaeche
+        ThinLayerScatteringProblem P(make_icosphere(n, rref), mcore, cs, om, ext, f, hp, EntryParams{});
+        double tb = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(); t0 = std::chrono::steady_clock::now();
+        auto r = P.solve_plane_wave(d, p, so);
+        double ts = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+        report(label, n, P.mesh().size(), r, Aref, 0, 0.0, tb, ts);
+    };
     auto run = [&](const std::string& label, int n, const LayeredGeometry& g, real Aref) {
         auto t0 = std::chrono::steady_clock::now();
         LayeredScatteringProblem P(g, om, hp, ep);
         double tb = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(); t0 = std::chrono::steady_clock::now();
         auto r = P.solve_plane_wave(d, p, so);
         double ts = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-        const real Q = r.sigma_ext / Aref;
-        std::printf("%7s %7zu %11.6g %10.6f %11.6f %11.6f %9.6f %9.6f %5d %9zu %8.1f %8.1f\n", label.c_str(), P.mesh().size(), r.sigma_ext, Q, r.forward.real(), r.forward.imag(),
-                    std::abs(r.forward), std::arg(r.forward), r.iterations, P.near_pairs(), P.near_seconds(), tb + ts);
-        std::fflush(stdout);
-        if (f) { f << (path.empty() ? "sphere" : path) << ',' << n << ',' << P.mesh().size() << ',' << om << ',' << mcore.eps.real() << ',' << mcore.eps.imag() << ",\"" << (label == "bare" ? "none" : label == "neutral" ? "neutral" : coat) << "\","
-                   << inward << ',' << offset << ',' << r.sigma_ext << ',' << Q << ',' << r.forward.real() << ',' << r.forward.imag() << ',' << std::abs(r.forward) << ','
-                   << std::arg(r.forward) << ',' << r.iterations << ',' << P.near_pairs() << ',' << P.near_seconds() << ',' << tb << ',' << ts << '\n'; f.flush(); }
+        report(label, n, P.mesh().size(), r, Aref, P.near_pairs(), P.near_seconds(), tb, ts);
     };
     std::vector<Coating> ncoats = coats; for (auto& c : ncoats) c.medium = ext;
     if (!path.empty()) {
@@ -88,6 +107,11 @@ int main(int argc, char** argv) {
     };
     for (auto& s : split(ns, ',')) {
         const int n = std::stoi(s);
+        if (thin) {                                                  // eine Flaeche (Radius 1), Schicht erster Ordnung
+            run_thin("thin", n, coats, pi * R * R);
+            if (bare) run_thin("bare", n, {}, pi * R * R);
+            continue;
+        }
         run(std::to_string(n), n, sphere(n, coats), pi * R * R);
         if (neutral) run("neutral", n, sphere(n, ncoats), pi * R * R);
         if (bare) { LayeredGeometry g0(ext); add_body(g0, make_icosphere(n), mcore); run("bare", n, g0, pi * R * R); }

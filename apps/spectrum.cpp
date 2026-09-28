@@ -7,6 +7,8 @@
 // Beschichtungen (alle Koerper, von innen nach aussen, Dicke in nm, Material wie --materials):
 //   spectrum --sphere 12 --unit 20 --materials Ag --nbg 1.33 --coating "1.5:2.89,0" --lambda 360:460:5
 //   --coat-inward: Schichten innerhalb der Netzflaeche (verdraengen Kernmaterial). Nur punktweise Vorkonditionierung.
+//   --thin f: Duennschicht-Naeherung erster Ordnung auf einer Flaeche (ThinLayerScatteringProblem, ein Koerper);
+//             Referenzflaeche im Anteil f der Schicht von innen (0,5 = Schichtmitte, empfohlen), per Parallelflaeche.
 // Ausgabe zusaetzlich: Vorwaertsamplitude S(0) (Mittel ueber Richtungen/Polarisationen) und ihre Phase arg S.
 #include <chrono>
 #include <cstdio>
@@ -16,6 +18,7 @@
 #include "cbem/core/materials.hpp"
 #include "cbem/geometry/gmsh_io.hpp"
 #include "cbem/problems/layered_problem.hpp"
+#include "cbem/problems/thin_layer_problem.hpp"
 #include "cbem/sources/fields.hpp"
 #include "cbem/sources/orientation.hpp"
 using namespace cbem;
@@ -23,7 +26,7 @@ static std::vector<std::string> split(const std::string& s, char c) { std::vecto
 int main(int argc, char** argv) {
     std::string precond = "point";   // point | cluster:G (Bloecke auf Clustern mit <= G Dreiecken) | hodlr:eps[:leaf] (hierarchische Faktorisierung)
     std::string mesh, mats = "Au", chis = "0", pol = "lin", lam = "500:600:50", csv, datadir = "data/materials";
-    int sph = 0, orient = 1; bool verbose = false, coat_inward = false; std::string coating; double unit = 1.0, nbg = 1.0, heps = 1e-4, tol = 1e-6;
+    int sph = 0, orient = 1; bool verbose = false, coat_inward = false; std::string coating; double thin = -1; double unit = 1.0, nbg = 1.0, heps = 1e-4, tol = 1e-6;
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
         if (o == "--precond") precond = nxt();
@@ -31,7 +34,7 @@ int main(int argc, char** argv) {
         else if (o == "--materials") mats = nxt(); else if (o == "--chi") chis = nxt(); else if (o == "--nbg") nbg = std::stod(nxt());
         else if (o == "--lambda") lam = nxt(); else if (o == "--pol") pol = nxt(); else if (o == "--orient") orient = std::stoi(nxt());
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt());
-        else if (o == "--coating") coating = nxt(); else if (o == "--coat-inward") coat_inward = true;
+        else if (o == "--coating") coating = nxt(); else if (o == "--coat-inward") coat_inward = true; else if (o == "--thin") thin = std::stod(nxt());
         else if (o == "--csv") csv = nxt(); else if (o == "--data") datadir = nxt(); else if (o == "--verbose") verbose = true;
         else { std::printf("unbekannte Option %s\n", o.c_str()); return 1; }
     }
@@ -48,6 +51,10 @@ int main(int argc, char** argv) {
     std::vector<std::pair<real, std::shared_ptr<Material>>> coat_mat;           // Dicke in nm, Material
     for (auto& c : split(coating, ';')) { if (c.empty()) continue; auto q = c.find(':'); coat_mat.push_back({std::stod(c.substr(0, q)), make_material(c.substr(q + 1), datadir)}); }
     if (!coat_mat.empty() && precond != "point") { std::printf("Beschichtung: nur --precond point\n"); return 1; }
+    if (thin >= 0 && (coat_mat.empty() || parts.size() != 1)) { std::printf("--thin: genau ein Koerper mit --coating\n"); return 1; }
+    TriangleMesh thin_ref;                                     // Referenzflaeche der Duennschicht-Naeherung
+    if (thin >= 0) { real t = 0; for (auto& c : coat_mat) t += c.first / unit; const real off = coat_inward ? -(1.0 - thin) * t : thin * t;
+                     thin_ref = off == 0.0 ? parts[0] : offset_surface(parts[0], off); }
     std::vector<double> lams; { auto r = split(lam, ':'); if (r.size() == 3) for (double l = std::stod(r[0]); l <= std::stod(r[1]) + 1e-9; l += std::stod(r[2])) lams.push_back(l); else for (auto& t : split(lam, ',')) lams.push_back(std::stod(t)); }
     const auto dirs = lebedev(orient);
     std::ofstream f; if (!csv.empty()) { f.open(csv, std::ios::app); f.seekp(0, std::ios::end); if (f.tellp() == 0) f << "lambda_nm,unit_nm,nbg,N,orient,pol,sigma_nm2,sigma_plus_nm2,sigma_minus_nm2,CD_nm2,iterations,t_s,coating,S_re,S_im\n"; }
@@ -62,18 +69,23 @@ int main(int argc, char** argv) {
         for (std::size_t b = 0; b < parts.size(); ++b) med.push_back(Medium{mat[b]->eps(L), 1.0, chi[b]});
         HMatrixParams hp; hp.eps = heps; SolveOptions so; so.tol = tol;
         const Medium bg{nbg * nbg, 1.0, 0.0};
-        std::unique_ptr<ScatteringProblem> PP; std::unique_ptr<LayeredScatteringProblem> PL;
+        std::unique_ptr<ScatteringProblem> PP; std::unique_ptr<LayeredScatteringProblem> PL; std::unique_ptr<ThinLayerScatteringProblem> PT;
         if (coat_mat.empty()) PP = std::make_unique<ScatteringProblem>(parts, med, om, bg, hp);
+        else if (thin >= 0) {
+            std::vector<Coating> cs; for (auto& c : coat_mat) cs.push_back(Coating{c.first / unit, Medium{c.second->eps(L), 1.0, 0.0}});
+            PT = std::make_unique<ThinLayerScatteringProblem>(thin_ref, med[0], cs, om, bg, thin, hp);
+        }
         else {
             LayeredGeometry g(bg); std::vector<Coating> cs;
             for (auto& c : coat_mat) cs.push_back(Coating{c.first / unit, Medium{c.second->eps(L), 1.0, 0.0}});
             for (std::size_t b = 0; b < parts.size(); ++b) add_coated_body(g, parts[b], med[b], cs, !coat_inward);
             PL = std::make_unique<LayeredScatteringProblem>(g, om, hp);
         }
-        const std::size_t Ntri = PP ? PP->mesh().size() : PL->mesh().size();
+        const std::size_t Ntri = PP ? PP->mesh().size() : PT ? PT->mesh().size() : PL->mesh().size();
         struct Sol { real sigma_ext; cplx forward; int iterations; };
         auto solve = [&](const Vec3& dd, const CVec3& pp) -> Sol {
             if (PP) { auto r = PP->solve_plane_wave(dd, pp, so); return {r.sigma_ext, r.forward, r.iterations}; }
+            if (PT) { auto r = PT->solve_plane_wave(dd, pp, so); return {r.sigma_ext, r.forward, r.iterations}; }
             auto r = PL->solve_plane_wave(dd, pp, so); return {r.sigma_ext, r.forward, r.iterations}; };
         if (PP) {
             ScatteringProblem& P = *PP;
@@ -106,7 +118,7 @@ int main(int argc, char** argv) {
         double ts = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         std::printf("%9.1f %13.5g %13.5g %13.5g %13.5g %9.5f %6d %7.1f\n", L, s * u2, sp * u2, sm * u2, (sp - sm) * u2, std::arg(Sf), its, ts); std::fflush(stdout);
         if (f) { f << L << ',' << unit << ',' << nbg << ',' << Ntri << ',' << dirs.size() << ',' << pol << ',' << s * u2 << ',' << sp * u2 << ',' << sm * u2 << ','
-                   << (sp - sm) * u2 << ',' << its << ',' << ts << ",\"" << coating << (coat_inward ? " (innen)" : "") << "\"," << Sf.real() << ',' << Sf.imag() << '\n'; f.flush(); }
+                   << (sp - sm) * u2 << ',' << its << ',' << ts << ",\"" << coating << (coat_inward ? " (innen)" : "") << (thin >= 0 ? " thin@" + std::to_string(thin).substr(0, 4) : std::string()) << "\"," << Sf.real() << ',' << Sf.imag() << '\n'; f.flush(); }
     }
     return 0;
 }

@@ -5,9 +5,10 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.13.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.14.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
-mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten), dispersive
+mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
+Dünnschicht-Näherung erster Ordnung auf einer Fläche), dispersive
 Materialien, Spektren mit Orientierungsmittelung, Phase der Vorwärtsamplitude, Block- und hierarchische
 Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 
@@ -19,6 +20,7 @@ Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 | Chirale Medien | Pasteur-Medien innen, Helizitätszerlegung, chirale J | chirale Mie-Lösung: Q₊, Q₋, CD auf 10⁻⁴ |
 | Mehrere Körper | eigenes Medium je Körper, blockdiagonaler Innenoperator | Additivität bei großem Abstand, zwei unabhängige Formulierungen, Enantiomere mit entgegengesetztem CD |
 | Beschichtete Grenzflächen | verschachtelte Gebiete (Grenzflächengraph), Parallelflächen, Schichten nach außen/innen, chirale Schichten, Vorwärtsamplitude S(0) mit Phase | beschichtete Kugel gegen Aden–Kerker: Q_ext und S(0) Ordnung 2; dünne Schichten (d/h bis 0,04) als Differenz zur neutralen Rechnung auf 1–5 % |
+| Dünnschicht-Näherung | eine Fläche, J_eff = J + L_d (Greensche Funktion der Schichtfolge in erster Ordnung), Flächenableitungen über Kantennachbarn | Schichtwirkung gegen Aden–Kerker: Diskretisierungsfehler bei n = 8 unter 1 %, Modellfehler ≈ 1,5 d/a (1,3–2 d/a je nach Referenzfläche) |
 | Kanten und Ecken | gradierte Netze, Kanten-/Eckblöcke, Kriterien für gestreckte Elemente | Iterationen unabhängig von der Kantenauflösung (Würfel, Würfel-Dimer) |
 | Kompression | ACA (gemeinsam, komponentenweise, Multivektor-Pivots) | Speicher O(N log² N) bis 163 840 Unbekannte; gemeinsame ACA am günstigsten |
 | Spektren | Johnson-Christy Au/Ag, Hintergrundmedium, Lebedev-Mittelung | Goldkugel in Wasser gegen Mie (≤ 1,5 % bei 1 280 Dreiecken) |
@@ -33,7 +35,7 @@ Für die Python-Werkzeuge: NumPy, SciPy, Matplotlib, optional `gmsh` (Geometrien
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release     # Optionen: -DCBEM_OPENMP=ON -DCBEM_NATIVE=ON
 cmake --build build -j
-ctest --test-dir build --output-on-failure         # 17 Tests
+ctest --test-dir build --output-on-failure         # 18 Tests
 ```
 
 | Test | prüft |
@@ -55,6 +57,7 @@ ctest --test-dir build --output-on-failure         # 17 Tests
 | `test_materials` | Materialtabellen, Lebedev-Momente |
 | `test_hodlr` | Systemeinträge gegen Operator, HODLR als direkter Löser und Vorkonditionierer |
 | `test_layered` | Parallelflächen, ohne Schicht = T₁, beschichtete Kugel gegen Aden–Kerker, neutrale Schale, chirale Schale |
+| `test_thin_layer` | Flächenoperatoren auf der Kugel, ohne Schicht = T₁, neutrale Schicht ohne Wirkung, Schichtwirkung gegen Aden–Kerker |
 
 ## Anwendungen
 
@@ -67,13 +70,13 @@ ctest --test-dir build --output-on-failure         # 17 Tests
 | `scatter_multi` | Kugel-Dimer, auch chiral | `--n 8 --dist 3 --pol circ` |
 | `scatter_mesh` | beliebige Gmsh-Geometrie | `--mesh stab.msh --media "-11,1.2" --pol circ --precond hodlr:1e-2` |
 | `spectrum` | Spektren, Orientierungsmittelung, Beschichtungen | `--mesh x.msh --unit 25 --materials Ag --nbg 1.33 --lambda 340:520:20 [--coating "2:2.89,0"]` |
-| `scatter_coated` | beschichtete Kugel/Gmsh-Körper, gegen Aden–Kerker, neutrale Referenz | `--n 4,8 --omega 0.5 --core -11,1.2 --coat 0.02,2.25,0 --neutral` |
+| `scatter_coated` | beschichtete Kugel/Gmsh-Körper, gegen Aden–Kerker, neutrale Referenz, Dünnschicht-Näherung | `--n 4,8 --omega 0.5 --core -11,1.2 --coat 0.02,2.25,0 --neutral` bzw. `--thin-ref 0.5 --bare` |
 | `bench_compression` | Asymptotik der Kompression | `--geometry sphere --n 8,16,24 --mode joint` |
 
 Vorkonditionierung in `spectrum`, `scatter_mesh`, `scatter_multi`: `--precond point | cluster:G | hodlr:eps[:leaf]`.
 Geometrien: `python3 tools/make_geometries.py sphere|rod|bornkuhn|roundcube h out.msh [--radius ρ] [--angle φ]`.
 Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compression.py`, `mie_spectrum.py`,
-`mie_coated.py` (Aden–Kerker, Mehrfachschichten), `analyze_coated.py`, `plot_coated.py`.
+`mie_coated.py` (Aden–Kerker, Mehrfachschichten), `analyze_coated.py`, `analyze_thin.py`, `plot_coated.py`.
 
 ## Ergebnisse
 
@@ -96,7 +99,10 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
 - **Beschichtete Grenzflächen:** exakte Schichtformulierung (jede Schichtgrenze eine Fläche), gegen Aden–Kerker mit
   Ordnung 2 in Extinktion und Phase. Bei Schichten dünner als die Elemente trägt die Rechnung einen systematischen
   Fehler, der sich in der Differenz zu einer neutralen Rechnung (Schicht aus Außenmedium, gleiche Netze) heraushebt;
-  so ist die Wirkung einer Oxidschicht schon bei d/h ≈ 0,04 auf wenige Prozent genau (`results_coated.md`).
+  so ist die Wirkung einer Oxidschicht schon bei d/h ≈ 0,04 auf wenige Prozent genau. Für d ≪ h und d ≪ a gibt es
+  zusätzlich eine Dünnschicht-Näherung erster Ordnung auf einer Fläche (Greensche Funktion der Schichtfolge in
+  erster Ordnung, Ableitungen auf der Dichte statt im Kern): Kosten wie ohne Schicht, keine neutrale Rechnung, Phase
+  für d/a ≲ 0,03 genauer als die Zwei-Flächen-Rechnung, aber ein Modellfehler ≈ 1,5 d/a (`results_coated.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).
@@ -114,7 +120,8 @@ include/cbem/hmatrix     Clusterbaum, ACA-Varianten, H-Matrix
 include/cbem/operators   Cauchy-Operator, chiraler und blockdiagonaler Innenoperator, T₁, dichte Blöcke
 include/cbem/solvers     GMRES, Block-Vorkonditionierung, HODLR
 include/cbem/sources     ebene Wellen, Fernfeld, Extinktion, Lebedev-Richtungen
-include/cbem/problems    ScatteringProblem (Einstiegsklasse), LayeredScatteringProblem (beschichtete/geschichtete Körper)
+include/cbem/problems    ScatteringProblem (Einstiegsklasse), LayeredScatteringProblem (beschichtete/geschichtete Körper),
+                         ThinLayerScatteringProblem (Dünnschicht-Näherung erster Ordnung)
 apps/  tests/  tools/  results/  examples/
 data/materials/          Johnson-Christy Au, Ag (refractiveindex.info, CC0)
 prototype/               Python-Prototypen: ap1 (Theorie), ap2 (3D-Galerkin, H-Matrix), resonance (Resonanzfenster)
@@ -126,7 +133,8 @@ docs/                    Architektur, Ergebnisberichte, Arbeitspapiere AP 1–3,
 Siehe `docs/ARCHITECTURE.md`. Wichtigste: reflexionsfreier Abschluss an 3D-Kanten im Resonanzfenster,
 Streckung um Spitzen im C++-Kern, Krylov-Recycling für viele rechte Seiten, Substrate, gekrümmte Elemente,
 Ansätze höherer Ordnung, parallele Tests auf Mehrkernrechnern, Python-Anbindung; für beschichtete Körper:
-Block-/HODLR-Vorkonditionierung und ein Eindeutigkeitsbeweis für verschachtelte Gebiete.
+Block-/HODLR-Vorkonditionierung, ein Eindeutigkeitsbeweis für verschachtelte Gebiete und eine Dünnschicht-Näherung
+zweiter Ordnung (Formoperatoren).
 
 Die Beweise und Aussagen in den Arbeitspapieren sind vorläufig und nicht unabhängig geprüft.
 
