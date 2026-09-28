@@ -14,13 +14,14 @@
 \titleformat{\section}{\large\bfseries\sffamily}{\thesection}{1em}{}
 \newcommand{\mvec}[1]{\boldsymbol{#1}}
 \newcommand{\n}{\mvec{n}}
+\newcommand{\clc}{\mathcal{C}\ell_{3}(\mathbb{C})}
 
 \begin{document}
 \begin{center}
   \sffamily
   {\Large\textbf{Clifford-BEM: Ausarbeitung zu AP 3}}\\[0.3cm]
   {\large Teil I: $\mathcal{H}$-Matrix mit Adaptiver Kreuzapproximation;\\ kombinierter Löser am Würfel}\\[0.3cm]
-  {\small Arbeitsstand, Version 0.3}
+  {\small Arbeitsstand, Version 0.4}
 \end{center}
 
 \section*{Überblick}
@@ -290,11 +291,37 @@ Konvergenz bei Gold lag also an der Nahfeldquadratur, nicht an Formulierung oder
 Damit ist H3 (zweiter Teil) im Bereich bis etwa 160\,000 Unbekannte und $kD\lesssim16$ numerisch
 gestützt: Der Aufwand ist $\mathcal{O}(N\log^\alpha N)$ mit $\alpha\approx2$ für den Speicher.
 
+\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.12)}\label{sec:cpp2}
+Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
+\begin{itemize}[leftmargin=*]
+  \item \emph{Nahfeld.} Sauter-Schwab-Quadratur für benachbarte Paare: Die bisherige Regel hatte an gemeinsamen
+    Kanten bis 1,7\,\% Fehler; mit Sauter-Schwab konvergiert Gold mit Ordnung 2 gegen Mie (Extrapolation
+    $2\cdot10^{-5}$ bis $9\cdot10^{-5}$ statt $1{,}4\cdot10^{-3}$). Auf gestreckten Dreiecken (Seitenverhältnis bis 16)
+    ist Sauter-Schwab ungenau (bis 1,4\,\%) und orientierungsabhängig; dort wird eine halbanalytische, zur
+    gemeinsamen Kante gradierte Regel verwendet, für nahe Paare eine adaptive Außenregel, alles in einem Nahfeld-Cache.
+  \item \emph{Chirale Medien.} Innerer Operator $P_+E_{k_+}+P_-E_{k_-}$, chirale $J$; $Q_\pm$ und CD treffen eine
+    chirale Mie-Lösung nach Extrapolation auf $10^{-4}$.
+  \item \emph{Mehrere Körper, Gmsh, Spektren.} Blockdiagonaler Innenoperator je Körper; Gmsh-Import;
+    Johnson-Christy-Daten, Orientierungsmittelung (Lebedev). Born-Kuhn-Dimer: bisignates CD-Spektrum,
+    Enantiomere mit entgegengesetztem CD auf $10^{-5}$.
+  \item \emph{Vorkonditionierung.} Blockvorkonditionierung für mehrere Körper und chirale Medien (voller Block =
+    1 Iteration); Würfel-Dimer mit Kanten-/Eckblöcken: Iterationen nahezu unabhängig von der Kantenauflösung
+    ($56\to54$ statt $56\to72$). Hierarchische Faktorisierung im HODLR-Format (schwache Zulässigkeit): direkter
+    Löser mit feiner Toleranz, als Vorkonditionierer lohnend ab etwa 7 bis 18 rechten Seiten; an Plasmonresonanzen
+    nur begrenzt wirksam.
+  \item \emph{ACA mit Multivektor-Pivots.} Kreuzapproximation über $\clc$ mit Nullteiler-Erkennung: bei gleicher
+    Genauigkeit 2,3- bis 2,9-mal mehr Speicher als die gemeinsame skalare ACA (Kugel, Würfel, $k=12$). Der Kern ist
+    skalar separabel (skalare Funktionen von $x$ mal paravektorwertige von $y$); genau das nutzt die gemeinsame ACA.
+  \item \emph{Abgerundete Würfel.} Im Resonanzfenster konvergiert die Rechnung mit gerundeten Kanten monoton, hängt
+    aber stark vom Radius ab; Silberwürfel (50\,nm, Wasser): Hauptresonanz verschiebt sich mit schärferen Kanten nach
+    Rot (grob 440, 460, 470\,nm für 10, 7,5, 5\,nm Radius).
+\end{itemize}
+
 \section{Einordnung und nächste Schritte}
 \begin{itemize}[leftmargin=*]
   \item \emph{H3, erster Teil:} Gemeinsame Pivotisierung über die Grade spart
-    10--19\,\%. Eine echte Block-ACA mit $8\times8$- bzw.\ Multivektor-Pivots
-    (AP~3.2) kann das verbessern; zu testen.
+    10--19\,\%. Multivektor-Pivots verbessern das nicht, sie kosten 2,3- bis 2,9-mal mehr Speicher
+    (Abschnitt~\ref{sec:cpp2}); in dieser Form ist die Hypothese widerlegt.
   \item \emph{H3, zweiter Teil:} Mit dem C++-Kern bis 163\,840 Unbekannte gestützt:
     $\mathcal{O}(N\log^2N)$ für Kugel und Würfel (Abschnitt~\ref{sec:cpp}). Offen sind stark
     gradierte Netze (Kriterien für gestreckte Elemente) und elektrisch große Streuer

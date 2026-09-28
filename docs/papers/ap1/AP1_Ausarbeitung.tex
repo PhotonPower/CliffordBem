@@ -44,7 +44,7 @@
   {\Large\textbf{Clifford-BEM: Mathematische Ausarbeitung zu AP 1}}\\[0.3cm]
   {\large Teil I: Grundlagen, Cauchy-Darstellung, Transmission, chirale Medien\\
   Teil II: Resonanzfreiheit und Kugel, Teil III: Eindeutigkeit und Torus}\\[0.3cm]
-  {\small Arbeitsstand, Version 0.17}
+  {\small Arbeitsstand, Version 0.18}
 \end{center}
 
 \section*{Überblick und Status}
@@ -2633,5 +2633,49 @@ verifizieren.
   \item I.~Lindell, A.~Sihvola, S.~Tretyakov, A.~Viitanen: \emph{Electromagnetic
     Waves in Chiral and Bi-Isotropic Media}, Artech House, 1994.
 \end{itemize}}
+
+
+\section{Nachtrag: Resonanzfenster an Ecken und Kanten}\label{sec:fenster}
+Dieser Abschnitt fasst die späteren Untersuchungen zum Resonanzfenster aus Teil~IV zusammen
+(Prototypen \texttt{prototype/resonance}, Bericht \texttt{docs/results\_resonance\_window.md} im Repository
+\texttt{PhotonPower/CliffordBem}).
+
+\paragraph{Mechanismus.} Im Fenster hat die Kante einen Singulärexponenten $a=c-i\tau$ mit kleinem $c$
+(rechter Winkel, $\kappa=-2{,}8+0{,}3i$: $a=0{,}151-0{,}238i$). Das Feld enthält in $\log r$ oszillierende
+Wellen, die in die Ecke laufen; ihre Wellenlänge in $\ln r$ ist $2\pi/\tau\approx26$ (etwa 11 Dekaden). Bei
+kleinem Verlust werden sie am innersten Element des gradierten Netzes reflektiert, daher die fehlende
+Konvergenz in der Gradierungstiefe.
+
+\paragraph{2D: gelöst.} Komplexe Streckung $r\mapsto r\,(r/r_0)^{i\theta}$ nahe der Ecke, analytisch
+fortgesetzter Kern ($z\cdot z$ bilinear), Galerkin mit Testung durch das Konturintegral (ohne Konjugation):
+\begin{itemize}[leftmargin=*]
+  \item Das Vorzeichen von $\theta$ folgt aus dem physikalischen Exponenten ($\theta>0$); mit falschem
+    Vorzeichen konvergiert das Verfahren in der Tiefe gegen eine unphysikalische Lösung.
+  \item Die gestreckte Dichte liegt in $L^2$, wenn $c+\tau\theta>\tfrac12$.
+  \item Ergebnis (Quadrat, $\kappa=-2{,}8+0{,}3i$): tiefenunabhängig auf $10^{-7}$, konvergent in der
+    Gradierung, $\theta=2$ und $3$ stimmen auf $6\cdot10^{-4}$ überein; auch der verlustfreie Fall $\kappa=-2$ ist
+    rechenbar (mit Energieabfluss in die Ecke), und $\kappa=-2+0{,}02i$ liegt nahe daran.
+  \item Kollokation konvergiert dagegen nicht; sie war die zweite Ursache der Schwierigkeiten in Teil~IV.
+\end{itemize}
+
+\paragraph{3D.}
+\begin{itemize}[leftmargin=*]
+  \item An Kanten bleibt die Koordinate $t$ entlang der Kante reell; mit der Spiralstreckung liegt der
+    transversale Anteil $w_T$ von $z\cdot z=(t_1-t_2)^2+w_T$ auch auf der negativen reellen Achse, der fortgesetzte
+    Kern wird auf dem komplexen Rand singulär. Eine begrenzte Phase ($|\arg\tilde r|<\pi/2$) vermeidet das,
+    dämpft aber höchstens um $e^{\tau\pi/2}$.
+  \item Um Spitzen und Ecken ist eine isotrope Streckung aller Koordinaten zulässig.
+  \item Weitere Versuche für Kanten, im 2D-Prototyp gegen die Streckungslösung geprüft: Eckelement mit
+    $r^{a-1}$ (frei in allen Komponenten oder mit der exakten Mellin-Mode, deren Richtung die Referenzlösung mit
+    $|\cos|=0{,}997$ bestätigt) und Absorber über elementweise $\operatorname{Im}\kappa$ in $J$. Beide sind nicht
+    transparent; der Absorber müsste sich über Dutzende Dekaden erstrecken.
+  \item Offene Wege: eine asymptotische diskrete DtN-Bedingung aus der Schichtstruktur (in tiefen Schichten mit
+    $r\ll\Delta t$ wird das Kantenproblem asymptotisch zweidimensional) und Hardy-Raum-Ansätze.
+\end{itemize}
+
+\paragraph{Abgerundete Kanten.} Mit Rundungsradius $\rho$ ist der Rand glatt; im Fenster konvergiert die
+3D-Rechnung dann monoton (Würfel, $\kappa=-2{,}8+0{,}3i$, $\rho=0{,}2$: $14{,}22\to13{,}31\to12{,}86$), hängt
+aber stark von $\rho$ ab (etwa Halbierung der Extinktion von $\rho=0{,}4$ auf $0{,}2$). Für reale Nanowürfel ist
+der Radius ein physikalischer Parameter.
 
 \end{document}

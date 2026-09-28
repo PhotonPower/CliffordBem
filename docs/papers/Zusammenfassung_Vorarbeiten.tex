@@ -22,7 +22,7 @@
   \sffamily
   {\Large\textbf{Clifford-BEM: Zusammenfassung der Vorarbeiten}}\\[0.3cm]
   {\large Ergebnisse zu AP 1 (Theorie), AP 2 (Diskretisierung) und AP 3 (Kompression)}\\[0.3cm]
-  {\small Stand: Arbeitspapiere AP1 v0.17, AP2 v0.3, AP3 v0.3; C++-Kern v0.11}
+  {\small Stand: Arbeitspapiere AP1 v0.18, AP2 v0.3, AP3 v0.4; C++-Kern v0.12}
 \end{center}
 
 \section*{Vorbemerkung}
@@ -178,9 +178,22 @@ $\kappa\in[-3,-\tfrac13]$ verlustfrei & ja & 0 & keines\\
   \item Eck-Blockvorkonditionierung: etwa 14 GMRES-Iterationen, unabhängig von der
     Eckauflösung, statt bis zu 60.
   \item \emph{Resonanzfenster:} Resonanzen in $[-3,-\tfrac13]$ mit
-    $\operatorname{Im}\kappa\lesssim1$ konvergieren nicht. Ein Eigenwert der Eckschichten läuft
-    periodisch nahe an null. Weder Eckanreicherung noch Extrapolation noch künstliche
-    Dämpfung helfen; Letztere verschiebt nur die Reflexion.
+    $\operatorname{Im}\kappa\lesssim1$ konvergieren mit Kollokation nicht: Eckwellen $r^{-i\tau}$ (in $\ln r$
+    etwa 11 Dekaden Wellenlänge) werden am innersten Element reflektiert.
+\end{itemize}
+
+\subsection{Resonanzfenster: Lösung in 2D, Befunde in 3D}
+\begin{itemize}[leftmargin=*]
+  \item \emph{2D gelöst:} Galerkin mit komplexer Streckung $r\mapsto r\,(r/r_0)^{i\theta}$ ($\theta>0$,
+    $c+\tau\theta>\tfrac12$) und Konturtestung. Tiefenunabhängig auf $10^{-7}$, konvergent, $\theta$-unabhängig
+    auf $6\cdot10^{-4}$, auch verlustfrei. Mit falschem Vorzeichen von $\theta$ konvergiert das Verfahren gegen eine
+    unphysikalische Lösung. \st{numerisch}
+  \item \emph{3D-Kanten:} Die Streckung erzeugt Nullstellen von $z\cdot z$ auf dem komplexen Rand (Koordinate
+    entlang der Kante bleibt reell); begrenzte Phase dämpft zu wenig. Angereicherte Eckelemente (auch mit der
+    exakten Mellin-Mode) und ein Absorber über elementweises $\operatorname{Im}\kappa$ sind nicht transparent.
+    An Spitzen ist eine isotrope Streckung zulässig. \st{numerisch}
+  \item \emph{Abgerundete Kanten:} Mit Rundungsradius $\rho$ konvergiert die 3D-Rechnung im Fenster monoton, hängt
+    aber stark von $\rho$ ab (etwa Halbierung der Extinktion von $\rho=0{,}4$ auf $0{,}2$). \st{numerisch}
 \end{itemize}
 
 %=====================================================================
@@ -270,6 +283,16 @@ Gold, $\omega a=0{,}5$ & 25 (konstant) & 0,60764 & 0,59247 & 0,59002\\
     $-3+0{,}3i$, 47 für Gold, $L=2\dots5$), ohne Blöcke wachsen sie ($73\to106$ bzw.\ $64\to71$).
     Die Extinktion fällt für Gold monoton und schwankt für $-3+0{,}3i$, passend zum
     Resonanzfenster.
+  \item \emph{Chirale Medien} (v0.6): $Q_\pm$ und CD treffen die chirale Mie-Lösung auf $10^{-4}$.
+  \item \emph{Mehrere Körper, Gmsh, Spektren} (v0.7, v0.8): Born-Kuhn-Dimer mit bisignatem, orientierungsgemitteltem
+    CD-Spektrum; Enantiomere mit entgegengesetztem CD auf $10^{-5}$; Goldkugel in Wasser gegen Mie.
+  \item \emph{Vorkonditionierung} (v0.9, v0.10): Kanten-/Eckblöcke auch für mehrere Körper und chirale Medien;
+    hierarchische Faktorisierung (HODLR) als direkter Löser bzw.\ Vorkonditionierer, lohnend bei vielen rechten
+    Seiten, an Plasmonresonanzen nur begrenzt.
+  \item \emph{Nahfeld auf gestreckten Elementen} (v0.5): Sauter-Schwab ist dort ungenau (bis 1,4\,\%); halbanalytische,
+    gradierte Regel.
+  \item \emph{Silberwürfel} (50\,nm, Wasser): Die Hauptresonanz verschiebt sich mit schärferen Kanten nach Rot
+    (grob 440, 460, 470\,nm für 10, 7,5, 5\,nm Rundungsradius).
 \end{itemize}
 
 %=====================================================================
@@ -301,14 +324,13 @@ Gold, $\omega a=0{,}5$ & 25 (konstant) & 0,60764 & 0,59247 & 0,59002\\
   \item \emph{Theorie:} Fredholm-Theorie auf Lipschitz-Rändern (Kantenoperatoren entlang der
     Kante, Spurregularität); echte Würfelecke (Mellin-Symbol auf dem sphärischen Dreieck);
     Beweis der Übereinstimmung an Kegelspitzen; stark chirale Metalle; Tellegen-Medien.
-  \item \emph{Resonanzfenster:} reflexionsfreier Eckabschluss (komplexe Streckung in
-    $\log r$ oder transparenter Abschluss); Theorie der diskreten Eckmoden.
+  \item \emph{Resonanzfenster:} transparenter Abschluss an 3D-Kanten (asymptotische diskrete DtN aus der
+    Schichtstruktur, Hardy-Raum-Ansätze); Streckung um Spitzen im C++-Kern; unabhängige Referenz im Fenster.
   \item \emph{Diskretisierung:} Gårding-Ungleichung für $T_1$; ein kombiniertes Gewicht für Kanten und Ecken;
     Nahfeldkriterien für gestreckte Elemente; Sauter-Schwab für nichtkonforme Netze.
-  \item \emph{Kompression:} echte Block-ACA mit Multivektor-Pivots; Zulässigkeit für
-    gestreckte Elemente; $\mathcal{H}$-LU für große Kanten- und Eckblöcke.
-  \item \emph{Umsetzung:} Ausbau des C++-Kerns (Repository \texttt{PhotonPower/CliffordBem}) zum
-    vollständigen Löser: $T_1$, GMRES, Kanten-/Eck-Vorkonditionierung, Sauter-Schwab.
+  \item \emph{Kompression und Löser:} ACA+; H-LU mit starker Zulässigkeit; Krylov-Recycling für viele rechte Seiten;
+    Parallelisierung und Tests auf Mehrkernrechnern.
+  \item \emph{Modellierung:} Substrate, gekrümmte Elemente, Ansätze höherer Ordnung.
   \item \emph{Formales:} unabhängige Prüfung aller Beweise; Prüfung der Literatur.
 \end{itemize}
 
