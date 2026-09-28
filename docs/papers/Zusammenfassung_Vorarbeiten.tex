@@ -22,7 +22,7 @@
   \sffamily
   {\Large\textbf{Clifford-BEM: Zusammenfassung der Vorarbeiten}}\\[0.3cm]
   {\large Ergebnisse zu AP 1 (Theorie), AP 2 (Diskretisierung) und AP 3 (Kompression)}\\[0.3cm]
-  {\small Stand: Arbeitspapiere AP1 v0.18, AP2 v0.3, AP3 v0.4; C++-Kern v0.12}
+  {\small Stand: Arbeitspapiere AP1 v0.19, AP2 v0.3, AP3 v0.5; C++-Kern v0.13}
 \end{center}
 
 \section*{Vorbemerkung}
@@ -293,6 +293,14 @@ Gold, $\omega a=0{,}5$ & 25 (konstant) & 0,60764 & 0,59247 & 0,59002\\
     gradierte Regel.
   \item \emph{Silberwürfel} (50\,nm, Wasser): Die Hauptresonanz verschiebt sich mit schärferen Kanten nach Rot
     (grob 440, 460, 470\,nm für 10, 7,5, 5\,nm Rundungsradius).
+  \item \emph{Beschichtete Grenzflächen} (v0.13): exakte Schichtformulierung für verschachtelte Gebiete (Kern-Schale,
+    Mehrfachschichten, chirale Schichten); Konsistenz und Fredholm-Eigenschaft bewiesen, Eindeutigkeit vermutet.
+    Beschichtete Kugel gegen Aden-Kerker mit Ordnung~2 in Extinktion und Phase der Vorwärtsamplitude. Bei Schichten
+    dünner als die Elemente trägt die Rechnung einen systematischen Fehler; die Schichtwirkung als Differenz zu einer
+    neutralen Rechnung (gleiche Netze, Schicht aus Außenmedium) ist bis $d/h\approx0{,}04$ auf wenige Prozent genau.
+    Silberkugel (20\,nm, Wasser) mit 2\,nm Oxid ($n=1{,}7$): Rotverschiebung der Dipolresonanz um etwa 10\,nm,
+    Phasenänderung der Vorwärtsamplitude bis 0,9\,rad, beides gegen Aden-Kerker auf 0,5--7\,\% an der Resonanz.
+    \st{numerisch}
 \end{itemize}
 
 %=====================================================================
@@ -330,7 +338,8 @@ Gold, $\omega a=0{,}5$ & 25 (konstant) & 0,60764 & 0,59247 & 0,59002\\
     Nahfeldkriterien für gestreckte Elemente; Sauter-Schwab für nichtkonforme Netze.
   \item \emph{Kompression und Löser:} ACA+; H-LU mit starker Zulässigkeit; Krylov-Recycling für viele rechte Seiten;
     Parallelisierung und Tests auf Mehrkernrechnern.
-  \item \emph{Modellierung:} Substrate, gekrümmte Elemente, Ansätze höherer Ordnung.
+  \item \emph{Modellierung:} Substrate, gekrümmte Elemente, Ansätze höherer Ordnung; Eindeutigkeit und
+    Vorkonditionierung für geschichtete Körper.
   \item \emph{Formales:} unabhängige Prüfung aller Beweise; Prüfung der Literatur.
 \end{itemize}
 

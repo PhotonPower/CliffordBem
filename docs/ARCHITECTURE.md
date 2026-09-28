@@ -1,4 +1,4 @@
-# Architektur und Ausbauplan (Stand 0.12)
+# Architektur und Ausbauplan (Stand 0.13)
 
 ## Leitlinien
 
@@ -24,15 +24,15 @@
 |---|---|---|
 | core | Grundtypen, Materialmodelle (konstant, n/k-Tabellen) | Drude-Lorentz-Fits, Größenkorrektur der Dämpfung |
 | clifford | Multivektoren, geometrisches Produkt, Inverse (Nullteiler-Erkennung), Linksmultiplikation | spezialisierte Grad-Darstellungen |
-| geometry | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörpernetze, Gmsh-Import (2.2/4.1), Dunavant, Sauter-Schwab | gekrümmte Elemente, nichtkonforme Kantennetze |
+| geometry | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörpernetze, Parallelflächen (`offset_surface`, auf Gehrung), Gmsh-Import (2.2/4.1), Dunavant, Sauter-Schwab | gekrümmte Elemente, nichtkonforme Kantennetze, Selbstdurchdringungstest für Parallelflächen |
 | kernel | Dirac-Kern, Wilton-Integrale (asinh-Form) | analytisch fortgesetzter Kern für komplexe Punkte (Streckung um Spitzen) |
-| assembly | Fernfeld (Gauß 7×7); benachbarte Paare: Sauter-Schwab (gleichseitig) bzw. halbanalytisch gradiert (gestreckt); nahe Paare: adaptive Außenregel; Nahfeld-Cache | nichtkonforme Nachbarschaften, schnellere Nahpaare auf gestreckten Elementen |
+| assembly | Fernfeld (Gauß 7×7); benachbarte Paare: Sauter-Schwab (gleichseitig) bzw. halbanalytisch gradiert (gestreckt); nahe Paare: adaptive Außenregel, optional mit Randabstand (parallele Flächen); Nahfeld-Cache | nichtkonforme Nachbarschaften, schnellere Nahpaare auf gestreckten Elementen |
 | hmatrix | Clusterbaum, ACA (gemeinsam, komponentenweise, Multivektor-Pivots), Nachkompression, ACA mit exakten Einträgen | ACA+, complex64-Speicher, parallele Mat-Vek |
-| operators | Cauchy-Operator, chiraler Innenoperator, blockdiagonaler Mehrkörper-Innenoperator, T₁ mit Medium je Dreieck, dichte Blöcke | chirale Außenmedien, Substrate (geschichtete Außenmedien) |
+| operators | Cauchy-Operator, chiraler Innenoperator, blockdiagonaler Mehrkörper-Innenoperator, T₁ mit Medium je Dreieck, geschichtete Transmission (Gebietsoperatoren je Gebiet), dichte Blöcke | chirale Außenmedien, Substrate (geschichtete Außenmedien, Green-Funktion der Schichtung) |
 | solvers | GMRES, punktweise 2(1+J)⁻¹, Blockvorkonditionierung (Kanten/Ecken, Cluster; mehrere Körper, chiral), HODLR-Faktorisierung | H-LU mit starker Zulässigkeit, Krylov-Recycling (GCRO-DR), Deflation resonanter Moden, Parallelisierung |
-| sources | ebene Welle (linear/zirkular), Fernfeld, Extinktion, Lebedev-Richtungen | Dipolquellen, Nahfeld, Streuquerschnitt, Streumatrix |
-| problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, Systemeinträge) | mehrere rechte Seiten gleichzeitig, Wiederverwendung über Wellenlängen |
-| apps | Kugel, chirale Kugel, Würfel, Würfel-Dimer, Kugel-Dimer, Gmsh-Geometrien, Spektren, Kompressionsbenchmark | Parameterstudien für AP 4 |
+| sources | ebene Welle (linear/zirkular), Fernfeld, Extinktion, Vorwärtsamplitude S(0) (Betrag, Phase), Lebedev-Richtungen | Dipolquellen, Nahfeld, Streuquerschnitt, Streumatrix |
+| problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, Systemeinträge); LayeredScatteringProblem (Grenzflächengraph: Kern-Schale, Mehrfachschichten, Einschlüsse, chirale Schichten) | mehrere rechte Seiten gleichzeitig, Wiederverwendung über Wellenlängen; Block-/HODLR-Vorkonditionierung für geschichtete Körper; neutrale Referenz mit gemeinsamem Aufbau |
+| apps | Kugel, chirale Kugel, Würfel, Würfel-Dimer, Kugel-Dimer, Gmsh-Geometrien, Spektren (auch beschichtet), beschichtete Körper, Kompressionsbenchmark | Parameterstudien für AP 4 |
 | prototype/resonance | 2D-Galerkin mit Streckung in log r, Absorber, angereicherte Eckelemente, 3D-Nullstellenanalyse | transparenter Kantenabschluss (diskrete DtN, Hardy-Raum-Ansatz) |
 | bindings | – | pybind11-Modul für Skripting |
 
@@ -48,4 +48,7 @@
 - **Sauter-Schwab** setzt konforme Netze voraus (Nachbarschaft über gemeinsame Knoten).
 - **Vorkonditionierung an Plasmonresonanzen:** lokale Blöcke und HODLR senken die Iterationen nur begrenzt; nahe
   Resonanzen ist T₁ schlecht konditioniert.
+- **Dünne Schichten (d ≪ h):** Die Absolutwerte tragen einen systematischen Fehler von der Größe des
+  Diskretisierungsfehlers (diskret E² ≠ 1); die Schichtwirkung ist als Differenz zu einer neutralen Rechnung auf
+  denselben Netzen zu bestimmen (`results_coated.md`). Eindeutigkeit für verschachtelte Gebiete ist nicht bewiesen.
 - **Rechenumgebung der Studien:** ein Kern, 3 GB Speicher; die Netzgrößen der Berichte sind dadurch begrenzt.

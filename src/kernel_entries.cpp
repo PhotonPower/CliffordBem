@@ -94,6 +94,15 @@ real point_triangle_distance(const Vec3& x, const std::array<Vec3, 3>& p) {
     }
     return d;
 }
+real point_boundary_distance(const Vec3& x, const std::array<Vec3, 3>& p) {
+    real d = 1e300;
+    for (int e = 0; e < 3; ++e) {
+        const Vec3& a = p[e]; const Vec3& b = p[(e + 1) % 3]; Vec3 ab = b - a;
+        real t = std::max(0.0, std::min(1.0, dot(x - a, ab) / dot(ab, ab)));
+        d = std::min(d, norm(x - (a + ab * t)));
+    }
+    return d;
+}
 }  // namespace
 
 // Beitrag eines aeusseren Punktes x (Gewicht w) mit exaktem Innenintegral ueber das Dreieck inner
@@ -154,6 +163,15 @@ void KernelEntries::near_adaptive(const std::array<Vec3, 3>& o, std::size_t inne
     real rho = 0; for (auto& v : o) rho = std::max(rho, norm(v - c));
     auto tri = m_.vertices(inner);
     real d = point_triangle_distance(c, tri) - rho;
+    if (prm_.adapt_to_boundary) {
+        // Teilstueck ganz auf einer Seite der Ebene: Innenintegrale (Phi_0, 1/r) dort reell-analytisch mit
+        // Singularitaeten nur auf dem Rand des inneren Dreiecks -> Abstand zum Rand massgeblich
+        const Vec3& n = m_.normal[inner];
+        const real w0 = dot(o[0] - tri[0], n), w1 = dot(o[1] - tri[0], n), w2 = dot(o[2] - tri[0], n);
+        const real tolw = 1e-12 * m_.hmax[inner];
+        if ((w0 > tolw && w1 > tolw && w2 > tolw) || (w0 < -tolw && w1 < -tolw && w2 < -tolw))
+            d = std::max(d, point_boundary_distance(c, tri) - rho);
+    }
     if (depth < prm_.adapt_depth && !(rho < prm_.adapt_ratio * d)) {
         // Halbierung der laengsten Kante
         int e = 0; real L = -1;

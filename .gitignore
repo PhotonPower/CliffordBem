@@ -10,3 +10,7 @@ __pycache__/
 .idea/
 examples/*.msh
 tools/__pycache__/
+*.aux
+*.log
+*.out
+*.toc

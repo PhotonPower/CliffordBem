@@ -16,9 +16,11 @@
 | `results_aca_multivector.md` | ACA mit Multivektor-Pivots (H3) |
 | `results_resonance_window.md` | Resonanzfenster an Ecken (2D-Lösung, 3D-Hindernisse) |
 | `results_roundcube.md` | abgerundete Würfel im Fenster, Silberwürfel-Spektren |
+| `results_coated.md` | beschichtete Grenzflächen: Aden–Kerker, dünne Schichten, Silberteilchen mit Oxid |
 
 ## Arbeitspapiere und Antrag
-- `papers/ap1/AP1_Ausarbeitung.pdf`: Theorie (Formulierung, Eindeutigkeit, Kanten, Spitzen, chirale Medien, Resonanzfenster)
+- `papers/ap1/AP1_Ausarbeitung.pdf`: Theorie (Formulierung, Eindeutigkeit, Kanten, Spitzen, chirale Medien, Resonanzfenster,
+  verschachtelte Gebiete/beschichtete Grenzflächen)
 - `papers/ap2/AP2_Ausarbeitung.pdf`: 3D-Galerkin-Prototyp, Würfel, Vorkonditionierung
 - `papers/ap3/AP3_Ausarbeitung.pdf`: Kompression, C++-Kern
 - `papers/Zusammenfassung_Vorarbeiten.pdf`: Zusammenfassung aller Ergebnisse

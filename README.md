@@ -5,9 +5,10 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.12.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.13.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
-mehrere Körper, dispersive Materialien, Spektren mit Orientierungsmittelung, Block- und hierarchische
+mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten), dispersive
+Materialien, Spektren mit Orientierungsmittelung, Phase der Vorwärtsamplitude, Block- und hierarchische
 Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 
 ## Was der Kern kann
@@ -17,6 +18,7 @@ Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 | Streuung an glatten Körpern | T₁ mit Standardwahl von J, ebene Wellen (linear/zirkular), Fernfeld, Extinktion | Kugel gegen Mie: Glas und Gold Ordnung 2, extrapoliert 10⁻⁵–10⁻⁴ (bis 92 160 Unbekannte) |
 | Chirale Medien | Pasteur-Medien innen, Helizitätszerlegung, chirale J | chirale Mie-Lösung: Q₊, Q₋, CD auf 10⁻⁴ |
 | Mehrere Körper | eigenes Medium je Körper, blockdiagonaler Innenoperator | Additivität bei großem Abstand, zwei unabhängige Formulierungen, Enantiomere mit entgegengesetztem CD |
+| Beschichtete Grenzflächen | verschachtelte Gebiete (Grenzflächengraph), Parallelflächen, Schichten nach außen/innen, chirale Schichten, Vorwärtsamplitude S(0) mit Phase | beschichtete Kugel gegen Aden–Kerker: Q_ext und S(0) Ordnung 2; dünne Schichten (d/h bis 0,04) als Differenz zur neutralen Rechnung auf 1–5 % |
 | Kanten und Ecken | gradierte Netze, Kanten-/Eckblöcke, Kriterien für gestreckte Elemente | Iterationen unabhängig von der Kantenauflösung (Würfel, Würfel-Dimer) |
 | Kompression | ACA (gemeinsam, komponentenweise, Multivektor-Pivots) | Speicher O(N log² N) bis 163 840 Unbekannte; gemeinsame ACA am günstigsten |
 | Spektren | Johnson-Christy Au/Ag, Hintergrundmedium, Lebedev-Mittelung | Goldkugel in Wasser gegen Mie (≤ 1,5 % bei 1 280 Dreiecken) |
@@ -31,7 +33,7 @@ Für die Python-Werkzeuge: NumPy, SciPy, Matplotlib, optional `gmsh` (Geometrien
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release     # Optionen: -DCBEM_OPENMP=ON -DCBEM_NATIVE=ON
 cmake --build build -j
-ctest --test-dir build --output-on-failure         # 16 Tests
+ctest --test-dir build --output-on-failure         # 17 Tests
 ```
 
 | Test | prüft |
@@ -52,6 +54,7 @@ ctest --test-dir build --output-on-failure         # 16 Tests
 | `test_gmsh` | Rundreise 2.2, Format 4.1, Orientierung, gleiche Streulösung |
 | `test_materials` | Materialtabellen, Lebedev-Momente |
 | `test_hodlr` | Systemeinträge gegen Operator, HODLR als direkter Löser und Vorkonditionierer |
+| `test_layered` | Parallelflächen, ohne Schicht = T₁, beschichtete Kugel gegen Aden–Kerker, neutrale Schale, chirale Schale |
 
 ## Anwendungen
 
@@ -63,12 +66,14 @@ ctest --test-dir build --output-on-failure         # 16 Tests
 | `scatter_cube_dimer` | Dimer aus gradierten Würfeln | `--L 3,5 --gap 0.5` |
 | `scatter_multi` | Kugel-Dimer, auch chiral | `--n 8 --dist 3 --pol circ` |
 | `scatter_mesh` | beliebige Gmsh-Geometrie | `--mesh stab.msh --media "-11,1.2" --pol circ --precond hodlr:1e-2` |
-| `spectrum` | Spektren, Orientierungsmittelung | `--mesh x.msh --unit 25 --materials Ag --nbg 1.33 --lambda 340:520:20` |
+| `spectrum` | Spektren, Orientierungsmittelung, Beschichtungen | `--mesh x.msh --unit 25 --materials Ag --nbg 1.33 --lambda 340:520:20 [--coating "2:2.89,0"]` |
+| `scatter_coated` | beschichtete Kugel/Gmsh-Körper, gegen Aden–Kerker, neutrale Referenz | `--n 4,8 --omega 0.5 --core -11,1.2 --coat 0.02,2.25,0 --neutral` |
 | `bench_compression` | Asymptotik der Kompression | `--geometry sphere --n 8,16,24 --mode joint` |
 
 Vorkonditionierung in `spectrum`, `scatter_mesh`, `scatter_multi`: `--precond point | cluster:G | hodlr:eps[:leaf]`.
 Geometrien: `python3 tools/make_geometries.py sphere|rod|bornkuhn|roundcube h out.msh [--radius ρ] [--angle φ]`.
-Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compression.py`, `mie_spectrum.py`.
+Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compression.py`, `mie_spectrum.py`,
+`mie_coated.py` (Aden–Kerker, Mehrfachschichten), `analyze_coated.py`, `plot_coated.py`.
 
 ## Ergebnisse
 
@@ -88,6 +93,10 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
   übertragbar (Kernsingularitäten der Streckung), an Spitzen zulässig; Absorber und angereicherte Eckelemente
   nicht transparent (`results_resonance_window.md`). Abgerundete Kanten machen das Fenster rechenbar; die
   Ergebnisse hängen dann stark vom Rundungsradius ab (`results_roundcube.md`).
+- **Beschichtete Grenzflächen:** exakte Schichtformulierung (jede Schichtgrenze eine Fläche), gegen Aden–Kerker mit
+  Ordnung 2 in Extinktion und Phase. Bei Schichten dünner als die Elemente trägt die Rechnung einen systematischen
+  Fehler, der sich in der Differenz zu einer neutralen Rechnung (Schicht aus Außenmedium, gleiche Netze) heraushebt;
+  so ist die Wirkung einer Oxidschicht schon bei d/h ≈ 0,04 auf wenige Prozent genau (`results_coated.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius
   (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`).
 
@@ -96,7 +105,7 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
 ```
 include/cbem/core        Grundtypen, Materialmodelle
 include/cbem/clifford    Cl3(C): Multivektoren, geometrisches Produkt, Inverse, Linksmultiplikation
-include/cbem/geometry    Dreiecksnetze, Mehrkörper, Gmsh-Import, Quadratur, Sauter-Schwab
+include/cbem/geometry    Dreiecksnetze, Mehrkörper, Parallelflächen, Gmsh-Import, Quadratur, Sauter-Schwab
 include/cbem/kernel      Dirac-Fundamentallösung, analytische Dreiecksintegrale
 include/cbem/assembly    Eintragsauswertung (Fern-/Nahfeld, Nahfeld-Cache) = Schnittstelle zu H-Matrix und Lösern
 include/cbem/linalg      dichte Matrizen: QR, Jacobi-SVD, LU
@@ -104,7 +113,7 @@ include/cbem/hmatrix     Clusterbaum, ACA-Varianten, H-Matrix
 include/cbem/operators   Cauchy-Operator, chiraler und blockdiagonaler Innenoperator, T₁, dichte Blöcke
 include/cbem/solvers     GMRES, Block-Vorkonditionierung, HODLR
 include/cbem/sources     ebene Wellen, Fernfeld, Extinktion, Lebedev-Richtungen
-include/cbem/problems    ScatteringProblem (Einstiegsklasse)
+include/cbem/problems    ScatteringProblem (Einstiegsklasse), LayeredScatteringProblem (beschichtete/geschichtete Körper)
 apps/  tests/  tools/  results/  examples/
 data/materials/          Johnson-Christy Au, Ag (refractiveindex.info, CC0)
 prototype/               Python-Prototypen: ap1 (Theorie), ap2 (3D-Galerkin, H-Matrix), resonance (Resonanzfenster)
@@ -115,7 +124,8 @@ docs/                    Architektur, Ergebnisberichte, Arbeitspapiere AP 1–3,
 
 Siehe `docs/ARCHITECTURE.md`. Wichtigste: reflexionsfreier Abschluss an 3D-Kanten im Resonanzfenster,
 Streckung um Spitzen im C++-Kern, Krylov-Recycling für viele rechte Seiten, Substrate, gekrümmte Elemente,
-Ansätze höherer Ordnung, parallele Tests auf Mehrkernrechnern, Python-Anbindung.
+Ansätze höherer Ordnung, parallele Tests auf Mehrkernrechnern, Python-Anbindung; für beschichtete Körper:
+Block-/HODLR-Vorkonditionierung und ein Eindeutigkeitsbeweis für verschachtelte Gebiete.
 
 Die Beweise und Aussagen in den Arbeitspapieren sind vorläufig und nicht unabhängig geprüft.
 

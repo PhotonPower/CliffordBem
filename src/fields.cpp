@@ -56,4 +56,12 @@ real extinction_cross_section(const TriangleMesh& m, const std::vector<cplx>& hs
     return std::real(4 * pi / k * std::imag(pe)) / pn;
 }
 
+cplx forward_amplitude(const TriangleMesh& m, const std::vector<cplx>& hs, cplx k, cplx eps, const Vec3& d, const CVec3& p) {
+    Multivector F = far_field(m, hs, k, d);
+    const cplx se = std::sqrt(eps);
+    cplx pe = (std::conj(p[0]) * F.c[1] + std::conj(p[1]) * F.c[2] + std::conj(p[2]) * F.c[4]) / se;
+    real pn = std::norm(p[0]) + std::norm(p[1]) + std::norm(p[2]);
+    return cplx(0, -1) * k * pe / pn;
+}
+
 }  // namespace cbem

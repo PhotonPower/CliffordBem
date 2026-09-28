@@ -21,7 +21,7 @@
   \sffamily
   {\Large\textbf{Clifford-BEM: Ausarbeitung zu AP 3}}\\[0.3cm]
   {\large Teil I: $\mathcal{H}$-Matrix mit Adaptiver Kreuzapproximation;\\ kombinierter Löser am Würfel}\\[0.3cm]
-  {\small Arbeitsstand, Version 0.4}
+  {\small Arbeitsstand, Version 0.5}
 \end{center}
 
 \section*{Überblick}
@@ -291,7 +291,7 @@ Konvergenz bei Gold lag also an der Nahfeldquadratur, nicht an Formulierung oder
 Damit ist H3 (zweiter Teil) im Bereich bis etwa 160\,000 Unbekannte und $kD\lesssim16$ numerisch
 gestützt: Der Aufwand ist $\mathcal{O}(N\log^\alpha N)$ mit $\alpha\approx2$ für den Speicher.
 
-\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.12)}\label{sec:cpp2}
+\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.13)}\label{sec:cpp2}
 Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
 \begin{itemize}[leftmargin=*]
   \item \emph{Nahfeld.} Sauter-Schwab-Quadratur für benachbarte Paare: Die bisherige Regel hatte an gemeinsamen
@@ -315,6 +315,15 @@ Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
   \item \emph{Abgerundete Würfel.} Im Resonanzfenster konvergiert die Rechnung mit gerundeten Kanten monoton, hängt
     aber stark vom Radius ab; Silberwürfel (50\,nm, Wasser): Hauptresonanz verschiebt sich mit schärferen Kanten nach
     Rot (grob 440, 460, 470\,nm für 10, 7,5, 5\,nm Radius).
+  \item \emph{Beschichtete Grenzflächen} (v0.13). Verschachtelte Gebiete über einen Grenzflächengraph: jede
+    Schichtgrenze ist eine Fläche, jedes Gebiet hat einen eigenen komprimierten Cauchy-Operator auf seinem Rand
+    (AP~1, Nachtrag). Beschichtete Kugel gegen Aden-Kerker: Extinktion und komplexe Vorwärtsamplitude mit Ordnung~2.
+    Für Schichten dünner als die Elemente wird die Schichtwirkung als Differenz zu einer neutralen Rechnung auf
+    denselben Netzen bestimmt (Fehler 1--5\,\% bis $d/h\approx0{,}04$, Phase 3--9\,\% auf dem feinsten Netz).
+    Parallele Flächen im Abstand $d\ll h$: Die adaptive Außenregel verfeinert nur noch zu den Rändern des inneren
+    Dreiecks hin (Faktor 3--4 schneller bei gleicher Genauigkeit). Die $\mathcal{H}$-Matrizen der Schichtgebiete
+    enthalten mehr unzulässige Blöcke, weil sich die Cluster beider Flächen überlappen; Speicher und Nahpaare etwa
+    verdoppeln sich je Schicht.
 \end{itemize}
 
 \section{Einordnung und nächste Schritte}

@@ -33,4 +33,11 @@ MultiBodyMesh make_multibody(const std::vector<TriangleMesh>& parts);
 TriangleMesh make_cube_graded(int L);                         // Wuerfel [-1,1]^3, zu den Kanten gradiert, 48 (L+1)^2 Dreiecke
 TriangleMesh make_cube_uniform(int n);                        // Wuerfel [-1,1]^3, gleichmaessig, 12 n^2 Dreiecke
 
+// Parallelflaeche im Abstand d (d > 0 nach aussen, d < 0 nach innen) mit gleicher Topologie. Jeder Knoten wird
+// um delta verschoben mit n_f . delta = d fuer alle angrenzenden Flaechennormalen n_f (kleinste Quadrate,
+// Winkelgewichte, Pseudoinverse): auf glatten Stuecken delta = d n (gemittelte Normale), an Kanten und Ecken
+// "auf Gehrung", sodass jede ebene Seite genau um d verschoben wird (Wuerfel -> Wuerfel mit Kante + 2d).
+// Wirft std::runtime_error, wenn ein Dreieck umklappt oder entartet (|d| zu gross gegen Kruemmungsradius/Netz).
+TriangleMesh offset_surface(const TriangleMesh& m, real d);
+
 }  // namespace cbem

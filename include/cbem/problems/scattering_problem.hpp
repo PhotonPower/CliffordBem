@@ -14,7 +14,7 @@
 namespace cbem {
 
 struct SolveOptions { real tol = 1e-6; int restart = 300; int max_iter = 3000; };
-struct PlaneWaveResult { real sigma_ext = 0; int iterations = 0; real residual = 0; std::vector<cplx> h; };
+struct PlaneWaveResult { real sigma_ext = 0; cplx forward = 0; int iterations = 0; real residual = 0; std::vector<cplx> h; };   // forward: S(0), siehe fields.hpp
 
 class ScatteringProblem {
 public:

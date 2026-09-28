@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <stdexcept>
+#include <string>
 #include <tuple>
 
 namespace cbem {
@@ -131,5 +133,68 @@ TriangleMesh cube_from_nodes(const std::vector<real>& s) {
     return m;
 }
 }  // namespace
+
+namespace {
+// Eigenzerlegung einer symmetrischen 3x3-Matrix (Jacobi); A wird zerstoert, V spaltenweise Eigenvektoren
+void sym_eigen3(real A[3][3], real lam[3], real V[3][3]) {
+    for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) V[i][j] = (i == j);
+    for (int sweep = 0; sweep < 50; ++sweep) {
+        real off = std::abs(A[0][1]) + std::abs(A[0][2]) + std::abs(A[1][2]);
+        if (off < 1e-15 * (std::abs(A[0][0]) + std::abs(A[1][1]) + std::abs(A[2][2]) + 1e-300)) break;
+        for (int p = 0; p < 2; ++p)
+            for (int q = p + 1; q < 3; ++q) {
+                if (std::abs(A[p][q]) < 1e-300) continue;
+                real th = 0.5 * (A[q][q] - A[p][p]) / A[p][q];
+                real t = (th >= 0 ? 1.0 : -1.0) / (std::abs(th) + std::sqrt(th * th + 1.0));
+                real c = 1.0 / std::sqrt(t * t + 1.0), s = t * c;
+                for (int k = 0; k < 3; ++k) { real akp = A[k][p], akq = A[k][q]; A[k][p] = c * akp - s * akq; A[k][q] = s * akp + c * akq; }
+                for (int k = 0; k < 3; ++k) { real apk = A[p][k], aqk = A[q][k]; A[p][k] = c * apk - s * aqk; A[q][k] = s * apk + c * aqk; }
+                for (int k = 0; k < 3; ++k) { real vkp = V[k][p], vkq = V[k][q]; V[k][p] = c * vkp - s * vkq; V[k][q] = s * vkp + c * vkq; }
+            }
+    }
+    for (int i = 0; i < 3; ++i) lam[i] = A[i][i];
+}
+}  // namespace
+
+TriangleMesh offset_surface(const TriangleMesh& m0, real d) {
+    TriangleMesh m = m0;
+    if (m.normal.size() != m.T.size()) m.compute_geometry();
+    const std::size_t nv = m.P.size();
+    std::vector<std::array<real, 9>> M(nv, std::array<real, 9>{});
+    std::vector<Vec3> b(nv, Vec3{});
+    for (std::size_t t = 0; t < m.T.size(); ++t) {
+        const Vec3& n = m.normal[t];
+        for (int a = 0; a < 3; ++a) {
+            const int v = m.T[t][a];
+            Vec3 e1 = m.P[m.T[t][(a + 1) % 3]] - m.P[v], e2 = m.P[m.T[t][(a + 2) % 3]] - m.P[v];
+            real c = dot(e1, e2) / (norm(e1) * norm(e2));
+            real w = std::acos(std::max(-1.0, std::min(1.0, c)));          // Innenwinkel als Gewicht
+            for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) M[v][3 * i + j] += w * n[i] * n[j];
+            b[v] += n * w;
+        }
+    }
+    for (std::size_t v = 0; v < nv; ++v) {
+        real A[3][3], lam[3], V[3][3];
+        for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) A[i][j] = M[v][3 * i + j];
+        sym_eigen3(A, lam, V);
+        const real lmax = std::max({lam[0], lam[1], lam[2]});
+        if (!(lmax > 0)) continue;                                       // isolierter Knoten
+        Vec3 delta{};
+        for (int k = 0; k < 3; ++k) {
+            if (lam[k] < 0.02 * lmax) continue;                          // Pseudoinverse: kleine Eigenwerte (glatt) weglassen
+            Vec3 e(V[0][k], V[1][k], V[2][k]);
+            delta += e * (d * dot(e, b[v]) / lam[k]);
+        }
+        m.P[v] += delta;
+    }
+    m.compute_geometry();
+    for (std::size_t t = 0; t < m.T.size(); ++t)
+        if (!(dot(m.normal[t], m0.normal[t]) > 0.5) || !(m.area[t] > 1e-3 * m0.area[t]))
+            throw std::runtime_error("offset_surface: Dreieck " + std::to_string(t) + " klappt um oder entartet (|d| zu gross)");
+    // Umstuelpen (Versatz durch das Innere hindurch) aendert das Vorzeichen des eingeschlossenen Volumens
+    auto vol = [](const TriangleMesh& q) { real v = 0; for (auto& tr : q.T) v += dot(q.P[tr[0]], cross(q.P[tr[1]], q.P[tr[2]])); return v / 6.0; };
+    if (!(vol(m) * vol(m0) > 0)) throw std::runtime_error("offset_surface: Flaeche stuelpt sich um (|d| zu gross)");
+    return m;
+}
 
 }  // namespace cbem

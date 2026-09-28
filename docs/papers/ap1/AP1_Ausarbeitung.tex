@@ -44,7 +44,7 @@
   {\Large\textbf{Clifford-BEM: Mathematische Ausarbeitung zu AP 1}}\\[0.3cm]
   {\large Teil I: Grundlagen, Cauchy-Darstellung, Transmission, chirale Medien\\
   Teil II: Resonanzfreiheit und Kugel, Teil III: Eindeutigkeit und Torus}\\[0.3cm]
-  {\small Arbeitsstand, Version 0.18}
+  {\small Arbeitsstand, Version 0.19}
 \end{center}
 
 \section*{Überblick und Status}
@@ -98,6 +98,9 @@ Chirale Transmissionsabbildung (Lemma \ref{lem:Jchiral}) & bewiesen, num.\ verif
 Chirales Hauptsymbol / Eck-Symbol (\ref{satz:chiralsym}, \ref{satz:chiralecke}) & symb.\ / num. & \texttt{chiral\_corner.py}\\
 Eindeutigkeit, chirales Innenmedium (Satz \ref{satz:eindchiral}) & bewiesen & \texttt{check\_chiral\_uniqueness.py}\\
 Helizitätszerlegung chiraler Medien (Satz \ref{satz:chiral}) & bewiesen, num.\ verif. & \texttt{check\_chiral.py}\\
+Verschachtelte Gebiete: Konsistenz (Prop.\ \ref{prop:schicht}) & bewiesen & \texttt{test\_layered}\\
+Verschachtelte Gebiete: Fredholm, getrennte Flächen (Prop.\ \ref{prop:schicht}) & bewiesen (glatt) & --\\
+Verschachtelte Gebiete: Eindeutigkeit (Verm.\ \ref{verm:schicht}) & Verm., num.\ gestützt & \texttt{scatter\_coated}\\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -2677,5 +2680,85 @@ fortgesetzter Kern ($z\cdot z$ bilinear), Galerkin mit Testung durch das Konturi
 3D-Rechnung dann monoton (Würfel, $\kappa=-2{,}8+0{,}3i$, $\rho=0{,}2$: $14{,}22\to13{,}31\to12{,}86$), hängt
 aber stark von $\rho$ ab (etwa Halbierung der Extinktion von $\rho=0{,}4$ auf $0{,}2$). Für reale Nanowürfel ist
 der Radius ein physikalischer Parameter.
+
+\section{Nachtrag: Verschachtelte Gebiete und beschichtete Grenzflächen}\label{sec:schicht}
+
+An Materialgrenzen liegen meist dünne Schichten (Oxide, Sulfide, Hüllen), die Amplitude und Phase des gestreuten
+Lichts verändern. Dieser Nachtrag verallgemeinert $T_1$ auf Anordnungen aus mehreren geschlossenen Flächen, von
+denen jede genau zwei Gebiete trennt (Kern--Schale, Mehrfachschichten, mehrere Körper, auch Einschlüsse).
+
+\paragraph{Geometrie.} Gebiete $\Omega_0$ (Außenraum), $\Omega_1,\dots$ mit Medien $(\varepsilon_R,\mu_R,\chi_R)$;
+glatte, paarweise disjunkte, geschlossene Flächen $\Gamma_s$ mit Außennormale $\n_s$, innen an $\Omega_{\mathrm{in}(s)}$,
+außen an $\Omega_{\mathrm{out}(s)}$. Für ein Gebiet $R$ ist $\partial R=\bigcup\{\Gamma_s:R\in\{\mathrm{in}(s),
+\mathrm{out}(s)\}\}$ und $\sigma_s=+1$, falls $R=\mathrm{in}(s)$, sonst $\sigma_s=-1$; die Außennormale von $R$ ist
+$\sigma_s\n_s$. $E_R$ bezeichne den Randoperator zur Wellenzahl von $R$ auf $\partial R$, gebildet mit den Normalen
+$\n_s$; da $\n$ im Kern linear eingeht, ist $E_R^\sigma u:=E_R(\sigma u)$ der Randoperator mit der Außennormale von
+$R$.
+
+\paragraph{Formulierung.} Unbekannt ist auf jeder Fläche die Außenspur $h_s$; die Innenspur ist $J_sh_s$ mit
+$J_s=J(\n_s;\mathrm{in}(s),\mathrm{out}(s))$ (Lemma~\ref{lem:J}, chiral Lemma~\ref{lem:Jchiral}). Die Spur von $R$ ist
+$u^R_s=J_sh_s$ für $R=\mathrm{in}(s)$ und $u^R_s=h_s$ sonst. Das System lautet
+\begin{equation}\label{eq:schicht}
+  \tfrac12\big[(1-E^\sigma_{\mathrm{out}(s)})u^{\mathrm{out}(s)}\big]_s
+  +\tfrac12\big[(1-E^\sigma_{\mathrm{in}(s)})u^{\mathrm{in}(s)}\big]_s
+  = h^{\mathrm{inc}}_s\,[\mathrm{out}(s)=0]\qquad\text{für alle }s .
+\end{equation}
+Für eine Fläche ist $E^\sigma_{\Omega_0}=-E_2$, $E^\sigma_{\Omega_1}=E_1$, und \eqref{eq:schicht} ist genau
+$T_1h=E_2^+h+E_1^-Jh=h^{\mathrm{inc}}$.
+
+\begin{prop}\label{prop:schicht}\status{bewiesen}
+(a) Die Außenspuren des physikalischen Transmissionsproblems lösen \eqref{eq:schicht}.
+(b) Sind die Flächen glatt und getrennt, so unterscheidet sich der Operator von \eqref{eq:schicht} von der
+direkten Summe der lokalen $T_1$-Operatoren der einzelnen Flächen um einen kompakten Operator; er ist genau dann
+Fredholm vom Index~0, wenn jede Fläche das Kriterium von Satz~\ref{satz:symbol} erfüllt.
+\end{prop}
+\begin{proof}
+(a) Im beschränkten Gebiet $R$ ist das Feld durch die Cauchy-Formel aus $u^R$ darstellbar, also $(1-E^\sigma_R)u^R=0$
+(Satz~\ref{satz:involution}). Im Außenraum gilt das für die Streuspur; die einfallende Welle ist im Komplement von
+$\Omega_0$ regulär, dort ist $E^\sigma_{\Omega_0}u^{\mathrm{inc}}=-u^{\mathrm{inc}}$, also
+$\tfrac12(1-E^\sigma_{\Omega_0})u^{\mathrm{inc}}=u^{\mathrm{inc}}$. (b) Die Anteile von $E_R$ zwischen verschiedenen
+Flächen haben glatte Kerne und sind kompakt; der Rest ist an jeder Fläche der Operator $T_1$ mit den Medien ihrer
+beiden Nachbargebiete.
+\end{proof}
+
+\begin{vermutung}\label{verm:schicht}\status{Vermutung, num.\ gestützt}
+Für passive Medien und die Standardwahl ist \eqref{eq:schicht} injektiv.
+\end{vermutung}
+Der Beweis von Korollar~\ref{kor:T1} überträgt sich nicht unmittelbar: Die Hilfsfelder
+$\tfrac12(1-E^\sigma_R)u^R$ leben im Komplement von $R$, das für Schalen zwei Komponenten hat, sodass sich die
+duale Bedingung nicht mehr als ein einziges Transmissionsproblem mit vertauschten Medien schreiben lässt.
+Numerisch konvergieren Extinktion und komplexe Vorwärtsamplitude der beschichteten Kugel mit Ordnung~2 gegen die
+Aden-Kerker-Lösung (Gold mit Glasschale, $\omega a=0{,}5$, $b/a=1{,}2$), die punktweise Vorkonditionierung
+$2(1+J_s)^{-1}$ gibt Iterationszahlen wie für $T_1$ (40--50), und ohne Schicht reproduziert die Implementierung
+$T_1$ bitgenau (\texttt{docs/results\_coated.md}).
+
+\paragraph{Dünne Schichten.} Für eine Schale der Dicke $d\to0$ sind die Flächen nicht mehr getrennt: der Anteil von
+$\Gamma_b$ in $E_c$, ausgewertet auf $\Gamma_a$, strebt nach Plemelj gegen $-1+E_{bb}$ (und umgekehrt $1+E_{aa}$). Mit
+$\delta=J_ah-g$ ($g$ Unbekannte auf $\Gamma_b$) wird \eqref{eq:schicht} im Grenzfall zu
+\[
+  E_2^+h+E_c^-\delta=h^{\mathrm{inc}},\qquad -E_c^+\delta+E_1^-J_bg=0 .
+\]
+Die Summe beider Zeilen ist für $\delta=0$ die Gleichung $T_1$ der Grenzfläche ohne Schicht
+($J_bJ_a$ ist die direkte Transmissionsabbildung); die Differenz bestimmt $\delta$ aus den \emph{einzelnen}
+Projektorbedingungen $E_2^+h=h^{\mathrm{inc}}$ und $E_1^-J h=0$. Kontinuierlich sind diese exakt erfüllt und
+$\delta=0$; diskret gilt $E^2\neq1$, und $\delta$ nimmt den Konsistenzfehler der einzelnen Projektorbedingungen auf.
+Folge: Bei $d\ll h$ trägt die Rechnung einen systematischen Fehler von der Größe des Diskretisierungsfehlers, der vom
+Schichtmaterial kaum abhängt. Er hebt sich in der Differenz zu einer \glqq neutralen\grqq{} Rechnung (gleiche Netze,
+Schicht aus dem Außenmedium) heraus; die Schichtwirkung ist so schon für $d/h\approx0{,}05$ auf wenige Prozent
+genau, während die Differenz zur Rechnung ohne Schicht dort sogar das Vorzeichen verfehlt
+(\texttt{docs/results\_coated.md}).
+
+\paragraph{Effektive Übergangsbedingungen.} Alternativ ließe sich die Schicht durch Sprungbedingungen erster
+Ordnung in $d$ auf einer Fläche ersetzen. Für eine Schicht aus Medium $c$ zwischen der Referenzfläche und dem
+verdrängten Medium $X$ ergibt die Integration der Maxwell-Gleichungen über die Schicht
+\[
+  [\mvec{E}_t]=d\big(\nabla_t\big(D_n(\tfrac1{\varepsilon_c}-\tfrac1{\varepsilon_X})\big)
+     -i\omega(\mu_c-\mu_X)\,\n\times\mvec{H}_t\big),\qquad
+  [D_n]=-d(\varepsilon_c-\varepsilon_X)\nabla_t\!\cdot\mvec{E}_t,
+\]
+und entsprechend für $\mvec{H}_t$, $B_n$. Bei Nanoteilchen ($ka\ll1$) dominieren die Terme mit Flächengradienten
+($\sim d/a$ gegenüber $\sim kd$); sie sind mit stückweise konstanten Dichten nicht verträglich und würden
+Flächenableitungen im Ansatzraum verlangen. Die exakte Formulierung \eqref{eq:schicht} vermeidet das und ist nicht
+auf kleine $d$ beschränkt.
 
 \end{document}

@@ -13,4 +13,5 @@
 | 0.9 | Blockvorkonditionierung für mehrere Körper und chirale Medien | `docs/results_preconditioning.md` |
 | 0.10 | hierarchische Faktorisierung (HODLR) | `docs/results_preconditioning.md` |
 | 0.11 | ACA mit Multivektor-Pivots; H3 (erster Teil) in dieser Form widerlegt | `docs/results_aca_multivector.md` |
+| 0.13 | Beschichtete Grenzflächen: `LayeredScatteringProblem` (Grenzflächengraph, Kern-Schale, Mehrfachschichten, chirale Schichten), Parallelflächen `offset_surface`, Nahfeldregel mit Randabstand, Vorwärtsamplitude S(0) mit Phase, Aden–Kerker-Referenz, `scatter_coated`, Beschichtungen in `spectrum` (CSV um `coating,S_re,S_im` erweitert); Differenz zur neutralen Rechnung für dünne Schichten; AP 1 v0.19 (Nachtrag) | `docs/results_coated.md` |
 | 0.12 | Resonanzfenster (2D-Prototyp: Galerkin + Streckung in log r; 3D-Befunde), abgerundete Würfel, Silberwürfel-Spektren; Dokumentation überarbeitet | `docs/results_resonance_window.md`, `docs/results_roundcube.md` |

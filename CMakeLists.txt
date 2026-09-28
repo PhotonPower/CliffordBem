@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(CliffordBem VERSION 0.12.0 LANGUAGES CXX)
+project(CliffordBem VERSION 0.13.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -34,7 +34,8 @@ add_library(cbem
   src/scattering_problem.cpp
   src/materials.cpp
   src/orientation.cpp
-  src/hodlr.cpp)
+  src/hodlr.cpp
+  src/layered_problem.cpp)
 target_include_directories(cbem PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(cbem PRIVATE -Wall -Wextra)
 if(CBEM_NATIVE)
@@ -65,11 +66,13 @@ if(CBEM_BUILD_APPS)
   target_link_libraries(spectrum PRIVATE cbem)
   add_executable(scatter_cube_dimer apps/scatter_cube_dimer.cpp)
   target_link_libraries(scatter_cube_dimer PRIVATE cbem)
+  add_executable(scatter_coated apps/scatter_coated.cpp)
+  target_link_libraries(scatter_coated PRIVATE cbem)
 endif()
 
 if(CBEM_BUILD_TESTS)
   enable_testing()
-  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh test_materials test_hodlr)
+  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh test_materials test_hodlr test_layered)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE cbem)
     add_test(NAME ${t} COMMAND ${t})

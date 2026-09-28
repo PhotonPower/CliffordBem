@@ -123,6 +123,7 @@ PlaneWaveResult ScatteringProblem::solve_plane_wave(const Vec3& d, const CVec3& 
     r.iterations = g.iterations; r.residual = g.rel_residual;
     std::vector<cplx> hs(r.h.size()); for (std::size_t i = 0; i < hs.size(); ++i) hs[i] = r.h[i] - b[i];
     r.sigma_ext = extinction_cross_section(m, hs, k2, outer_.eps, d, p);
+    r.forward = forward_amplitude(m, hs, k2, outer_.eps, d, p);
     return r;
 }
 

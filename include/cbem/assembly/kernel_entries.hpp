@@ -21,6 +21,9 @@ struct EntryParams {
                                // klein gegen seinen Abstand zum inneren Dreieck ist (sonst feste sub^2*7-Regel)
     real adapt_ratio = 0.5;    // Kriterium: Umkreisradius des Teilstuecks < adapt_ratio * Abstand
     int adapt_depth = 14;      // maximale Halbierungstiefe
+    bool adapt_to_boundary = false; // liegt das Teilstueck ganz auf einer Seite der Ebene des inneren Dreiecks, zaehlt der
+                               // Abstand zu dessen Randkanten statt zum Dreieck: das analytische Innenintegral ist dort
+                               // glatt bis auf den Rand (duenne Schichten: parallele Flaechen im Abstand d << h)
     int sa_order = 14;         // halbanalytische Regel fuer benachbarte Paare: Gauss-Punkte je Richtung
     real ss_max_aspect = 1.6;  // Sauter-Schwab nur, wenn beide Dreiecke Seitenverhaeltnis <= ss_max_aspect;
                                // sonst halbanalytisch (Innenintegral exakt, Aussenregel zur Singularitaet gradiert)
