@@ -1,4 +1,5 @@
-"""Mie-Loesung fuer geschichtete Kugeln mit chiralen (Pasteur-)Schichten in Vakuum, zirkular polarisierte Anregung.
+"""Mie-Loesung fuer geschichtete Kugeln mit chiralen (Pasteur-)Schichten in einem achiralen Aussenmedium (Standard
+Vakuum, eps2 waehlbar), zirkular polarisierte Anregung.
 
 Verallgemeinert tools/mie_chiral.py (homogene chirale Kugel) auf beliebig viele Schichten.
 Konstitutiv wie im Kern: D = eps E + i chi H, B = mu H - i chi E (e^{-i omega t}).
@@ -46,9 +47,9 @@ def _basis(n, om, med, r, kind):
     return [WA, WB]
 
 
-def coefficients(n, om, radii, media, s):
+def coefficients(n, om, radii, media, s, eps2=1.0):
     """radii aufsteigend, media je Schicht (eps, mu, chi) von innen nach aussen; aussen Vakuum.
-    Unbekannte: Kern (2), je Schale (4), aussen (a_n, b_n) gestreut."""
+    Unbekannte: Kern (2), je Schale (4), aussen (a_n, b_n) gestreut; Aussenmedium eps2 (achiral, mu = 1)."""
     L = len(radii)
     nunk = 2 + 4 * (L - 1) + 2
     A = np.zeros((4 * L, nunk), complex); rhs = np.zeros(4 * L, complex)
@@ -67,7 +68,7 @@ def coefficients(n, om, radii, media, s):
                 A[rows, c] -= f; c += 1
         # aussen
         if i + 1 == L:
-            vac = (1.0, 1.0, 0.0)
+            vac = (eps2, 1.0, 0.0)
             Mh, Nh = _basis(n, om, vac, r, 'h'); c = cols(L)
             A[rows, c] += Mh; A[rows, c + 1] += Nh
             Mj, Nj = _basis(n, om, vac, r, 'j')
@@ -81,14 +82,14 @@ def coefficients(n, om, radii, media, s):
     return C, x[cols(L)], x[cols(L) + 1]
 
 
-def cross_sections(om, radii, media, s=+1, nmax=None):
-    """sigma_ext, sigma_sca (Vakuum aussen, |E_inc|^2 = 2 wie in mie_chiral.py)."""
-    R = radii[-1]; nmax = nmax or int(om * R + 4 * (om * R) ** (1 / 3) + 12)
+def cross_sections(om, radii, media, s=+1, nmax=None, eps2=1.0):
+    """sigma_ext, sigma_sca (|E_inc|^2 = 2 wie in mie_chiral.py; Wellenzahl aussen k = omega sqrt(eps2))."""
+    k = om * np.sqrt(eps2); R = radii[-1]; nmax = nmax or int(abs(k) * R + 4 * (abs(k) * R) ** (1 / 3) + 12)
     ext = sca = 0.0
     for n in range(1, nmax + 1):
-        C, an, bn = coefficients(n, om, radii, media, s)
+        C, an, bn = coefficients(n, om, radii, media, s, eps2)
         ext += -np.real(np.conj(C) * an + np.conj(s * C) * bn); sca += abs(an) ** 2 + abs(bn) ** 2
-    return ext / (2 * om ** 2), sca / (2 * om ** 2)
+    return ext / (2 * k ** 2), sca / (2 * k ** 2)
 
 
 if __name__ == '__main__':
@@ -101,6 +102,10 @@ if __name__ == '__main__':
         a = cross_sections(om, [1.0, 1.0 + d], [gold, (2.25, 1.0, 0.0)])[0]
         b = mc.qext(om, [1.0, 1.0 + d], [-11 + 1.2j, 2.25]) * np.pi * (1 + d) ** 2
         print(f"  d={d}: {a:.10f} {b:.10f}  rel {abs(a - b) / b:.1e}")
+    print("achiral beschichtet in Wasser (eps2 = 1,7689) gegen mie_coated.py:")
+    a = cross_sections(om, [1.0, 1.05], [gold, (2.25, 1.0, 0.0)], eps2=1.7689)[0]
+    b = mc.qext(om, [1.0, 1.05], [-11 + 1.2j, 2.25], 1.7689) * np.pi * 1.05 ** 2
+    print(f"  {a:.10f} {b:.10f}  rel {abs(a - b) / b:.1e}")
     print("chirale Schale aus demselben Material wie der chirale Kern = homogene chirale Kugel (mie_chiral.py):")
     ch = (2.25, 1.0, 0.2)
     for s in [+1, -1]:

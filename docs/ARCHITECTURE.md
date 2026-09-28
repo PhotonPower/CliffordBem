@@ -1,4 +1,4 @@
-# Architektur und Ausbauplan (Stand 0.17)
+# Architektur und Ausbauplan (Stand 0.18)
 
 ## Leitlinien
 
@@ -24,7 +24,7 @@
 |---|---|---|
 | core | Grundtypen, Materialmodelle (konstant, n/k-Tabellen) | Drude-Lorentz-Fits, Größenkorrektur der Dämpfung |
 | clifford | Multivektoren, geometrisches Produkt, Inverse (Nullteiler-Erkennung), Linksmultiplikation | spezialisierte Grad-Darstellungen |
-| geometry | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörpernetze, Parallelflächen (`offset_surface`, auf Gehrung), Gmsh-Import (2.2/4.1), Dunavant, Sauter-Schwab | gekrümmte Elemente, nichtkonforme Kantennetze, Selbstdurchdringungstest für Parallelflächen |
+| geometry | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörpernetze, Parallelflächen (`offset_surface`, auf Gehrung, Prüfung auf Faltung/Durchdringung), Abstand Punkt–Fläche mit Gittersuche, Gmsh-Import (2.2/4.1), Dunavant, Sauter-Schwab | gekrümmte Elemente, nichtkonforme Kantennetze, Durchdringungstest zwischen den Hüllen verschiedener Körper |
 | kernel | Dirac-Kern, Wilton-Integrale (asinh-Form) | analytisch fortgesetzter Kern für komplexe Punkte (Streckung um Spitzen) |
 | assembly | Fernfeld (Gauß 7×7); benachbarte Paare: Sauter-Schwab (gleichseitig) bzw. halbanalytisch gradiert (gestreckt); nahe Paare: adaptive Außenregel, optional mit Randabstand (parallele Flächen); Nahfeld-Cache | nichtkonforme Nachbarschaften, schnellere Nahpaare auf gestreckten Elementen |
 | hmatrix | Clusterbaum, ACA (gemeinsam, komponentenweise, Multivektor-Pivots), Nachkompression, ACA mit exakten Einträgen | ACA+, complex64-Speicher, parallele Mat-Vek |

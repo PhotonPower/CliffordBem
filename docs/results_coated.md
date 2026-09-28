@@ -27,7 +27,10 @@ Schichtflächen erzeugt `offset_surface(m, d)`: Knotenversatz mit n_f · δ = d 
 wird zum Würfel mit Kante 2 + 2d (exakt), eine Ikosaederkugel zur Kugel mit Radius 1 + d (Fehler 4·10⁻⁴ bei n = 6),
 ein abgerundeter Würfel (ρ = 0,4) mit d = 0,08 behält seine flachen Seiten exakt bei 1,08; die Volumenzunahme weicht
 wegen des Polyederfehlers um 0,8 % vom exakten Wert ab. Umklappende Dreiecke und Umstülpen (Versatz durch das
-Innere) werden erkannt.
+Innere) werden erkannt; seit v0.18 auch Faltung und Durchdringung ohne lokale Auffälligkeit: Knoten und Schwerpunkte der
+Parallelfläche müssen von der Originalfläche mindestens 0,8 |d| entfernt sein (gültig: etwa |d|, auf Gehrung genau |d|).
+Das erkennt etwa zwei Flächenteile mit einem Spalt enger als 2 |d| (zwei Kugeln mit Spalt 0,1: Versatz 0,06 abgelehnt,
+0,03 angenommen); Gittersuche, linearer Aufwand.
 
 ```cpp
 LayeredGeometry g(Medium{1.33 * 1.33});                           // Außenraum Wasser
@@ -479,6 +482,39 @@ Extinktion = Streuung.
 - Spiegelsymmetrie σ₊(χ) = σ₋(−χ) auf 1,6·10⁻⁷ relativ (H-Matrix- und GMRES-Toleranz); ein chiraler Kern ohne Schicht
   reproduziert `ScatteringProblem` bitgenau.
 
+### Spektrum: Goldkugel mit chiraler Molekülhülle (v0.18)
+
+Goldkugel (Radius 20 nm, Johnson–Christy) in Wasser mit 1 nm chiraler Hülle (n = 1,5, χ = 0,01), Dünnschicht-Näherung
+zweiter Ordnung mit Referenz auf der Goldoberfläche:
+
+```bash
+spectrum --sphere 8 --unit 20 --materials Au --nbg 1.33 --lambda 450:650:10 --coating "1:2.25,0:0.01" --thin 0 --pol circ \
+         --heps 1e-6 --tol 1e-9
+```
+
+(Chiralität als dritter Teil der Schichtangabe `d:Material:χ`; `results/ausphere20_chiral1.csv`). Referenz:
+`tools/mie_chiral_layered.py` mit Außenmedium (neu `eps2`, im achiralen Grenzfall exakt gleich `mie_coated.py`).
+
+![Goldkugel mit chiraler Hülle](fig_coated_auchiral.png)
+
+| λ (nm) | CD Mie (nm²) | g = CD/σ | Fehler n = 8 | Fehler n = 12 |
+|---:|---:|---:|---:|---:|
+| 450 | +6,22·10⁻² | +3,2·10⁻⁵ | −11,4 % | – |
+| 510 | −1,34·10⁻¹ | −4,5·10⁻⁵ | +6,7 % | – |
+| 530 | −1,94·10⁻¹ | −5,0·10⁻⁵ | +5,0 % | +2,3 % |
+| 550 | −1,02·10⁻¹ | −3,8·10⁻⁵ | +4,6 % | – |
+| 620 | +2,31·10⁻² | +7,8·10⁻⁵ | +13,1 % | +5,4 % |
+
+- Der CD hat an der Plasmonresonanz (≈ 525 nm) sein Extremum und wechselt bei etwa 475 und 580 nm das Vorzeichen; die
+  achirale Goldkugel verstärkt so die optische Aktivität der Hülle (plasmoninduzierter CD). Er ist linear in χ.
+- An der Resonanz trifft die BEM den CD auf 2–7 % (n = 8), auf der roten Flanke auf 13–15 %. Das ist der
+  Diskretisierungsfehler der Goldkugel selbst (σ₊ bei 650 nm +7 %), nicht der Hülle: bei n = 12 fallen beide CD-Fehler
+  mit Ordnung 2 (530 nm: 5,0 → 2,3 %, 620 nm: 13,1 → 5,4 %), ebenso σ₊ (−1,4 → −0,7 % bzw. +3,8 → +1,6 %).
+- Nahe den Nulldurchgängen ist der relative Fehler bedeutungslos. Kosten je Wellenlänge (beide Helizitäten): 15–30 s
+  bei n = 8, etwa 70 s bei n = 12.
+- Für CD-Rechnungen sind eine enge GMRES-Toleranz und H-Matrix-Genauigkeit nötig, weil g hier nur 10⁻⁵…10⁻⁴ beträgt;
+  `spectrum` schreibt die Querschnitte seit v0.18 mit zehn Stellen.
+
 ### Einordnung
 
 | | exakt (zwei Flächen) | Dünnschicht 2. Ordnung |
@@ -503,8 +539,8 @@ zweite Ordnung überholt.
 - Die Kosten verdoppeln sich je Schicht etwa (eine Fläche mehr, zwei Gebietsoperatoren je Fläche). Die Block- und
   HODLR-Vorkonditionierer sind für geschichtete Körper noch nicht umgesetzt; punktweise Vorkonditionierung genügt
   bisher (40–60 Iterationen).
-- `offset_surface` kann an konkaven Stellen oder bei Versatz größer als der Krümmungsradius Selbstdurchdringungen
-  erzeugen, die nur teilweise erkannt werden (umklappende Dreiecke, Umstülpen).
+- `offset_surface` erkennt Umklappen, Umstülpen, Faltung und Durchdringung (Abstandsprüfung, v0.18). Durchdringungen
+  zwischen den Hüllen *verschiedener* Körper (jeder Körper wird einzeln versetzt) werden noch nicht geprüft.
 - Eindeutigkeit für verschachtelte Gebiete ist nicht bewiesen (AP 1, Vermutung).
 - Für d ≲ h und d/a ≲ 0,1 ist die Dünnschicht-Näherung zweiter Ordnung vorzuziehen (Abschnitt „Dünnschicht-Näherung
   zweiter Ordnung“), sofern die Krümmung auf dem Netz aufgelöst ist; auf groben Netzen mit engen Rundungen ist die

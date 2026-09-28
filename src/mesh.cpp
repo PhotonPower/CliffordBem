@@ -156,6 +156,52 @@ void sym_eigen3(real A[3][3], real lam[3], real V[3][3]) {
 }
 }  // namespace
 
+namespace {
+// Abstand Punkt - Dreieck (naechster Punkt nach Ericson, Real-Time Collision Detection, Abschn. 5.1.5)
+real point_tri_dist(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& c) {
+    const Vec3 ab = b - a, ac = c - a, ap = p - a;
+    const real d1 = dot(ab, ap), d2 = dot(ac, ap);
+    if (d1 <= 0 && d2 <= 0) return norm(p - a);
+    const Vec3 bp = p - b; const real d3 = dot(ab, bp), d4 = dot(ac, bp);
+    if (d3 >= 0 && d4 <= d3) return norm(p - b);
+    const real vc = d1 * d4 - d3 * d2;
+    if (vc <= 0 && d1 >= 0 && d3 <= 0) return norm(p - (a + ab * (d1 / (d1 - d3))));
+    const Vec3 cp = p - c; const real d5 = dot(ab, cp), d6 = dot(ac, cp);
+    if (d6 >= 0 && d5 <= d6) return norm(p - c);
+    const real vb = d5 * d2 - d1 * d6;
+    if (vb <= 0 && d2 >= 0 && d6 <= 0) return norm(p - (a + ac * (d2 / (d2 - d6))));
+    const real va = d3 * d6 - d5 * d4;
+    if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) return norm(p - (b + (c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6)))));
+    const real den = 1.0 / (va + vb + vc);
+    return norm(p - (a + ab * (vb * den) + ac * (vc * den)));
+}
+}  // namespace
+
+std::vector<real> distance_to_surface(const TriangleMesh& m, const std::vector<Vec3>& q, real rmax) {
+    // Gitter mit Zellgroesse rmax; jedes Dreieck in alle Zellen seiner Huelle (um rmax erweitert) eintragen
+    Vec3 lo = m.P[0], hi = m.P[0];
+    for (auto& p : m.P) { lo = Vec3(std::min(lo.x, p.x), std::min(lo.y, p.y), std::min(lo.z, p.z)); hi = Vec3(std::max(hi.x, p.x), std::max(hi.y, p.y), std::max(hi.z, p.z)); }
+    real hm = 0; for (auto h : m.hmax) hm += h; hm /= std::max<std::size_t>(1, m.hmax.size());
+    const real c = std::max(rmax, hm); const real r = rmax; lo = lo - Vec3(c, c, c);   // Zellgroesse >= Suchradius
+    auto cell = [&](real v, real o) { return static_cast<long>(std::floor((v - o) / c)); };
+    std::map<std::array<long, 3>, std::vector<std::size_t>> grid;
+    for (std::size_t t = 0; t < m.T.size(); ++t) {
+        Vec3 a = m.P[m.T[t][0]], b = a;
+        for (int k = 1; k < 3; ++k) { const Vec3& p = m.P[m.T[t][k]]; a = Vec3(std::min(a.x, p.x), std::min(a.y, p.y), std::min(a.z, p.z)); b = Vec3(std::max(b.x, p.x), std::max(b.y, p.y), std::max(b.z, p.z)); }
+        for (long i = cell(a.x - r, lo.x); i <= cell(b.x + r, lo.x); ++i)
+            for (long j = cell(a.y - r, lo.y); j <= cell(b.y + r, lo.y); ++j)
+                for (long k = cell(a.z - r, lo.z); k <= cell(b.z + r, lo.z); ++k) grid[{i, j, k}].push_back(t);
+    }
+    std::vector<real> out(q.size(), rmax);
+    for (std::size_t i = 0; i < q.size(); ++i) {
+        auto it = grid.find({cell(q[i].x, lo.x), cell(q[i].y, lo.y), cell(q[i].z, lo.z)});
+        if (it == grid.end()) continue;
+        for (std::size_t t : it->second)
+            out[i] = std::min(out[i], point_tri_dist(q[i], m.P[m.T[t][0]], m.P[m.T[t][1]], m.P[m.T[t][2]]));
+    }
+    return out;
+}
+
 TriangleMesh offset_surface(const TriangleMesh& m0, real d) {
     TriangleMesh m = m0;
     if (m.normal.size() != m.T.size()) m.compute_geometry();
@@ -194,6 +240,19 @@ TriangleMesh offset_surface(const TriangleMesh& m0, real d) {
     // Umstuelpen (Versatz durch das Innere hindurch) aendert das Vorzeichen des eingeschlossenen Volumens
     auto vol = [](const TriangleMesh& q) { real v = 0; for (auto& tr : q.T) v += dot(q.P[tr[0]], cross(q.P[tr[1]], q.P[tr[2]])); return v / 6.0; };
     if (!(vol(m) * vol(m0) > 0)) throw std::runtime_error("offset_surface: Flaeche stuelpt sich um (|d| zu gross)");
+    // Faltung oder Durchdringung: Auf einer gueltigen Parallelflaeche haben Knoten und Schwerpunkte ueberall etwa den
+    // Abstand |d| von der Originalflaeche (auf Gehrung genau |d|, gekruemmt |d| cos(Winkel der Nachbarnormalen)). Kommt ein
+    // Punkt einem anderen Teil der Originalflaeche naeher als 0,8 |d|, hat sich die Flaeche gefaltet (konkave Stelle mit
+    // Kruemmungsradius < |d|) oder durchdringt sich (Spalt enger als 2 |d|).
+    if (d != 0.0) {
+        const real lim = 0.8 * std::abs(d);
+        std::vector<Vec3> q = m.P; for (auto& c : m.centroid) q.push_back(c);
+        const std::vector<real> dist = distance_to_surface(m0, q, lim);
+        for (std::size_t i = 0; i < q.size(); ++i)
+            if (dist[i] < lim * (1 - 1e-9))
+                throw std::runtime_error("offset_surface: Parallelflaeche faltet oder durchdringt sich (Punkt " + std::to_string(i) + " im Abstand "
+                                         + std::to_string(dist[i]) + " < 0,8 |d| von der Originalflaeche)");
+    }
     return m;
 }
 

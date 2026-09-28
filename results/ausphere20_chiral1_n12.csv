@@ -1,0 +1,3 @@
+lambda_nm,unit_nm,nbg,N,orient,pol,sigma_nm2,sigma_plus_nm2,sigma_minus_nm2,CD_nm2,iterations,t_s,coating,S_re,S_im
+530,20,1.33,2880,1,circ,3850.8,3850.7,3850.9,-0.197938,46,64.8858,"1:2.25,0:0.01 thin-dirac2fit@0.00",0.076182,-0.0433748
+620,20,1.33,2880,1,circ,301.192,301.204,301.18,0.0243015,53,71.4334,"1:2.25,0:0.01 thin-dirac2fit@0.00",0.00435425,-0.0373772

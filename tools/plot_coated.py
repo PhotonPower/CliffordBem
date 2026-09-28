@@ -161,12 +161,12 @@ if os.path.exists('results/thin_layer.csv'):
     curves = [('results/thin_layer.csv', 'jump', 0.0, 'o-', 'C0', '1. Ordnung, Referenz Kernoberfläche'),
               ('results/thin_layer.csv', 'jump', 0.5, 's-', 'C1', '1. Ordnung, Referenz Schichtmitte'),
               ('results/thin_layer2.csv', 'dirac2', 0.0, 'D-', 'C2', '2. Ordnung (Dirac-Form), Referenz Kernoberfläche')]
-    for fn, mdl, f, st, col, lab in curves:
+    for fn, mdl, f, st, colr, lab in curves:
         if not os.path.exists(fn): continue
         ser = thin_series(fn, mdl); ks = sorted(k for k in ser if k[0] == f)
         ds = [k[1] for k in ks]
-        ax[0].loglog(ds, [max(abs(ser[k][1]), 1e-4) for k in ks], st, color=col, label=lab)
-        ax[1].loglog(ds, [max(abs(ser[k][2]), 1e-4) for k in ks], st, color=col, label=lab)
+        ax[0].loglog(ds, [max(abs(ser[k][1]), 1e-4) for k in ks], st, color=colr, label=lab)
+        ax[1].loglog(ds, [max(abs(ser[k][2]), 1e-4) for k in ks], st, color=colr, label=lab)
     if os.path.exists('results/coated_thin.csv'):
         tw = list(csv.DictReader(open('results/coated_thin.csv'))); pts = []
         S0 = mc.forward_amplitude(om, [1.0], [core])
@@ -208,3 +208,29 @@ if os.path.exists('results/thin_chiral.csv'):
     ax.set_xlabel('Elementgröße h (Kernradius 1)'); ax.set_ylabel('rel. Fehler des CD'); ax.grid(True, which='both', alpha=0.3)
     ax.set_title('Goldkern mit chiraler Schale (χ = 0,1), CD gegen Mie', fontsize=10); ax.legend(fontsize=6.5)
     fig.tight_layout(); fig.savefig('docs/fig_coated_chiral.png', dpi=130)
+
+# 6. Goldkugel (20 nm) in Wasser mit 1 nm chiraler Huelle: Extinktion und CD gegen Mie (results/ausphere20_chiral1.csv)
+if os.path.exists('results/ausphere20_chiral1.csv'):
+    import mie_chiral_layered as mcl
+    cf = lambda rr, k: np.array([float(r[k]) for r in rr])          # 'col' ist oben als Farbvariable belegt
+    rows = rd('results/ausphere20_chiral1.csv'); L = cf(rows, 'lambda_nm'); sp = cf(rows, 'sigma_plus_nm2'); cd = cf(rows, 'CD_nm2')
+    nb, a, t, chi = 1.33, 20.0, 1.0, 0.01
+    Lf = np.linspace(L.min(), L.max(), 101)
+    def mie_pm(lams):
+        P, M = [], []
+        for l in lams:
+            e = eps_tab('data/materials/Au_Johnson.yml', l); o = 2 * np.pi / l
+            P.append(mcl.cross_sections(o, [a, a + t], [(e, 1, 0), (2.25, 1, chi)], +1, eps2=nb ** 2)[0])
+            M.append(mcl.cross_sections(o, [a, a + t], [(e, 1, 0), (2.25, 1, chi)], -1, eps2=nb ** 2)[0])
+        return np.array(P), np.array(M)
+    Pf, Mf = mie_pm(Lf); Pm, Mm = mie_pm(L)
+    fig, ax = plt.subplots(2, 1, figsize=(5.8, 5.4), sharex=True)
+    ax[0].plot(Lf, Pf / 1e3, 'k-', lw=1, label='Mie (geschichtet, chiral)'); ax[0].plot(L, sp / 1e3, 'C3o', ms=4, mfc='none', label='BEM Dünnschicht 2. Ordnung')
+    ax[0].set_ylabel(r'$\sigma_{ext}^{+}$ (10$^3$ nm$^2$)'); ax[0].legend(fontsize=7)
+    ax[0].set_title('Goldkugel 20 nm in Wasser, 1 nm chirale Hülle (n = 1,5, χ = 0,01)', fontsize=10)
+    ax[1].plot(Lf, Pf - Mf, 'k-', lw=1, label='Mie'); ax[1].plot(L, cd, 'C3o', ms=4, mfc='none', label='BEM'); ax[1].axhline(0, color='k', lw=0.5)
+    ax[1].set_ylabel(r'CD = $\sigma^+ - \sigma^-$ (nm$^2$)'); ax[1].set_xlabel('Wellenlänge (nm)'); ax[1].legend(fontsize=7)
+    fig.tight_layout(); fig.savefig('docs/fig_coated_auchiral.png', dpi=130)
+    print('\nGoldkugel mit chiraler Huelle: lam, sigma+ BEM, Mie, CD BEM, CD Mie, Fehler, g = CD/sigma (Mie)')
+    for i, l in enumerate(L):
+        print(f"  {l:5.0f} {sp[i]:8.1f} {Pm[i]:8.1f} {cd[i]:+10.4e} {Pm[i] - Mm[i]:+10.4e} {cd[i] / (Pm[i] - Mm[i]) - 1:+7.1%} {(Pm[i] - Mm[i]) / Pm[i]:+.2e}")

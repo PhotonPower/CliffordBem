@@ -56,10 +56,10 @@ int main(int argc, char** argv) {
     int cur_pol = pol == "circ" ? 1 : pol == "circ-" ? -1 : 0;
     HMatrixParams hp; hp.eps = heps; SolveOptions so; so.tol = tol;
     EntryParams ep = layered_entry_params(); if (oldnear) ep.adapt_to_boundary = false;
-    bool polcol = true;
-    if (!csv.empty()) { std::ifstream in(csv); std::string h; if (std::getline(in, h)) polcol = h.find(",pol") != std::string::npos; }
+    bool polcol = true, chicol = true;                           // neue Spalten nur in neuen Dateien bzw. wenn vorhanden
+    if (!csv.empty()) { std::ifstream in(csv); std::string h; if (std::getline(in, h)) { polcol = h.find(",pol") != std::string::npos; chicol = h.find(",core_chi") != std::string::npos; } }
     std::ofstream f; if (!csv.empty()) { f.open(csv, std::ios::app); f.seekp(0, std::ios::end); f.precision(10);
-        if (f.tellp() == 0) f << "geometry,n,N,omega,core_re,core_im,coat,inward,offset,sigma_ext,Q_ext,S_re,S_im,S_abs,S_arg,iterations,near_pairs,t_near_s,t_build_s,t_solve_s" << (polcol ? ",pol" : "") << "\n"; }
+        if (f.tellp() == 0) f << "geometry,n,N,omega,core_re,core_im,coat,inward,offset,sigma_ext,Q_ext,S_re,S_im,S_abs,S_arg,iterations,near_pairs,t_near_s,t_build_s,t_solve_s" << (polcol ? ",pol" : "") << (chicol ? ",core_chi" : "") << "\n"; }
     std::printf("%s, Schichten '%s' (%s), Gesamtdicke %.4g, omega %.4g, n_bg %.3f\n", path.empty() ? "Kugel" : path.c_str(), coat.c_str(),
                 inward ? "nach innen" : "nach aussen", total, om, nbg);
     std::printf("%7s %7s %11s %10s %11s %11s %9s %9s %5s %9s %8s %8s\n", "n", "N", "sigma", "Q_ext", "Re S", "Im S", "|S|", "arg S", "It.", "Nahpaare", "Nah s", "ges. s");
@@ -72,6 +72,7 @@ int main(int argc, char** argv) {
                    << inward << ',' << offset << ',' << r.sigma_ext << ',' << Q << ',' << r.forward.real() << ',' << r.forward.imag() << ',' << std::abs(r.forward) << ','
                    << std::arg(r.forward) << ',' << r.iterations << ',' << np << ',' << tn << ',' << tb << ',' << ts;
                  if (polcol) f << ',' << cur_pol;
+                 if (chicol) f << ',' << mcore.chi.real();
                  f << '\n'; f.flush(); }
     };
     // --cd: beide Helizitaeten auf demselben aufgebauten Problem loesen

@@ -37,7 +37,12 @@ TriangleMesh make_cube_uniform(int n);                        // Wuerfel [-1,1]^
 // um delta verschoben mit n_f . delta = d fuer alle angrenzenden Flaechennormalen n_f (kleinste Quadrate,
 // Winkelgewichte, Pseudoinverse): auf glatten Stuecken delta = d n (gemittelte Normale), an Kanten und Ecken
 // "auf Gehrung", sodass jede ebene Seite genau um d verschoben wird (Wuerfel -> Wuerfel mit Kante + 2d).
-// Wirft std::runtime_error, wenn ein Dreieck umklappt oder entartet (|d| zu gross gegen Kruemmungsradius/Netz).
+// Wirft std::runtime_error, wenn ein Dreieck umklappt oder entartet (|d| zu gross gegen Kruemmungsradius/Netz), die Flaeche
+// sich umstuelpt, faltet oder durchdringt: Knoten und Schwerpunkte der Parallelflaeche muessen von der Originalflaeche
+// mindestens 0,8 |d| entfernt sein (gueltig: etwa |d|; gefaltet an konkaven Stellen mit Kruemmungsradius < |d| oder
+// durchdrungen an Spalten enger als 2 |d| kommt die Flaeche anderen Teilen naeher).
 TriangleMesh offset_surface(const TriangleMesh& m, real d);
+// Kleinster Abstand der Punkte q von der Flaeche m, jeweils nur bis zur Schranke rmax gesucht (sonst rmax); Gittersuche
+std::vector<real> distance_to_surface(const TriangleMesh& m, const std::vector<Vec3>& q, real rmax);
 
 }  // namespace cbem

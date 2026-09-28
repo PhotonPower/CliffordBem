@@ -2,8 +2,8 @@
 
 Je Rechnung (Netz n, Schichtangabe, Kern) werden die Zeilen beider Helizitaeten (Spalte pol = +1 / -1) gepaart:
 sigma_+, sigma_-, CD = sigma_+ - sigma_- und die Schichtwirkung Delta sigma_+ = sigma_+ - sigma_+(ohne Schicht, gleiches Netz).
-Die Chiralitaet des Kerns steht nicht in der CSV: --core-chi re=chi ordnet sie ueber den Realteil von eps_Kern zu
-(Standard fuer die Studie: 2.25=0.2). Kugel mit Kernradius 1, Schichten nach aussen, Vakuum aussen.
+Die Chiralitaet des Kerns steht in neueren Dateien in der Spalte core_chi; fuer aeltere Dateien ordnet --core-chi re=chi sie
+ueber den Realteil von eps_Kern zu (Standard fuer results/thin_chiral.csv: 2.25=0.2). Kugel mit Kernradius 1, Schichten nach aussen, Vakuum aussen.
 Aufruf: python3 tools/analyze_chiral_thin.py [results/thin_chiral.csv] [--core-chi 2.25=0.2]
 """
 import csv, sys, os
@@ -36,7 +36,9 @@ def mie(core, layers):
 print(f"{'n':>3} {'Kern':>14} {'Schicht':>22} {'Verf.':>6} | {'sigma+':>10} {'Mie':>10} | {'CD':>11} {'CD Mie':>11} {'Fehler':>7} | {'dSig+':>9} {'Mie':>9} {'Fehler':>7}")
 for (n, coat, cre, cim), g in sorted(groups.items(), key=lambda t: (t[0][2], t[0][1], t[0][0])):
     if coat == 'none' or +1 not in g or -1 not in g: continue
-    chic = cmap.get(cre, 0.0); core = (complex(cre, cim), 1.0, chic)
+    r0 = next(iter(g.values()))
+    chic = float(r0['core_chi']) if r0.get('core_chi') not in (None, '') else cmap.get(cre, 0.0)   # neue Dateien: Spalte core_chi
+    core = (complex(cre, cim), 1.0, chic)
     spec = coat.split(':', 1)[1] if ':' in coat else coat
     method = 'Dünn' if coat.startswith('thin') else 'zwei'
     layers = []

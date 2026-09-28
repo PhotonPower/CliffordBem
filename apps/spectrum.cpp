@@ -6,6 +6,7 @@
 //   spectrum --mesh examples/bornkuhn_60.msh --unit 20 --materials Au --lambda 500:900:25 --pol circ --orient 14
 // Beschichtungen (alle Koerper, von innen nach aussen, Dicke in nm, Material wie --materials):
 //   spectrum --sphere 12 --unit 20 --materials Ag --nbg 1.33 --coating "1.5:2.89,0" --lambda 360:460:5
+//   chirale Schicht: "d:Material:chi" (Pasteur-Parameter, z. B. "1:2.25,0:0.01"); CD mit --pol circ.
 //   --coat-inward: Schichten innerhalb der Netzflaeche (verdraengen Kernmaterial). Nur punktweise Vorkonditionierung.
 //   --thin f: Duennschicht-Naeherung auf einer Flaeche je Koerper (ThinLayerScatteringProblem, auch mehrere Koerper);
 //             Referenzflaeche im Anteil f der Schicht von innen (0 = Netzflaeche), per Parallelflaeche.
@@ -52,7 +53,12 @@ int main(int argc, char** argv) {
         chi.push_back(cplx(std::stod(c.substr(0, q)), q == std::string::npos ? 0.0 : std::stod(c.substr(q + 1))));
     }
     std::vector<std::pair<real, std::shared_ptr<Material>>> coat_mat;           // Dicke in nm, Material
-    for (auto& c : split(coating, ';')) { if (c.empty()) continue; auto q = c.find(':'); coat_mat.push_back({std::stod(c.substr(0, q)), make_material(c.substr(q + 1), datadir)}); }
+    std::vector<real> coat_chi;                                                   // Pasteur-Parameter je Schicht (optional ":chi")
+    for (auto& c : split(coating, ';')) {
+        if (c.empty()) continue; auto q = c.find(':'); auto q2 = c.find(':', q + 1);
+        coat_mat.push_back({std::stod(c.substr(0, q)), make_material(c.substr(q + 1, q2 == std::string::npos ? std::string::npos : q2 - q - 1), datadir)});
+        coat_chi.push_back(q2 == std::string::npos ? 0.0 : std::stod(c.substr(q2 + 1)));
+    }
     if (!coat_mat.empty() && precond != "point") { std::printf("Beschichtung: nur --precond point\n"); return 1; }
     if (thin >= 0 && coat_mat.empty()) { std::printf("--thin: nur mit --coating\n"); return 1; }
     std::vector<TriangleMesh> thin_ref;                        // Referenzflaechen der Duennschicht-Naeherung (je Koerper)
@@ -60,7 +66,7 @@ int main(int argc, char** argv) {
                      for (auto& pm : parts) thin_ref.push_back(off == 0.0 ? pm : offset_surface(pm, off)); }
     std::vector<double> lams; { auto r = split(lam, ':'); if (r.size() == 3) for (double l = std::stod(r[0]); l <= std::stod(r[1]) + 1e-9; l += std::stod(r[2])) lams.push_back(l); else for (auto& t : split(lam, ',')) lams.push_back(std::stod(t)); }
     const auto dirs = lebedev(orient);
-    std::ofstream f; if (!csv.empty()) { f.open(csv, std::ios::app); f.seekp(0, std::ios::end); if (f.tellp() == 0) f << "lambda_nm,unit_nm,nbg,N,orient,pol,sigma_nm2,sigma_plus_nm2,sigma_minus_nm2,CD_nm2,iterations,t_s,coating,S_re,S_im\n"; }
+    std::ofstream f; if (!csv.empty()) { f.open(csv, std::ios::app); f.precision(10); f.seekp(0, std::ios::end); if (f.tellp() == 0) f << "lambda_nm,unit_nm,nbg,N,orient,pol,sigma_nm2,sigma_plus_nm2,sigma_minus_nm2,CD_nm2,iterations,t_s,coating,S_re,S_im\n"; }
     std::printf("%s: %zu Koerper, %zu Dreiecke gesamt; Einheit %.3g nm, n_Hintergrund %.3f, %zu Richtung(en)\n",
                 sph ? "Kugel" : mesh.c_str(), parts.size(), [&] { std::size_t n = 0; for (auto& p : parts) n += p.size(); return n; }(), unit, nbg, dirs.size());
     if (!coat_mat.empty()) std::printf("Beschichtung '%s' (%s)\n", coating.c_str(), coat_inward ? "nach innen" : "nach aussen");
@@ -75,14 +81,14 @@ int main(int argc, char** argv) {
         std::unique_ptr<ScatteringProblem> PP; std::unique_ptr<LayeredScatteringProblem> PL; std::unique_ptr<ThinLayerScatteringProblem> PT;
         if (coat_mat.empty()) PP = std::make_unique<ScatteringProblem>(parts, med, om, bg, hp);
         else if (thin >= 0) {
-            std::vector<Coating> cs; for (auto& c : coat_mat) cs.push_back(Coating{c.first / unit, Medium{c.second->eps(L), 1.0, 0.0}});
+            std::vector<Coating> cs; for (std::size_t i = 0; i < coat_mat.size(); ++i) cs.push_back(Coating{coat_mat[i].first / unit, Medium{coat_mat[i].second->eps(L), 1.0, coat_chi[i]}});
             std::vector<ThinBody> tb;
             for (std::size_t b = 0; b < parts.size(); ++b) tb.push_back(ThinBody{thin_ref[b], med[b], cs, thin});
             PT = std::make_unique<ThinLayerScatteringProblem>(tb, om, bg, hp, EntryParams{}, tmodel);
         }
         else {
             LayeredGeometry g(bg); std::vector<Coating> cs;
-            for (auto& c : coat_mat) cs.push_back(Coating{c.first / unit, Medium{c.second->eps(L), 1.0, 0.0}});
+            for (std::size_t i = 0; i < coat_mat.size(); ++i) cs.push_back(Coating{coat_mat[i].first / unit, Medium{coat_mat[i].second->eps(L), 1.0, coat_chi[i]}});
             for (std::size_t b = 0; b < parts.size(); ++b) add_coated_body(g, parts[b], med[b], cs, !coat_inward);
             PL = std::make_unique<LayeredScatteringProblem>(g, om, hp);
         }

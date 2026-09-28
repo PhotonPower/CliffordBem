@@ -22,6 +22,12 @@ int main() {
         CHECK(er < 1e-3, "Kugel-Parallelflaeche: Radiusfehler %.1e", er);
         bool thrown = false; try { offset_surface(make_icosphere(3), -1.2); } catch (const std::runtime_error&) { thrown = true; }
         CHECK(thrown, "zu grosser Versatz nach innen nicht erkannt");
+        // Durchdringung ohne lokale Auffaelligkeit: zwei Kugeln mit Spalt 0,1 in einem Netz, Versatz 0,06 (Huellen ueberlappen)
+        const TriangleMesh two = make_multibody({translated(make_icosphere(6), Vec3(-1.05, 0, 0)), translated(make_icosphere(6), Vec3(1.05, 0, 0))}).all;
+        bool ok = true; try { offset_surface(two, 0.03); } catch (const std::runtime_error&) { ok = false; }
+        CHECK(ok, "gueltiger Versatz (Spalt bleibt offen) faelschlich abgelehnt");
+        thrown = false; try { offset_surface(two, 0.06); } catch (const std::runtime_error&) { thrown = true; }
+        CHECK(thrown, "Durchdringung am Spalt nicht erkannt");
     }
     const real om = 0.5; const Vec3 d(0, 0, 1); const CVec3 px{1.0, 0.0, 0.0};
     HMatrixParams hp; hp.eps = 1e-8; SolveOptions so; so.tol = 1e-10;
