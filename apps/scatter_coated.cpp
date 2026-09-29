@@ -11,6 +11,8 @@
 //   Standard: Kernoberflaeche (nach aussen) bzw. Aussenflaeche (--inward). --bare rechnet die Kugel mit Radius 1.
 //   --thin-model jump|dirac1|dirac2|dirac2fit: Sprungform 1. Ordnung, Dirac-Form 1. bzw. 2. Ordnung (Standard dirac2fit).
 //   Mit --mesh und --thin: alle Koerper der Gmsh-Datei mit denselben Schichten (Referenz = Netzflaeche bzw. --thin-ref).
+// --twoport: Schicht als Zweitor (S-Matrix-Formulierung, v0.19; nur Kugel, eine Schicht nach aussen): E_2 auf der
+//   Aussenflaeche (Radius 1 + d), E_1 auf dem Kern (Radius 1), stabil fuer beliebiges d/h.
 // --bare: dieselbe Flaeche ohne Schicht; --neutral: dieselben Netze, Schichten aus dem Aussenmedium. Die Wirkung einer
 // duennen Schicht ist als Differenz zur neutralen Rechnung genauer als zur Rechnung ohne Schicht (docs/results_coated.md).
 // Beispiele:
@@ -24,13 +26,14 @@
 #include "cbem/geometry/gmsh_io.hpp"
 #include "cbem/problems/layered_problem.hpp"
 #include "cbem/problems/thin_layer_problem.hpp"
+#include "cbem/problems/twoport_layer_problem.hpp"
 #include "cbem/sources/fields.hpp"
 using namespace cbem;
 static std::vector<std::string> split(const std::string& s, char c) { std::vector<std::string> v; std::stringstream ss(s); std::string t; while (std::getline(ss, t, c)) v.push_back(t); return v; }
 static cplx cval(const std::string& s) { auto c = s.find(','); return {std::stod(s.substr(0, c)), c == std::string::npos ? 0.0 : std::stod(s.substr(c + 1))}; }
 int main(int argc, char** argv) {
     std::string ns = "4,6,8", path, core = "-11,1.2", coat = "0.05,2.25,0", pol = "lin", csv, nbs = "1";
-    double om = 0.5, heps = 1e-4, tol = 1e-6, scale = 1.0; bool offset = false, inward = false, bare = false, neutral = false, oldnear = false, thin = false, cd = false; double thinref = -1; ThinLayerModel tmodel = ThinLayerModel::Dirac2Fit; std::string tmname = "dirac2fit"; Vec3 d(0, 0, 1);
+    double om = 0.5, heps = 1e-4, tol = 1e-6, scale = 1.0; bool offset = false, inward = false, bare = false, neutral = false, oldnear = false, thin = false, cd = false, twoport = false; double thinref = -1; ThinLayerModel tmodel = ThinLayerModel::Dirac2Fit; std::string tmname = "dirac2fit"; Vec3 d(0, 0, 1);
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
         if (o == "--n") ns = nxt(); else if (o == "--mesh") path = nxt(); else if (o == "--scale") scale = std::stod(nxt());
@@ -40,7 +43,7 @@ int main(int argc, char** argv) {
         else if (o == "--offset") offset = true; else if (o == "--inward") inward = true;
         else if (o == "--bare") bare = true;              // zusaetzlich dieselbe Flaeche ohne Schicht (Differenzen; Q auf denselben Radius bezogen)
         else if (o == "--thin-model") { thin = true; tmname = nxt(); tmodel = tmname == "dirac2fit" ? ThinLayerModel::Dirac2Fit : tmname == "dirac2" ? ThinLayerModel::Dirac2 : tmname == "dirac1" ? ThinLayerModel::Dirac1 : ThinLayerModel::Jump1; }
-        else if (o == "--thin") thin = true; else if (o == "--cd") cd = true; else if (o == "--thin-ref") { thin = true; thinref = std::stod(nxt()); }
+        else if (o == "--thin") thin = true; else if (o == "--cd") cd = true; else if (o == "--twoport") twoport = true; else if (o == "--thin-ref") { thin = true; thinref = std::stod(nxt()); }
         else if (o == "--neutral") neutral = true;        // zusaetzlich dieselben Netze mit Schichten aus Aussenmedium (Referenz fuer Differenzen)
         else if (o == "--oldnear") oldnear = true;        // Nahfeldregel ohne Randabstand (Vergleich der Kosten)
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt()); else if (o == "--csv") csv = nxt();
@@ -68,7 +71,7 @@ int main(int argc, char** argv) {
         std::printf("%7s %7zu %11.6g %10.6f %11.6f %11.6f %9.6f %9.6f %5d %9zu %8.1f %8.1f\n", label.c_str(), N, r.sigma_ext, Q, r.forward.real(), r.forward.imag(),
                     std::abs(r.forward), std::arg(r.forward), r.iterations, np, tn, tb + ts);
         std::fflush(stdout);
-        if (f) { f << (path.empty() ? "sphere" : path) << ',' << n << ',' << N << ',' << om << ',' << mcore.eps.real() << ',' << mcore.eps.imag() << ",\"" << (label == "bare" ? "none" : label == "neutral" ? "neutral" : label == "thin" ? "thin" + (tmname != "jump" ? "-" + tmname : std::string()) + (thinref >= 0 ? "@" + std::to_string(thinref).substr(0, 4) : std::string()) + ":" + coat : coat) << "\","
+        if (f) { f << (path.empty() ? "sphere" : path) << ',' << n << ',' << N << ',' << om << ',' << mcore.eps.real() << ',' << mcore.eps.imag() << ",\"" << (label == "bare" ? "none" : label == "neutral" ? "neutral" : label == "twoport" ? "twoport:" + coat : label == "thin" ? "thin" + (tmname != "jump" ? "-" + tmname : std::string()) + (thinref >= 0 ? "@" + std::to_string(thinref).substr(0, 4) : std::string()) + ":" + coat : coat) << "\","
                    << inward << ',' << offset << ',' << r.sigma_ext << ',' << Q << ',' << r.forward.real() << ',' << r.forward.imag() << ',' << std::abs(r.forward) << ','
                    << std::arg(r.forward) << ',' << r.iterations << ',' << np << ',' << tn << ',' << tb << ',' << ts;
                  if (polcol) f << ',' << cur_pol;
@@ -140,6 +143,16 @@ int main(int argc, char** argv) {
     };
     for (auto& s : split(ns, ',')) {
         const int n = std::stoi(s);
+        if (twoport) {                                               // Zweitor: Kern Radius 1, Aussenflaeche Radius 1 + d
+            if (coats.size() != 1 || inward) { std::printf("--twoport: genau eine Schicht nach aussen\n"); return 1; }
+            auto t0 = std::chrono::steady_clock::now();
+            TwoPortLayerProblem P(make_icosphere(n), make_icosphere(n, 1.0 + coats[0].thickness), mcore, coats[0].medium, coats[0].thickness, om, ext, hp);
+            const double tb = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+            for_pols([&]() { auto t1 = std::chrono::steady_clock::now(); auto r = P.solve_plane_wave(d, p, so);
+                report("twoport", n, 2 * P.outer_mesh().size(), r, pi * R * R, 0, 0.0, tb, std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count()); return r.sigma_ext; });
+            if (bare) run_thin("bare", n, {}, pi * R * R);
+            continue;
+        }
         if (thin) {                                                  // eine Flaeche (Radius 1), Schicht erster Ordnung
             run_thin("thin", n, coats, pi * R * R);
             if (bare) run_thin("bare", n, {}, pi * R * R);

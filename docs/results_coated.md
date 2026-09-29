@@ -1,4 +1,4 @@
-# Ergebnisse: beschichtete Grenzflächen (dünne Schichten, Kern-Schale, Dünnschicht-Näherung 1. und 2. Ordnung, chirale Schichten)
+# Ergebnisse: beschichtete Grenzflächen (dünne Schichten, Kern-Schale, Dünnschicht-Näherung, chirale Schichten, Zweitor)
 
 An Materialgrenzen liegen meist dünne Schichten (Oxide, Sulfide, Hüllen von wenigen nm), die Amplitude und Phase
 des gestreuten Lichts verändern. Seit v0.13 behandelt der Kern verschachtelte Gebiete exakt: jede Schichtgrenze ist
@@ -515,17 +515,76 @@ spectrum --sphere 8 --unit 20 --materials Au --nbg 1.33 --lambda 450:650:10 --co
 - Für CD-Rechnungen sind eine enge GMRES-Toleranz und H-Matrix-Genauigkeit nötig, weil g hier nur 10⁻⁵…10⁻⁴ beträgt;
   `spectrum` schreibt die Querschnitte seit v0.18 mit zehn Stellen.
 
+## Die Schicht als Zweitor (S-Matrix-Formulierung, v0.19)
+
+Für d ≳ h versagt die lokale Entwicklung: Mit tangentialen Wellenzahlen bis κ ≈ π/h ist γd = √(κ² − k²)·d nicht klein, und
+J_eff setzt das Außenfeld in einen Bereich fort, in dem es nicht existiert (für große κ exponentiell schlecht gestellt). Die
+S-Matrix-Formulierung von Schichtsystemen propagiert jeden Anteil nur in seiner abklingenden Richtung
+(`TwoPortLayerProblem`, `scatter_coated --twoport`; Theorie: AP 1, Absatz „Die Schicht als Zweitor“).
+
+- **Aufbau:** E₂ wirkt auf der tatsächlichen Außenfläche Γ_a, E₁ auf der Kernoberfläche Γ_b (Parallelfläche, gleiche
+  Topologie). Unbekannt sind die Außenspur h_a und die Kernspur v_b. Kein Feld wird durch die Schicht fortgesetzt, es gibt
+  keinen Cauchy-Operator des Schichtgebiets.
+- **Paarung der Gleichungen:** Koppelt man jede Fläche an ihre beiden Nachbargebiete (wie in der exakten Formulierung),
+  degeneriert das System für d → 0 auch mit exakten Propagatoren. Stattdessen paart Zeile I die Bedingung des Außenraums
+  mit der des Kerns, ½(1 + E₂)h_a + ι ½(1 − E₁)v_b = h_inc, und Zeile II ist die vollständige Zweitor-Beziehung der Schicht.
+  Für d = 0 erzwingt Zeile II exakt v_b = J h_a, und Zeile I wird T₁.
+- **Zweitor-Beziehung:** Die Summe der beiden S-Matrix-Bedingungen Π₊u_b = PΠ₊u_a und Π₋u_a = PΠ₋u_b
+  (Π_± = ½(1 ± Bγ⁻¹), P = e^{−γd}) ergibt u_a − u_b = g(s) B (u_a + u_b) mit
+  g(s) = tanh(d√s/2)/√s = Σ_m (4/d)/(s + σ_m), σ_m = ((2m+1)π/d)². Das ist eine durch tanh stabilisierte Trapezregel;
+  g ist ganz bis auf weit entfernte Pole (kein Verzweigungsschnitt, auch nicht bei streifendem Einfall). Für d√s ≪ 1 ist
+  g = d/2 − d³s/24 (lokal), für d√s ≫ 1 entkoppeln die Flächen. Umsetzung: s = −K_c² − Δ_Γ, einige Pole mit dünnbesetzten
+  Lösungen (−Δ_Γ + σ_m − k_c²)⁻¹ (5–11 innere GMRES-Schritte), Rest linear in s; B in der Schichtmitte
+  n(iK − D + d/2 D_S). Chirale Schichten und Kerne über K = k₊P₊ + k₋P₋.
+
+**Genauigkeit** (Goldkern, Glasschale, ωa = 0,5; `results/twoport.csv`, `tools/analyze_twoport.py`). Weil E₂ auf der
+Außenfläche (Radius 1 + d) wirkt, werden Absolutwerte gegen Aden–Kerker bewertet; Differenzen zu einer Rechnung ohne Schicht
+auf Radius 1 wären durch den verschiedenen Diskretisierungsfehler verfälscht. Relativer Fehler von σ_ext (Iterationen):
+
+| d/a | Zweitor n = 8 | Zweitor n = 12 | Dünnschicht 2. O. n = 8 | zwei Flächen n = 8 |
+|---:|---:|---:|---:|---:|
+| 0 (ohne Schicht) | +1,81 % | +0,80 % | +1,81 % | +1,81 % |
+| 0,005 | +1,71 % (36) | +0,75 % (36) | +1,76 % (36) | – |
+| 0,02 | +1,41 % (37) | +0,62 % (37) | +1,59 % (37) | – |
+| 0,05 | +0,90 % (39) | +0,41 % (41) | +1,11 % (43) | +0,90 % (42) |
+| 0,1 | +0,32 % (44) | +0,26 % (49) | −0,61 % (78) | – |
+| 0,2 | +0,48 % (52) | +1,08 % (58) | −10,8 % (254) | +0,32 % (40) |
+| 0,3 | +2,96 % (57) | +4,08 % (61) | −31,0 % (643) | – |
+
+![Zweitor](fig_coated_twoport.png)
+
+- Bis d/a = 0,1 bleibt der Fehler unter dem der Kugel ohne Schicht und konvergiert mit dem Netz, unabhängig von d/h (bei
+  n = 12 und d = 0,1 ist d/h = 1,1). Die Phase arg S(0) ist ebenfalls etwas genauer als bei der Dünnschicht-Näherung.
+- Die Iterationen bleiben unter 62, auch bei d/h = 3,8; die Dünnschicht-Näherung braucht bei d/h = 1,5 bereits 254 und bei
+  2,3 bereits 643.
+- Bei d/a = 0,2 und 0,3 wächst der Fehler mit dem Netz (0,2: −2,3 → −0,3 → +0,5 → +1,1 %; 0,3: bis +4,1 %): Das ist der
+  Modellfehler der nur bis O(d²) erfassten Krümmung, grob 1–2 % bei d/a = 0,2 und 4–5 % bei 0,3. Das Zweitor löst die
+  Beschränkung auf d ≲ h, nicht die auf d ≪ a; für dicke Schalen bleibt die exakte Formulierung das Mittel der Wahl.
+- Kosten (n = 8, ein Kern): 14 s bei d = 0,05 (exakte Rechnung 37 s, bei dünnen Schichten zusätzlich die neutrale),
+  16 s bei d = 0,2 (Dünnschicht 42 s).
+
+**Chirale Hülle** (χ = 0,1; `results/twoport_chiral.csv`), relativer Fehler des CD gegen Mie:
+
+| d | n = 6 | n = 8 | n = 12 | Dünnschicht n = 12 | zwei Flächen n = 6 / 8 |
+|---:|---:|---:|---:|---:|---:|
+| 0,02 | +4,1 % | +2,3 % | +1,0 % | +1,0 % | – |
+| 0,05 | +2,8 % | +1,6 % | +0,7 % | +0,5 % | −51 % / −30 % |
+| 0,1 | +1,4 % | +1,0 % | +0,6 % | −1,3 % | – |
+| 0,2 | +0,6 % | +1,2 % | +1,7 % | – | – |
+
+Der CD konvergiert mit Ordnung 2; bei d = 0,2 läuft der Fehler gegen den Krümmungs-Modellrest von etwa 2 %.
+
 ### Einordnung
 
-| | exakt (zwei Flächen) | Dünnschicht 2. Ordnung |
-|---|---|---|
-| Gültigkeit | beliebige Dicke, Mehrfachschichten, chiral | d/a ≲ 0,1 (Fehler ≈ 4 (d/a)² bei dielektrischen Schichten), d ≲ h, auch chiral (Außenmedium achiral); ein oder mehrere Körper |
-| CD dünner chiraler Schichten | grob falsch bei d/h ≲ 0,4 (−30 … −51 %) | Ordnung 2, 0,5–1 % bei n = 12 |
-| Netz | auch auf groben Rundungen robust | Krümmung aufgelöst (mehrere Elemente je Rundung) |
-| dünne Schichten (d ≪ h) | Differenz zur neutralen Rechnung nötig | direkt, Absolutwerte |
-| Kosten | zwei Flächen, dazu die neutrale Rechnung | wie ohne Schicht (plus lokale Operatoren) |
-| Genauigkeit bei d/a ≤ 0,05 | 0,6–1,3 % (Extinktion), 3–9 % (Phase) | 0,1–0,7 % in beiden |
-| Referenzfläche | – | auf der Seite des größten \|ε\| (Metalloberfläche) |
+| | exakt (zwei Flächen) | Dünnschicht 2. Ordnung | Zweitor (v0.19) |
+|---|---|---|---|
+| Gültigkeit | beliebige Dicke, Mehrfachschichten, chiral | d/a ≲ 0,1, d ≲ h | d/a ≲ 0,1–0,2, beliebiges d/h |
+| dünne Schichten (d ≪ h) | Differenz zur neutralen Rechnung nötig | direkt | direkt |
+| dicke Schichten (d ≳ h) | ja | nein (Iterationen ∼ (d/h)²) | ja |
+| CD dünner chiraler Schichten | grob falsch bei d/h ≲ 0,4 | Ordnung 2 | Ordnung 2 |
+| Kosten | zwei Flächen, Schichtoperator, neutrale Rechnung | wie ohne Schicht | zwei H-Matrizen, einige dünnbesetzte Lösungen |
+| Umfang | Mehrfachschichten, mehrere Körper, Gmsh | mehrere Körper, Gmsh, Mehrfachschichten | Prototyp: eine Schicht, ein Körper |
+| Referenzfläche / Netz | – | Metallseite, Krümmung aufgelöst | Kern und Parallelfläche gleicher Topologie |
 
 Die Sprungform erster Ordnung (`ThinLayerModel::Jump1`) bleibt als einfachere Variante erhalten; sie ist durch die
 zweite Ordnung überholt.

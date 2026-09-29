@@ -234,3 +234,36 @@ if os.path.exists('results/ausphere20_chiral1.csv'):
     print('\nGoldkugel mit chiraler Huelle: lam, sigma+ BEM, Mie, CD BEM, CD Mie, Fehler, g = CD/sigma (Mie)')
     for i, l in enumerate(L):
         print(f"  {l:5.0f} {sp[i]:8.1f} {Pm[i]:8.1f} {cd[i]:+10.4e} {Pm[i] - Mm[i]:+10.4e} {cd[i] / (Pm[i] - Mm[i]) - 1:+7.1%} {(Pm[i] - Mm[i]) / Pm[i]:+.2e}")
+
+# 7. Zweitor (S-Matrix-Formulierung): absoluter Fehler von sigma gegen d und CD der chiralen Huelle (results/twoport*.csv)
+if os.path.exists('results/twoport.csv'):
+    from collections import defaultdict
+    import mie_chiral_layered as mcl
+    rows = rd('results/twoport.csv'); S0 = mc.forward_amplitude(om, [1.0], [core])
+    bare = {int(r['n']): float(r['sigma_ext']) for r in rows if r['coat'] == 'none'}
+    fig, ax = plt.subplots(1, 2, figsize=(9.4, 3.8))
+    for meth, pre, st in [('Zweitor', 'twoport:', 'o-'), ('Dünnschicht 2. Ordnung', 'thin-dirac2fit:', 's--')]:
+        for j, n in enumerate([8, 12]):
+            pts = []
+            for r in rows:
+                if int(r['n']) != n or not r['coat'].startswith(pre): continue
+                dd = float(r['coat'].split(':')[1].split(',')[0])
+                sx = 16 * np.pi * mc.forward_amplitude(om, [1, 1 + dd], [core, 2.25]).real
+                pts.append((dd, abs(float(r['sigma_ext']) / sx - 1)))
+            if pts:
+                pts.sort(); ax[0].loglog([p[0] for p in pts], [p[1] for p in pts], st, color=f'C{j}', mfc='none' if pre.startswith('thin') else None, label=f'{meth}, n = {n}')
+    for j, n in enumerate([8, 12]):
+        if n in bare: ax[0].axhline(abs(bare[n] / (16 * np.pi * S0.real) - 1), color=f'C{j}', lw=0.8, ls=':', label=f'ohne Schicht, n = {n}')
+    ax[0].set_xlabel('Schichtdicke d (Kernradius a = 1)'); ax[0].set_ylabel(r'rel. Fehler von $\sigma_{ext}$ (absolut)')
+    ax[0].set_title('Goldkern mit Glasschale', fontsize=10); ax[0].grid(True, which='both', alpha=0.3); ax[0].legend(fontsize=6.5)
+    g = defaultdict(dict)
+    for r in rd('results/twoport_chiral.csv'): g[(int(r['n']), r['coat'])][int(r['pol'])] = float(r['sigma_ext'])
+    gold = (core, 1.0, 0.0)
+    for j, dd in enumerate([0.02, 0.05, 0.1, 0.2]):
+        m = mcl.cross_sections(om, [1, 1 + dd], [gold, (2.25, 1.0, 0.1)], +1)[0] - mcl.cross_sections(om, [1, 1 + dd], [gold, (2.25, 1.0, 0.1)], -1)[0]
+        pts = sorted((n, abs((v[+1] - v[-1]) / m - 1)) for (n, c), v in g.items() if c == f'twoport:{dd},2.25,0,0.1' and +1 in v and -1 in v)
+        ax[1].loglog([1.05 / p[0] for p in pts], [p[1] for p in pts], 'o-', color=f'C{j}', label=f'd = {dd}')
+    hh = np.array([0.08, 0.18]); ax[1].loglog(hh, 0.04 * (hh / 0.175) ** 2, 'k:', lw=1, label='Ordnung 2')
+    ax[1].set_xlabel('Elementgröße h'); ax[1].set_ylabel('rel. Fehler des CD'); ax[1].grid(True, which='both', alpha=0.3)
+    ax[1].set_title('Zweitor: chirale Hülle (χ = 0,1)', fontsize=10); ax[1].legend(fontsize=6.5)
+    fig.tight_layout(); fig.savefig('docs/fig_coated_twoport.png', dpi=130)

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(CliffordBem VERSION 0.18.0 LANGUAGES CXX)
+project(CliffordBem VERSION 0.19.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,7 +36,8 @@ add_library(cbem
   src/orientation.cpp
   src/hodlr.cpp
   src/layered_problem.cpp
-  src/thin_layer_problem.cpp)
+  src/thin_layer_problem.cpp
+  src/twoport_layer_problem.cpp)
 target_include_directories(cbem PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(cbem PRIVATE -Wall -Wextra)
 if(CBEM_NATIVE)
@@ -73,7 +74,7 @@ endif()
 
 if(CBEM_BUILD_TESTS)
   enable_testing()
-  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh test_materials test_hodlr test_layered test_thin_layer)
+  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh test_materials test_hodlr test_layered test_thin_layer test_twoport)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE cbem)
     add_test(NAME ${t} COMMAND ${t})

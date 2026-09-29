@@ -5,10 +5,11 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.18.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.19.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
-Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten), dispersive
+Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Schichten
+beliebiger Dicke relativ zum Netz), dispersive
 Materialien, Spektren mit Orientierungsmittelung, Phase der Vorwärtsamplitude, Block- und hierarchische
 Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 
@@ -20,6 +21,7 @@ Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 | Chirale Medien | Pasteur-Medien innen, Helizitätszerlegung, chirale J | chirale Mie-Lösung: Q₊, Q₋, CD auf 10⁻⁴ |
 | Mehrere Körper | eigenes Medium je Körper, blockdiagonaler Innenoperator | Additivität bei großem Abstand, zwei unabhängige Formulierungen, Enantiomere mit entgegengesetztem CD |
 | Beschichtete Grenzflächen | verschachtelte Gebiete (Grenzflächengraph), Parallelflächen, Schichten nach außen/innen, chirale Schichten, Vorwärtsamplitude S(0) mit Phase | beschichtete Kugel gegen Aden–Kerker: Q_ext und S(0) Ordnung 2; dünne Schichten (d/h bis 0,04) als Differenz zur neutralen Rechnung auf 1–5 % |
+| Zweitor (S-Matrix) | E₂ auf der Außenfläche, E₁ auf dem Kern, Schicht als Zweitor u_a − u_b = g(s)B(u_a + u_b) mit g = tanh(d√s/2)/√s (Partialbrüche, dünnbesetzte Resolventen) | gegen Aden–Kerker bis d/a = 0,1 unter dem Fehler ohne Schicht, auch für d/h > 1 (Iterationen < 62); CD chiraler Hüllen Ordnung 2 |
 | Dünnschicht-Näherung | eine Fläche je Körper, auch mehrere Körper; zweite Ordnung in Dirac-Form (Schritte ∂_ν F = n(ik − D)F auf Parallelflächen, Formoperator, quadratische Anpassung der zweiten Ableitungen), glatte Normalen; erste Ordnung als Sprungform | Schichtwirkung gegen Aden–Kerker: 0,1–0,7 % bis d/a = 0,05; Dimer und Silberwürfel gegen die exakte Rechnung extrapoliert ≈ 1 %; chirale Schichten: CD gegen chirale Schicht-Mie-Lösung mit Ordnung 2 (0,5–1 % bei n = 12) |
 | Kanten und Ecken | gradierte Netze, Kanten-/Eckblöcke, Kriterien für gestreckte Elemente | Iterationen unabhängig von der Kantenauflösung (Würfel, Würfel-Dimer) |
 | Kompression | ACA (gemeinsam, komponentenweise, Multivektor-Pivots) | Speicher O(N log² N) bis 163 840 Unbekannte; gemeinsame ACA am günstigsten |
@@ -35,7 +37,7 @@ Für die Python-Werkzeuge: NumPy, SciPy, Matplotlib, optional `gmsh` (Geometrien
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release     # Optionen: -DCBEM_OPENMP=ON -DCBEM_NATIVE=ON
 cmake --build build -j
-ctest --test-dir build --output-on-failure         # 18 Tests
+ctest --test-dir build --output-on-failure         # 19 Tests
 ```
 
 | Test | prüft |
@@ -57,6 +59,7 @@ ctest --test-dir build --output-on-failure         # 18 Tests
 | `test_materials` | Materialtabellen, Lebedev-Momente |
 | `test_hodlr` | Systemeinträge gegen Operator, HODLR als direkter Löser und Vorkonditionierer |
 | `test_layered` | Parallelflächen, ohne Schicht = T₁, beschichtete Kugel gegen Aden–Kerker, neutrale Schale, chirale Schale |
+| `test_twoport` | Zweitor: neutrale Schicht, Glasschale d/h = 0,29 und 1,14 gegen Aden–Kerker, chirale Schicht (Symmetrie, CD) |
 | `test_thin_layer` | Flächenoperatoren, Formoperator und Laplace–Beltrami auf der Kugel, ohne Schicht = T₁, neutrale Schicht ohne Wirkung, Schichtwirkung erster und zweiter Ordnung gegen Aden–Kerker (auch nach innen), mehrere Körper, chirale Schicht (Spiegelsymmetrie, CD gegen Mie, chiraler Kern = T₁) |
 
 ## Anwendungen
@@ -77,7 +80,7 @@ Vorkonditionierung in `spectrum`, `scatter_mesh`, `scatter_multi`: `--precond po
 Geometrien: `python3 tools/make_geometries.py sphere|rod|bornkuhn|roundcube h out.msh [--radius ρ] [--angle φ]`.
 Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compression.py`, `mie_spectrum.py`,
 `mie_coated.py` (Aden–Kerker, Mehrfachschichten), `mie_chiral_layered.py` (geschichtete Kugeln mit chiralen Schichten),
-`analyze_coated.py`, `analyze_thin.py`, `analyze_chiral_thin.py`, `plot_coated.py`.
+`analyze_coated.py`, `analyze_thin.py`, `analyze_chiral_thin.py`, `analyze_twoport.py`, `plot_coated.py`.
 
 ## Ergebnisse
 
@@ -109,7 +112,10 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
   5–13 % Unterschied zur exakten Rechnung, extrapoliert ≈ 1 %). Seit v0.17 auch chirale Schichten und Kerne: Der CD
   einer dünnen chiralen Hülle auf Gold konvergiert mit Ordnung 2 gegen eine neue Mie-Lösung für geschichtete chirale
   Kugeln, während die exakte Zwei-Flächen-Rechnung ihn bei d/h ≲ 0,4 um 30–50 % verfehlt. Spektrum einer Goldkugel mit
-  1 nm chiraler Molekülhülle in Wasser: plasmoninduzierter CD, an der Resonanz auf 2–7 % (`results_coated.md`).
+  1 nm chiraler Molekülhülle in Wasser: plasmoninduzierter CD, an der Resonanz auf 2–7 %. Seit v0.19 (Prototyp) die
+  Schicht als Zweitor nach dem Vorbild der S-Matrix von Schichtsystemen: stabil für Schichten dicker als die Elemente
+  (Dünnschicht-Näherung bei d/a = 0,2: −11 %, 254 Iterationen; Zweitor: +0,5 %, 52), begrenzt durch die Krümmung
+  (d/a = 0,3: 3–4 %) (`results_coated.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).
@@ -128,7 +134,7 @@ include/cbem/operators   Cauchy-Operator, chiraler und blockdiagonaler Innenoper
 include/cbem/solvers     GMRES, Block-Vorkonditionierung, HODLR
 include/cbem/sources     ebene Wellen, Fernfeld, Extinktion, Lebedev-Richtungen
 include/cbem/problems    ScatteringProblem (Einstiegsklasse), LayeredScatteringProblem (beschichtete/geschichtete Körper),
-                         ThinLayerScatteringProblem (Dünnschicht-Näherung erster Ordnung)
+                         ThinLayerScatteringProblem (Dünnschicht-Näherung), TwoPortLayerProblem (Schicht als Zweitor)
 apps/  tests/  tools/  results/  examples/
 data/materials/          Johnson-Christy Au, Ag (refractiveindex.info, CC0)
 prototype/               Python-Prototypen: ap1 (Theorie), ap2 (3D-Galerkin, H-Matrix), resonance (Resonanzfenster)
