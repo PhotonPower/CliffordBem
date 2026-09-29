@@ -354,6 +354,11 @@ void ThinLayerScatteringProblem::build(const std::vector<ThinBody>& bodies, HMat
     if (bodies.empty()) throw std::invalid_argument("ThinLayerScatteringProblem: keine Koerper");
     std::vector<TriangleMesh> parts;
     for (const ThinBody& b : bodies) { parts.push_back(b.surface); if (parts.back().normal.size() != parts.back().size()) parts.back().compute_geometry(); }
+    {                                                             // Huellen: Referenzflaechen plus die Schichtdicke ausserhalb
+        std::vector<const TriangleMesh*> ps; std::vector<real> ext;
+        for (std::size_t b = 0; b < bodies.size(); ++b) { real T = 0; for (auto& c : bodies[b].coatings) T += c.thickness; ps.push_back(&parts[b]); ext.push_back((1.0 - bodies[b].inner_fraction) * T); }
+        require_separated_all(ps, ext, "ThinLayerScatteringProblem");
+    }
     all_ = make_multibody(parts);
     auto add = [&](const TriangleMesh& mesh, cplx k) {
         ents_.push_back(std::make_unique<KernelEntries>(mesh, k, ep));

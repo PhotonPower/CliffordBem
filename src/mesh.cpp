@@ -202,6 +202,56 @@ std::vector<real> distance_to_surface(const TriangleMesh& m, const std::vector<V
     return out;
 }
 
+real winding_number(const TriangleMesh& m, const Vec3& x) {
+    real omega = 0;
+    for (const auto& tr : m.T) {                                        // Raumwinkel je Dreieck (Van Oosterom, Strackee 1983)
+        const Vec3 a = m.P[tr[0]] - x, b = m.P[tr[1]] - x, c = m.P[tr[2]] - x;
+        const real la = norm(a), lb = norm(b), lc = norm(c);
+        const real num = dot(a, cross(b, c));
+        const real den = la * lb * lc + dot(a, b) * lc + dot(a, c) * lb + dot(b, c) * la;
+        omega += 2 * std::atan2(num, den);
+    }
+    return omega / (4 * pi);
+}
+
+void require_separated(const TriangleMesh& a0, const TriangleMesh& b0, real extra, const std::string& what) {
+    TriangleMesh ca, cb;                                                // Geometrie bei Bedarf berechnen
+    const TriangleMesh& a = a0.centroid.size() == a0.size() ? a0 : (ca = a0, ca.compute_geometry(), ca);
+    const TriangleMesh& b = b0.centroid.size() == b0.size() ? b0 : (cb = b0, cb.compute_geometry(), cb);
+    real ha = 0, hb = 0; for (real h : a.hmax) ha += h; for (real h : b.hmax) hb += h;
+    const real h = 0.5 * (ha / std::max<std::size_t>(1, a.hmax.size()) + hb / std::max<std::size_t>(1, b.hmax.size()));
+    auto box = [](const TriangleMesh& m, Vec3& lo, Vec3& hi) {
+        lo = hi = m.P[0];
+        for (auto& p : m.P) { lo = Vec3(std::min(lo.x, p.x), std::min(lo.y, p.y), std::min(lo.z, p.z)); hi = Vec3(std::max(hi.x, p.x), std::max(hi.y, p.y), std::max(hi.z, p.z)); }
+    };
+    Vec3 alo, ahi, blo, bhi; box(a, alo, ahi); box(b, blo, bhi);
+    const real tol = extra + 0.05 * h;
+    if (alo.x > bhi.x + tol || blo.x > ahi.x + tol || alo.y > bhi.y + tol || blo.y > ahi.y + tol || alo.z > bhi.z + tol || blo.z > ahi.z + tol) return;
+    for (int side = 0; side < 2; ++side) {                              // Durchdringung: Knoten der einen Flaeche in der anderen
+        const TriangleMesh& p = side ? b : a; const TriangleMesh& q = side ? a : b;
+        Vec3 lo, hi; box(q, lo, hi);
+        for (const Vec3& v : p.P)
+            if (v.x >= lo.x && v.x <= hi.x && v.y >= lo.y && v.y <= hi.y && v.z >= lo.z && v.z <= hi.z && winding_number(q, v) > 0.5)
+                throw std::runtime_error(what + ": Flaechen durchdringen sich");
+    }
+    const real cut = extra + 2 * h;                                     // Beruehrung: kleinster Abstand (Knoten und Schwerpunkte)
+    real dmin = cut;
+    for (int side = 0; side < 2; ++side) {
+        const TriangleMesh& p = side ? b : a; const TriangleMesh& q = side ? a : b;
+        std::vector<Vec3> pts = p.P; for (auto& c : p.centroid) pts.push_back(c);
+        for (real dd : distance_to_surface(q, pts, cut)) dmin = std::min(dmin, dd);
+    }
+    if (dmin - extra < 0.05 * h)
+        throw std::runtime_error(what + ": Flaechen beruehren sich (Abstand " + std::to_string(dmin - extra) + " < 5 % der Elementgroesse "
+                                 + std::to_string(h) + ")");
+}
+
+void require_separated_all(const std::vector<const TriangleMesh*>& s, const std::vector<real>& extra, const std::string& what) {
+    for (std::size_t i = 0; i < s.size(); ++i)
+        for (std::size_t j = i + 1; j < s.size(); ++j)
+            require_separated(*s[i], *s[j], (extra.empty() ? 0.0 : extra[i] + extra[j]), what + " (Koerper " + std::to_string(i) + " und " + std::to_string(j) + ")");
+}
+
 TriangleMesh offset_surface(const TriangleMesh& m0, real d) {
     TriangleMesh m = m0;
     if (m.normal.size() != m.T.size()) m.compute_geometry();

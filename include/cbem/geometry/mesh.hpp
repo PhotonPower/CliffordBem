@@ -1,6 +1,7 @@
 #pragma once
 // Dreiecksnetze (ebene Dreiecke, nach aussen orientiert) und Netzgeneratoren.
 #include <array>
+#include <string>
 #include <vector>
 #include "cbem/core/types.hpp"
 
@@ -44,5 +45,15 @@ TriangleMesh make_cube_uniform(int n);                        // Wuerfel [-1,1]^
 TriangleMesh offset_surface(const TriangleMesh& m, real d);
 // Kleinster Abstand der Punkte q von der Flaeche m, jeweils nur bis zur Schranke rmax gesucht (sonst rmax); Gittersuche
 std::vector<real> distance_to_surface(const TriangleMesh& m, const std::vector<Vec3>& q, real rmax);
+// Windungszahl der geschlossenen, nach aussen orientierten Flaeche m um den Punkt x (Raumwinkel nach Van Oosterom und
+// Strackee): 1 innen, 0 aussen
+real winding_number(const TriangleMesh& m, const Vec3& x);
+// Pruefung zweier Flaechen verschiedener Koerper (Innengebiete disjunkt): wirft std::runtime_error, wenn ein Knoten der
+// einen innerhalb der anderen liegt (Durchdringung) oder der kleinste Abstand abzueglich 'extra' kleiner als 5 % der
+// mittleren Elementgroesse ist (Beruehrung). 'extra' beruecksichtigt nach aussen wachsende Schichten, die nicht als Flaeche
+// vorliegen (Duennschicht-Naeherung: Summe der Dicken ausserhalb der Referenzflaechen). 'what' benennt das Paar.
+void require_separated(const TriangleMesh& a, const TriangleMesh& b, real extra, const std::string& what);
+// alle Paare einer Liste (Huellquader zuerst)
+void require_separated_all(const std::vector<const TriangleMesh*>& s, const std::vector<real>& extra, const std::string& what);
 
 }  // namespace cbem

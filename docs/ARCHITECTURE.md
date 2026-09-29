@@ -1,4 +1,4 @@
-# Architektur und Ausbauplan (Stand 0.22)
+# Architektur und Ausbauplan (Stand 0.23)
 
 ## Leitlinien
 
@@ -24,7 +24,7 @@
 |---|---|---|
 | core | Grundtypen, Materialmodelle (konstant, n/k-Tabellen) | Drude-Lorentz-Fits, Größenkorrektur der Dämpfung |
 | clifford | Multivektoren, geometrisches Produkt, Inverse (Nullteiler-Erkennung), Linksmultiplikation | spezialisierte Grad-Darstellungen |
-| geometry | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörpernetze, Parallelflächen (`offset_surface`, auf Gehrung, Prüfung auf Faltung/Durchdringung), Abstand Punkt–Fläche mit Gittersuche, Gmsh-Import (2.2/4.1), Dunavant, Sauter-Schwab | gekrümmte Elemente, nichtkonforme Kantennetze, Durchdringungstest zwischen den Hüllen verschiedener Körper |
+| geometry | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörpernetze, Parallelflächen (`offset_surface`, auf Gehrung, Prüfung auf Faltung/Durchdringung), Abstand Punkt–Fläche mit Gittersuche, Windungszahl, Prüfung auf sich berührende oder durchdringende Körper, Gmsh-Import (2.2/4.1), Dunavant, Sauter-Schwab | gekrümmte Elemente, nichtkonforme Kantennetze, Selbstdurchdringung einzelner Gmsh-Netze |
 | kernel | Dirac-Kern, Wilton-Integrale (asinh-Form) | analytisch fortgesetzter Kern für komplexe Punkte (Streckung um Spitzen) |
 | assembly | Fernfeld (Gauß 7×7); benachbarte Paare: Sauter-Schwab (gleichseitig) bzw. halbanalytisch gradiert (gestreckt); nahe Paare: adaptive Außenregel, optional mit Randabstand (parallele Flächen); Nahfeld-Cache | nichtkonforme Nachbarschaften, schnellere Nahpaare auf gestreckten Elementen |
 | hmatrix | Clusterbaum, ACA (gemeinsam, komponentenweise, Multivektor-Pivots), Nachkompression, ACA mit exakten Einträgen | ACA+, complex64-Speicher, parallele Mat-Vek |
@@ -57,8 +57,7 @@
   Viertelrundung 5–13 % Unterschied zur exakten Rechnung (Diskretisierung, fällt mit dem Netz). Chirale Schichten und
   Kerne nur in der Dirac-Form; das Außenmedium muss achiral sein.
 - **Zweitor:** Krümmung je (Teil-)Schicht bis O(d²); durch die automatische Unterteilung konvergent bis d/a = 0,5, dafür
-  wachsen die Iterationen (d/a = 0,5: 156 bei n = 12). Schichten nach außen; mehrere Körper (Durchdringung der Hüllen
-  verschiedener Körper wird nicht geprüft); Kugel, Kugel-Dimer und Gmsh.
+  wachsen die Iterationen (d/a = 0,5: 156 bei n = 12). Schichten nach außen; mehrere Körper; Kugel, Kugel-Dimer und Gmsh.
 - **CD dünner chiraler Schalen:** Die exakte Zwei-Flächen-Rechnung verfehlt ihn bei d/h ≲ 0,4 um 30–50 %; die
   Dünnschicht-Näherung ist dort vorzuziehen.
 - **Rechenumgebung der Studien:** ein Kern, 3 GB Speicher; die Netzgrößen der Berichte sind dadurch begrenzt.

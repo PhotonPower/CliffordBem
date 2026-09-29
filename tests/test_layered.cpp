@@ -28,6 +28,15 @@ int main() {
         CHECK(ok, "gueltiger Versatz (Spalt bleibt offen) faelschlich abgelehnt");
         thrown = false; try { offset_surface(two, 0.06); } catch (const std::runtime_error&) { thrown = true; }
         CHECK(thrown, "Durchdringung am Spalt nicht erkannt");
+        // Huellen verschiedener Koerper (v0.23): Durchdringung und Beruehrung werden abgelehnt, getrennte Koerper nicht
+        const real inside = winding_number(make_icosphere(4), Vec3(0.2, -0.1, 0.3)), outside = winding_number(make_icosphere(4), Vec3(1.4, 0, 0));
+        CHECK(std::abs(inside - 1) < 1e-10 && std::abs(outside) < 1e-10, "Windungszahl falsch (%.3f, %.3f)", inside, outside);
+        auto rejects = [](const TriangleMesh& a, const TriangleMesh& b, real extra) {
+            try { require_separated(a, b, extra, "Test"); return false; } catch (const std::runtime_error&) { return true; } };
+        const TriangleMesh s4 = make_icosphere(4);
+        CHECK(rejects(translated(s4, Vec3(-0.9, 0, 0)), translated(s4, Vec3(0.9, 0, 0)), 0.0), "Durchdringung nicht erkannt");
+        CHECK(rejects(translated(s4, Vec3(-1.05, 0, 0)), translated(s4, Vec3(1.05, 0, 0)), 0.1), "Beruehrung (Schichten ausserhalb) nicht erkannt");
+        CHECK(!rejects(translated(s4, Vec3(-1.2, 0, 0)), translated(s4, Vec3(1.2, 0, 0)), 0.1), "getrennte Koerper faelschlich abgelehnt");
     }
     const real om = 0.5; const Vec3 d(0, 0, 1); const CVec3 px{1.0, 0.0, 0.0};
     HMatrixParams hp; hp.eps = 1e-8; SolveOptions so; so.tol = 1e-10;

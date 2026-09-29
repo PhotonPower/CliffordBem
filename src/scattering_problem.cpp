@@ -10,6 +10,7 @@ ScatteringProblem::ScatteringProblem(const std::vector<TriangleMesh>& bodies, co
                                      Medium outer, HMatrixParams hp, EntryParams ep, bool union_interior)
     : mb_(make_multibody(bodies)), omega_(omega), outer_(outer) {
     if (media.size() != bodies.size()) throw std::invalid_argument("ScatteringProblem: ein Medium je Koerper");
+    { std::vector<const TriangleMesh*> ps; for (auto& b : bodies) ps.push_back(&b); require_separated_all(ps, {}, "ScatteringProblem"); }
     const TriangleMesh& m = mb_.all;
     auto add = [&](const TriangleMesh& mesh, cplx k) -> CauchyOperator* {
         ents_.push_back(std::make_unique<KernelEntries>(mesh, k, ep));

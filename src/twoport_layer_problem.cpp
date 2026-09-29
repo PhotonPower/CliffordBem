@@ -129,6 +129,7 @@ void TwoPortLayerProblem::build(std::vector<TwoPortBody> bodies, HMatrixParams h
     size_ = off;
     // Operatoren: E_2 auf der Vereinigung der Aussenflaechen, E_1 blockdiagonal auf den Kernen
     std::vector<TriangleMesh> outs; for (auto& b : B_) outs.push_back(b->S.back());
+    { std::vector<const TriangleMesh*> ps; for (auto& o : outs) ps.push_back(&o); require_separated_all(ps, {}, "TwoPortLayerProblem (Aussenflaechen)"); }
     outer_ = make_multibody(outs);
     auto add = [&](const TriangleMesh& mesh, cplx k) {
         ents_.push_back(std::make_unique<KernelEntries>(mesh, k, ep));

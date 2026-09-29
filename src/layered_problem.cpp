@@ -82,6 +82,11 @@ LayeredScatteringProblem::LayeredScatteringProblem(const LayeredGeometry& g, rea
     : g_(g), omega_(omega), all_(make_multibody(g.surfaces)) {
     const std::size_t S = g_.surfaces.size(), NR = g_.region_medium.size();
     if (S == 0) throw std::invalid_argument("LayeredScatteringProblem: keine Flaechen");
+    for (std::size_t r = 0; r < NR; ++r) {                        // Flaechen, die an dasselbe Gebiet grenzen, duerfen sich nicht beruehren
+        std::vector<const TriangleMesh*> ps;
+        for (std::size_t s = 0; s < S; ++s) if (g_.outside[s] == static_cast<int>(r)) ps.push_back(&g_.surfaces[s]);
+        if (ps.size() > 1) require_separated_all(ps, {}, "LayeredScatteringProblem, Gebiet " + std::to_string(r));
+    }
     for (std::size_t s = 0; s < S; ++s) {
         const int a = g_.inside[s], b = g_.outside[s];
         if (a <= 0 || a >= static_cast<int>(NR) || b < 0 || b >= static_cast<int>(NR) || a == b)

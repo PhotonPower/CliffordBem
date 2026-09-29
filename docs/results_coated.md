@@ -693,11 +693,27 @@ Einzelkugel `results/aumono_chiral1.csv`).
   Resonanzlage. Beim Einzelkörper lag die Übereinstimmung bei etwa 1 %, der Dimer mit seinem starken Spaltfeld ist
   anspruchsvoller. Eine analytische Referenz gibt es nicht.
 - Der erste Lauf mit 2 nm Spalt zwischen den Kernen war falsch aufgestellt: Bei je 1 nm Schicht berührten sich die beiden
-  Schichtaußenflächen im Spalt, also genau dort, wo der stärkste Beitrag entsteht. Er wurde verworfen. Die
-  Durchdringungsprüfung von `offset_surface` wirkt nur innerhalb eines Körpers; ein Test auf sich berührende oder
-  durchdringende Hüllen verschiedener Körper fehlt noch.
+  Schichtaußenflächen im Spalt, also genau dort, wo der stärkste Beitrag entsteht. Er wurde verworfen. Seit v0.23 lehnen alle
+  Verfahren solche Aufstellungen ab (`require_separated`, siehe unten).
 - Kosten je Wellenlänge (beide Helizitäten): 60–90 s für den Dimer (2 × 2 560 Dreiecke in zwei Flächen), 20–30 s für die
   Einzelkugel.
+
+### Prüfung auf sich berührende und durchdringende Körper (v0.23)
+
+Alle Verfahren prüfen beim Aufbau, dass sich die Hüllen verschiedener Körper weder durchdringen noch berühren
+(`require_separated` in `mesh.hpp`): Ein Knoten der einen Fläche darf nicht innerhalb der anderen liegen (Windungszahl über
+Raumwinkel nach Van Oosterom und Strackee), und der kleinste Abstand muss mindestens 5 % der mittleren Elementgröße betragen.
+Geprüft werden in `ScatteringProblem` die Körper, in der exakten Mehrschichtmethode alle Flächen, die an dasselbe Gebiet
+grenzen, im Zweitor die Außenflächen und in der Dünnschicht-Näherung die Referenzflächen zuzüglich der Schichtdicke außerhalb
+(die Schichtflächen liegen dort nicht als Netz vor). Paare mit getrennten Hüllquadern werden übersprungen; bei getrennten
+Körpern kostet die Prüfung daher praktisch nichts, sonst höchstens O(N²) Raumwinkel.
+
+| Aufstellung | Ergebnis |
+|---|---|
+| Gold-Dimer, Hüllen berühren sich (verworfener Lauf) | abgelehnt: Abstand 0 < 5 % der Elementgröße |
+| Gold-Dimer, 2 nm zwischen den Hüllen | angenommen |
+| zwei sich durchdringende Kugeln | abgelehnt: Flächen durchdringen sich |
+| Dünnschicht, Hüllen berühren sich (Schichten nicht als Netz) | abgelehnt |
 
 ## Chirales Außenmedium (v0.21)
 
