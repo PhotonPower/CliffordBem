@@ -7,6 +7,7 @@
 // Beschichtungen (alle Koerper, von innen nach aussen, Dicke in nm, Material wie --materials):
 //   spectrum --sphere 12 --unit 20 --materials Ag --nbg 1.33 --coating "1.5:2.89,0" --lambda 360:460:5
 //   chirale Schicht: "d:Material:chi" (Pasteur-Parameter, z. B. "1:2.25,0:0.01"); CD mit --pol circ.
+//   --host-chi chi: chirales Aussenmedium (Pasteur-Parameter, z. B. chirale Loesung; nur mit --pol circ, Helizitaetswellen)
 //   --twoport: Schichten als Zweitore (TwoPortLayerProblem; ein Koerper, Schichten nach aussen, beliebiges d/h).
 //   --coat-inward: Schichten innerhalb der Netzflaeche (verdraengen Kernmaterial). Nur punktweise Vorkonditionierung.
 //   --thin f: Duennschicht-Naeherung auf einer Flaeche je Koerper (ThinLayerScatteringProblem, auch mehrere Koerper);
@@ -31,12 +32,12 @@ static std::vector<std::string> split(const std::string& s, char c) { std::vecto
 int main(int argc, char** argv) {
     std::string precond = "point";   // point | cluster:G (Bloecke auf Clustern mit <= G Dreiecken) | hodlr:eps[:leaf] (hierarchische Faktorisierung)
     std::string mesh, mats = "Au", chis = "0", pol = "lin", lam = "500:600:50", csv, datadir = "data/materials";
-    int sph = 0, orient = 1; bool verbose = false, coat_inward = false; std::string coating; double thin = -1; bool twoport = false; ThinLayerModel tmodel = ThinLayerModel::Dirac2Fit; std::string tmname = "dirac2fit"; double unit = 1.0, nbg = 1.0, heps = 1e-4, tol = 1e-6;
+    int sph = 0, orient = 1; bool verbose = false, coat_inward = false; std::string coating; double thin = -1; bool twoport = false; double host_chi = 0; ThinLayerModel tmodel = ThinLayerModel::Dirac2Fit; std::string tmname = "dirac2fit"; double unit = 1.0, nbg = 1.0, heps = 1e-4, tol = 1e-6;
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
         if (o == "--precond") precond = nxt();
         else if (o == "--mesh") mesh = nxt(); else if (o == "--sphere") sph = std::stoi(nxt()); else if (o == "--unit") unit = std::stod(nxt());
-        else if (o == "--materials") mats = nxt(); else if (o == "--chi") chis = nxt(); else if (o == "--nbg") nbg = std::stod(nxt());
+        else if (o == "--materials") mats = nxt(); else if (o == "--chi") chis = nxt(); else if (o == "--nbg") nbg = std::stod(nxt()); else if (o == "--host-chi") host_chi = std::stod(nxt());
         else if (o == "--lambda") lam = nxt(); else if (o == "--pol") pol = nxt(); else if (o == "--orient") orient = std::stoi(nxt());
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt());
         else if (o == "--coating") coating = nxt(); else if (o == "--coat-inward") coat_inward = true; else if (o == "--thin") thin = std::stod(nxt()); else if (o == "--twoport") twoport = true;
@@ -83,7 +84,7 @@ int main(int argc, char** argv) {
         std::vector<Medium> med;
         for (std::size_t b = 0; b < parts.size(); ++b) med.push_back(Medium{mat[b]->eps(L), 1.0, chi[b]});
         HMatrixParams hp; hp.eps = heps; SolveOptions so; so.tol = tol;
-        const Medium bg{nbg * nbg, 1.0, 0.0};
+        const Medium bg{nbg * nbg, 1.0, host_chi};                      // --host-chi: chirales Aussenmedium (nur --pol circ)
         std::unique_ptr<ScatteringProblem> PP; std::unique_ptr<LayeredScatteringProblem> PL; std::unique_ptr<ThinLayerScatteringProblem> PT;
         std::unique_ptr<TwoPortLayerProblem> P2;
         if (coat_mat.empty()) PP = std::make_unique<ScatteringProblem>(parts, med, om, bg, hp);

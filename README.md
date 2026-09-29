@@ -5,11 +5,11 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.20.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.21.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
-beliebiger Dicke), dispersive
+beliebiger Dicke), chirale Außenmedien (Teilchen in chiraler Lösung), dispersive
 Materialien, Spektren mit Orientierungsmittelung, Phase der Vorwärtsamplitude, Block- und hierarchische
 Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 
@@ -21,6 +21,7 @@ Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 | Chirale Medien | Pasteur-Medien innen, Helizitätszerlegung, chirale J | chirale Mie-Lösung: Q₊, Q₋, CD auf 10⁻⁴ |
 | Mehrere Körper | eigenes Medium je Körper, blockdiagonaler Innenoperator | Additivität bei großem Abstand, zwei unabhängige Formulierungen, Enantiomere mit entgegengesetztem CD |
 | Beschichtete Grenzflächen | verschachtelte Gebiete (Grenzflächengraph), Parallelflächen, Schichten nach außen/innen, chirale Schichten, Vorwärtsamplitude S(0) mit Phase | beschichtete Kugel gegen Aden–Kerker: Q_ext und S(0) Ordnung 2; dünne Schichten (d/h bis 0,04) als Differenz zur neutralen Rechnung auf 1–5 % |
+| Chirales Außenmedium | Helizitätswellen mit k_±, Außenoperator P₊E_{k₊} + P₋E_{k₋}, optisches Theorem je Kanal; in allen Formulierungen | Goldkugel in chiralem Wasser gegen Mie: CD Ordnung 2; Kugel aus dem Außenmedium unsichtbar |
 | Zweitor (S-Matrix) | E₂ auf der Außenfläche, E₁ auf dem Kern, je Schicht ein Zweitor u_oben − u_unten = g(s)B(u_oben + u_unten) mit g = tanh(d√s/2)/√s (Partialbrüche, dünnbesetzte Resolventen), jede Schicht auf ihrer eigenen Fläche, automatische Unterteilung dicker Schichten | Mehrfachschichten gegen Mie auf 0,1–0,6 % (n = 12), dicke Schalen bis d/a = 0,5 konvergent, beliebiges d/h; CD chiraler Hüllen, auch im Abstand zum Gold |
 | Dünnschicht-Näherung | eine Fläche je Körper, auch mehrere Körper; zweite Ordnung in Dirac-Form (Schritte ∂_ν F = n(ik − D)F auf Parallelflächen, Formoperator, quadratische Anpassung der zweiten Ableitungen), glatte Normalen; erste Ordnung als Sprungform | Schichtwirkung gegen Aden–Kerker: 0,1–0,7 % bis d/a = 0,05; Dimer und Silberwürfel gegen die exakte Rechnung extrapoliert ≈ 1 %; chirale Schichten: CD gegen chirale Schicht-Mie-Lösung mit Ordnung 2 (0,5–1 % bei n = 12) |
 | Kanten und Ecken | gradierte Netze, Kanten-/Eckblöcke, Kriterien für gestreckte Elemente | Iterationen unabhängig von der Kantenauflösung (Würfel, Würfel-Dimer) |
@@ -37,7 +38,7 @@ Für die Python-Werkzeuge: NumPy, SciPy, Matplotlib, optional `gmsh` (Geometrien
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release     # Optionen: -DCBEM_OPENMP=ON -DCBEM_NATIVE=ON
 cmake --build build -j
-ctest --test-dir build --output-on-failure         # 19 Tests
+ctest --test-dir build --output-on-failure         # 20 Tests
 ```
 
 | Test | prüft |
@@ -59,6 +60,7 @@ ctest --test-dir build --output-on-failure         # 19 Tests
 | `test_materials` | Materialtabellen, Lebedev-Momente |
 | `test_hodlr` | Systemeinträge gegen Operator, HODLR als direkter Löser und Vorkonditionierer |
 | `test_layered` | Parallelflächen, ohne Schicht = T₁, beschichtete Kugel gegen Aden–Kerker, neutrale Schale, chirale Schale |
+| `test_chiral_host` | chirales Außenmedium: Unsichtbarkeit, Ablehnung linearer Polarisation, χ → 0, Spiegelsymmetrie, Goldkugel gegen Mie, Zweitor gegen exakte Methode |
 | `test_twoport` | Zweitor: neutrale Schicht, Glasschale d/h = 0,29 und 1,14 gegen Aden–Kerker, chirale Schicht (Symmetrie, CD), Mehrfachschichten (Zerlegung, Oxid + Glas, chirale Schicht auf Abstandshalter), Unterteilung dicker Schichten |
 | `test_thin_layer` | Flächenoperatoren, Formoperator und Laplace–Beltrami auf der Kugel, ohne Schicht = T₁, neutrale Schicht ohne Wirkung, Schichtwirkung erster und zweiter Ordnung gegen Aden–Kerker (auch nach innen), mehrere Körper, chirale Schicht (Spiegelsymmetrie, CD gegen Mie, chiraler Kern = T₁) |
 
@@ -116,7 +118,8 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
   Schicht als Zweitor nach dem Vorbild der S-Matrix von Schichtsystemen: stabil für Schichten dicker als die Elemente
   (Dünnschicht-Näherung bei d/a = 0,2: −11 %, 254 Iterationen; Zweitor: −0,3 %). Seit v0.20 Mehrfachschichten, jede
   Schicht auf ihrer eigenen Fläche und dicke Schichten automatisch unterteilt: konvergent bis d/a = 0,5; CD einer
-  chiralen Schicht im Abstand 0–8 nm zu einer Goldkugel auf einen konstanten Versatz von 0,015 nm² genau (`results_coated.md`).
+  chiralen Schicht im Abstand 0–8 nm zu einer Goldkugel auf einen konstanten Versatz von 0,015 nm² genau. Seit v0.21 auch
+  chirale Außenmedien: Teilchen in chiraler Lösung, Beiträge freier und gebundener Moleküle zum CD (`results_coated.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).

@@ -3,6 +3,7 @@
 #include <map>
 #include <stdexcept>
 #include "cbem/operators/chiral_cauchy_operator.hpp"
+#include "cbem/sources/chiral_incidence.hpp"
 #include "cbem/sources/fields.hpp"
 
 namespace cbem {
@@ -199,7 +200,7 @@ ThinLayerTransmissionOperator::ThinLayerTransmissionOperator(const TriangleMesh&
                                                              real f, real omega, ThinLayerModel model)
     : m_(m), E1_(E1), E2_(E2), in_(in), out_(out), fv_(m), omega_(omega), model_(model) {
     // Chirale Medien: nur in der Dirac-Form (zentraler Multivektor K = k_+ P_+ + k_- P_-); aussen achiral (ebene Welle)
-    if (std::abs(out.chi) > 0) throw std::invalid_argument("ThinLayer: chirales Aussenmedium nicht unterstuetzt");
+    if (model == ThinLayerModel::Jump1 && std::abs(out.chi) > 0) throw std::invalid_argument("ThinLayer: Sprungform nur achiral (Dirac-Form verwenden)");
     if (model == ThinLayerModel::Jump1 && std::abs(in.chi) > 0) throw std::invalid_argument("ThinLayer: Sprungform nur achiral (Dirac-Form verwenden)");
     if (!(f >= 0.0 && f <= 1.0)) throw std::invalid_argument("ThinLayer: inner_fraction muss in [0, 1] liegen");
     for (const Coating& c : coatings) {
@@ -360,7 +361,11 @@ void ThinLayerScatteringProblem::build(const std::vector<ThinBody>& bodies, HMat
         cops_.push_back(std::make_unique<CauchyOperator>(mesh, *hms_.back()));
         return cops_.back().get();
     };
-    E2_ = add(all_.all, outer_.k(omega_));
+    if (std::abs(outer_.chi) > 0) {                                           // chirales Aussenmedium (v0.21)
+        const CauchyOperator* Ep = add(all_.all, outer_.k(omega_, +1));
+        const CauchyOperator* Em = add(all_.all, outer_.k(omega_, -1));
+        chops_.push_back(std::make_unique<ChiralCauchyOperator>(*Ep, *Em)); E2_ = chops_.back().get();
+    } else E2_ = add(all_.all, outer_.k(omega_));
     std::vector<const BoundaryOperator*> inner;
     for (std::size_t b = 0; b < bodies.size(); ++b) {
         body_mesh_.push_back(std::make_unique<TriangleMesh>(parts[b]));
@@ -402,16 +407,16 @@ void ThinLayerScatteringProblem::precondition(const std::vector<cplx>& x, std::v
 double ThinLayerScatteringProblem::hmatrix_bytes() const { double s = 0; for (auto& h : hms_) s += h->stats().bytes(); return s; }
 
 LayeredResult ThinLayerScatteringProblem::solve_plane_wave(const Vec3& d, const CVec3& p, const SolveOptions& o) const {
-    const cplx k = outer_.k(omega_);
+    const PlaneWaveIncidence inc = plane_wave_incidence(outer_, omega_, d, p);
     const TriangleMesh& m = all_.all;
-    const std::vector<cplx> b = project_plane_wave(m, k, outer_.eps, d, p);
+    const std::vector<cplx> b = project_plane_wave(m, inc.k, outer_.eps, d, p);
     LinOp A = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { apply(x, y); };
     LinOp M = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { precondition(x, y); };
     LayeredResult r; GmresResult g = gmres(A, b, r.h, &M, o.tol, o.restart, o.max_iter);
     r.iterations = g.iterations; r.residual = g.rel_residual;
     std::vector<cplx> hs(b.size()); for (std::size_t i = 0; i < b.size(); ++i) hs[i] = r.h[i] - b[i];
-    r.sigma_ext = extinction_cross_section(m, hs, k, outer_.eps, d, p);
-    r.forward = forward_amplitude(m, hs, k, outer_.eps, d, p);
+    r.sigma_ext = extinction_in_medium(m, hs, outer_, inc, d, p);
+    r.forward = forward_amplitude_in_medium(m, hs, outer_, inc, d, p);
     return r;
 }
 

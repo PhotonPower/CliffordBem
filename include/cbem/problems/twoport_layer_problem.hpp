@@ -24,7 +24,7 @@
 // Schichten zu grob (chirale Schicht 4,5 nm ueber einer 20-nm-Goldkugel: CD um 75 % falsch). Das Gleichungssystem ist blockbidiagonal und wird als Ganzes geloest: keine Produkte von
 // Transfermatrizen, jede Zeile beschraenkt (Stabilitaet wie beim Redheffer-Sternprodukt). Alle d_l = 0: jede Zeile wird zur
 // Stetigkeit, mit J_{a<-b} J_{b<-c} = J_{a<-c} folgt v = J_{m_0 <- m_{L+1}} X_L und Zeile I wird T_1. Chirale Medien ueber
-// K = k+ P+ + k- P-. Fuer eine Schicht identisch mit v0.19.
+// K = k+ P+ + k- P-, auch im Aussenmedium (v0.21). Fuer eine Schicht identisch mit v0.19.
 #include <memory>
 #include <vector>
 #include "cbem/problems/thin_layer_problem.hpp"
@@ -80,9 +80,12 @@ private:
     std::vector<std::unique_ptr<SurfaceFV>> fv_;   // je Flaeche Gamma_0 ... Gamma_{L-1} (untere Flaeche der Schichten)
     std::unique_ptr<KernelEntries> K2_, K1p_, K1m_;
     std::unique_ptr<KernelHMatrix> H2_, H1p_, H1m_;
-    std::unique_ptr<CauchyOperator> E2_, E1p_, E1m_;
-    std::unique_ptr<ChiralCauchyOperator> E1ch_;
+    std::unique_ptr<KernelEntries> K2m_;
+    std::unique_ptr<KernelHMatrix> H2m_;
+    std::unique_ptr<CauchyOperator> E2_, E2m_, E1p_, E1m_;
+    std::unique_ptr<ChiralCauchyOperator> E1ch_, E2ch_;
     const BoundaryOperator* E1_ = nullptr;
+    const BoundaryOperator* E2op_ = nullptr;          // Aussenoperator (chiral: P+ E_{k+} + P- E_{k-})
     std::vector<Mat8> Jb_, Jbs_;                    // Kernspur v -> Medium m_1 (Facetten- bzw. glatte Normalen)
     std::vector<std::vector<real>> sq_;              // sqrt|tau| je Flaeche
     std::vector<std::vector<cplx>> Pinv_;            // Vorkonditionierer je Dreieck (8(L+1))^2

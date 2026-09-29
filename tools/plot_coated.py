@@ -290,3 +290,36 @@ if os.path.exists('results/au_spacer_cd.csv'):
     print('\nAbstandshalter: s, CD BEM, CD Mie, Fehler absolut, sigma+ BEM, Mie, Fehler, Iterationen')
     for s, c, sp, r in zip(spacers, cdb, spb, rows):
         m, p = mie_cd(s); print(f"  {s:4.0f} {c:+.5f} {m:+.5f} {c - m:+.4f} {sp:8.1f} {p:8.1f} {sp / p - 1:+6.1%} {r['iterations']}")
+
+# 9. Sensorik: Goldkugel 20 nm in Wasser; (a) chirale Loesung chi = 1e-3, (b) gebundene 1-nm-Schicht chi = 1e-2,
+#    (c) beides. CD gegen Mie (tools/mie_chiral_layered.py mit chiralem Aussenmedium), Additivitaet (a) + (b) = (c)
+if all(os.path.exists(f) for f in ['results/ausphere20_hostchi.csv', 'results/ausphere20_layerchi_tp.csv', 'results/ausphere20_both.csv']):
+    import mie_chiral_layered as mcl
+    cf = lambda rr, k: np.array([float(r[k]) for r in rr])
+    A = sorted(rd('results/ausphere20_hostchi.csv'), key=lambda r: float(r['lambda_nm']))
+    B, Cc = rd('results/ausphere20_layerchi_tp.csv'), rd('results/ausphere20_both.csv')
+    La, Lb = cf(A, 'lambda_nm'), cf(B, 'lambda_nm'); ca, cb, cc = cf(A, 'CD_nm2'), cf(B, 'CD_nm2'), cf(Cc, 'CD_nm2'); sa = cf(A, 'sigma_plus_nm2')
+    nb2 = 1.33 ** 2; chih, chil = 1e-3, 1e-2
+    def mie(lams, layer, host):
+        out = []
+        for l in lams:
+            e = eps_tab('data/materials/Au_Johnson.yml', l); o = 2 * np.pi / l
+            R = [20.0, 21.0] if layer else [20.0]; M = [(e, 1, 0)] + ([(2.25, 1, chil)] if layer else [])
+            p = mcl.cross_sections(o, R, M, +1, eps2=nb2, chi2=host)[0]; q = mcl.cross_sections(o, R, M, -1, eps2=nb2, chi2=host)[0]
+            out.append((p - q, p))
+        return np.array(out)
+    Lf = np.linspace(La.min(), La.max(), 81)
+    ma, mb, mcc = mie(Lf, False, chih), mie(Lf, True, 0.0), mie(Lf, True, chih)
+    fig, ax = plt.subplots(figsize=(6.0, 3.9))
+    for m_, Lx, c_, col_, lab in [(ma, La, ca, 'C0', '(a) nur Lösung, χ = 10⁻³'), (mb, Lb, cb, 'C1', '(b) nur gebundene Schicht 1 nm, χ = 10⁻²'), (mcc, Lb, cc, 'C3', '(c) beides')]:
+        ax.plot(Lf, m_[:, 0], '-', color=col_, lw=1, label=lab + ' (Mie)'); ax.plot(Lx, c_, 'o', color=col_, ms=3.5, mfc='none')
+    ia = [int(np.argmin(abs(La - l))) for l in Lb]
+    ax.plot(Lb, ca[ia] + cb, 'k+', ms=6, label='(a) + (b), BEM')
+    ax.axhline(0, color='k', lw=0.5); ax.set_xlabel('Wellenlänge (nm)'); ax.set_ylabel(r'CD = $\sigma^+ - \sigma^-$ (nm$^2$)')
+    ax.set_title('Goldkugel 20 nm in chiraler Lösung (Linien Mie, Kreise BEM, n = 8)', fontsize=9); ax.legend(fontsize=6.5)
+    fig.tight_layout(); fig.savefig('docs/fig_coated_sensing.png', dpi=130)
+    mA, mB, mC = mie(Lb, False, chih), mie(Lb, True, 0.0), mie(Lb, True, chih)
+    print('\nSensorik: lam | CD (a) BEM, Mie | (b) BEM, Mie | (c) BEM, Mie | (a)+(b)-(c) BEM, Mie | sigma+ (a) Fehler')
+    for i, l in enumerate(Lb):
+        j = ia[i]
+        print(f"  {l:4.0f} | {ca[j]:+.4f} {mA[i, 0]:+.4f} | {cb[i]:+.4f} {mB[i, 0]:+.4f} | {cc[i]:+.4f} {mC[i, 0]:+.4f} | {ca[j] + cb[i] - cc[i]:+.1e} {mA[i, 0] + mB[i, 0] - mC[i, 0]:+.1e} | {sa[j] / mA[i, 1] - 1:+.1%}")

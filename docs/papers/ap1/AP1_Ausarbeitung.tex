@@ -44,7 +44,7 @@
   {\Large\textbf{Clifford-BEM: Mathematische Ausarbeitung zu AP 1}}\\[0.3cm]
   {\large Teil I: Grundlagen, Cauchy-Darstellung, Transmission, chirale Medien\\
   Teil II: Resonanzfreiheit und Kugel, Teil III: Eindeutigkeit und Torus}\\[0.3cm]
-  {\small Arbeitsstand, Version 0.25}
+  {\small Arbeitsstand, Version 0.26}
 \end{center}
 
 \section*{Überblick und Status}
@@ -106,6 +106,7 @@ Dünnschicht zweiter Ordnung, Dirac-Form (\ref{sec:schicht}) & hergeleitet, num.
 Dünnschicht mit chiralen Schichten (\ref{sec:schicht}) & hergeleitet, num.\ belegt & \texttt{test\_thin\_layer}\\
 Zweitor-Formulierung (S-Matrix) (\ref{sec:schicht}) & hergeleitet, num.\ belegt & \texttt{test\_twoport}\\
 Zweitor: Mehrfachschichten, Unterteilung (\ref{sec:schicht}) & num.\ belegt & \texttt{test\_twoport}\\
+Chirales Außenmedium, optisches Theorem je Kanal (\ref{sec:chiralaussen}) & hergeleitet, num.\ belegt & \texttt{test\_chiral\_host}\\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -2923,5 +2924,35 @@ nur lokale Unbekannte. Numerisch (Glasschale auf Gold): Der Fehler, der ohne Unt
 auf $-2\,\%$ ($n=8$). Mit Unterteilung ist das Zweitor also auch für dicke Schalen verwendbar. Für die lokale Dünnschicht-Näherung gilt: Für $d\gtrsim h$
 wachsen ihre Terme wie $(d/h)^2$, und die Iterationen steigen stark ($d/h=1{,}5$: 476); dort sind die Zweitor-Formulierung
 (oben) oder, für $d/a\gtrsim0{,}3$, die exakte Formulierung \eqref{eq:schicht} zu verwenden.
+
+\section{Nachtrag: Chirales Außenmedium}\label{sec:chiralaussen}
+
+Liegen die Teilchen in einer optisch aktiven Umgebung (chirale Lösung, chirale Matrix), ist der Außenraum ein
+Pasteur-Medium. Nach Satz~\ref{satz:chiral} zerfällt das Feld dort in $F_\pm=P_\pm F$ mit $(\nabla-ik_\pm)F_\pm=0$; das
+radiierende Streufeld wird durch $E_2=P_+E_{k_+}+P_-E_{k_-}$ dargestellt, und $T_1$ sowie alle Schichtformulierungen bleiben
+formal unverändert.
+
+\paragraph{Anregung.} Eigenmoden des Außenmediums sind nur Helizitätswellen. Da die Wellenimpedanz
+$\eta=\sqrt{\mu/\varepsilon}$ für beide Helizitäten gleich ist, bleibt $F^{\mathrm{inc}}=\sqrt\varepsilon\,(\mvec p+I\,\mvec d\times\mvec p)
+\,e^{ik_\sigma\mvec d\cdot\mvec x}$ für zirkulares $\mvec p$ gültig; die Welle liegt ganz im Bild eines Projektors $P_\sigma$ und
+läuft mit $k_\sigma$. Linear polarisiertes Licht ist keine Eigenmode (es dreht seine Polarisationsebene auf dem Weg zum
+Teilchen) und muss in Helizitäten zerlegt werden.
+
+\paragraph{Extinktion.} Das Streufeld strahlt in beiden Kanälen. Mit der einfallenden Welle interferiert nur der Kanal
+derselben Helizität; der andere hat die Wellenzahl $k_{-\sigma}\ne k_\sigma$, seine Kreuzterme mit der einfallenden Welle
+oszillieren wie $e^{i(k_{-\sigma}-k_\sigma)r}$ und mitteln sich im Fernfeld heraus. Das optische Theorem gilt daher je Kanal:
+\[
+  \sigma_{\mathrm{ext}}^{\sigma}=\frac{4\pi}{k_\sigma}\,\frac{\operatorname{Im}\,\bar{\mvec p}\cdot\mvec E_\infty^{\sigma}(\mvec d)}{|\mvec p|^2},
+\]
+mit dem Fernfeld von $P_\sigma h_s$ bei $k_\sigma$. In der Mie-Lösung mit chiralem Außengebiet (gestreut
+$\alpha W_A(h)+\beta W_B(h)$) folgt entsprechend $\sigma_{\mathrm{ext}}^{\pm}=-\sum_n\operatorname{Re}(\bar C_n\,2\gamma_n)/(2k_\pm^2)$ mit
+$\gamma=\alpha$ bzw.\ $\beta$ und $\sigma_{\mathrm{sca}}=\sum_n[\,|\alpha_n|^2/k_A^2+|\beta_n|^2/k_B^2\,]$; bei verlustfreien Medien ist
+$\sigma_{\mathrm{ext}}=\sigma_{\mathrm{sca}}$ auf $10^{-15}$ erfüllt, eine Kugel aus dem Außenmedium streut nicht, und für
+$\chi_2\to0$ ergibt sich der achirale Fall.
+
+Numerisch (Goldkugel in chiralem Wasser, $\chi_2=0{,}05$, \texttt{docs/results\_coated.md}): $\sigma_\pm$ mit demselben
+Diskretisierungsfehler wie im achiralen Außenmedium, der CD konvergiert mit Ordnung~2 ($-9{,}7\to-5{,}5\to-2{,}5\,\%$ für
+$n=6,8,12$). Für beschichtete Teilchen in chiraler Lösung stimmen Zweitor, Dünnschicht-Näherung und exakte
+Mehrschichtmethode untereinander auf $0{,}3\,\%$ überein.
 
 \end{document}

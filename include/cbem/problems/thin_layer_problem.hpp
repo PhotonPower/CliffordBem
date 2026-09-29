@@ -127,7 +127,7 @@ private:
     std::vector<std::unique_ptr<CauchyOperator>> cops_;
     std::vector<std::unique_ptr<ChiralCauchyOperator>> chops_;               // chirale Kerne
     std::unique_ptr<BlockDiagonalOperator> E1_;
-    const CauchyOperator* E2_ = nullptr;
+    const BoundaryOperator* E2_ = nullptr;                                    // chiral: P+ E_{k+} + P- E_{k-}
     std::vector<std::unique_ptr<ThinLayerTransmissionOperator>> maps_;          // J_eff je Koerper (lokale Nummerierung)
 };
 

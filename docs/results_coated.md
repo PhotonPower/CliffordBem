@@ -1,4 +1,4 @@
-# Ergebnisse: beschichtete Grenzflächen (dünne Schichten, Kern-Schale, Dünnschicht-Näherung, chirale Schichten, Zweitor)
+# Ergebnisse: beschichtete Grenzflächen (dünne Schichten, Kern-Schale, Dünnschicht-Näherung, chirale Schichten, Zweitor, chirales Außenmedium)
 
 An Materialgrenzen liegen meist dünne Schichten (Oxide, Sulfide, Hüllen von wenigen nm), die Amplitude und Phase
 des gestreuten Lichts verändern. Seit v0.13 behandelt der Kern verschachtelte Gebiete exakt: jede Schichtgrenze ist
@@ -640,6 +640,70 @@ Plasmonresonanz), `spectrum --sphere 8 --twoport --pol circ` (`results/au_spacer
 - Zum Vergleich bei 4 nm: vor der Auswertung je Schicht CD +0,021 (−76 %), Dünnschicht-Näherung σ₊ −12 % (280 Iterationen),
   exakte Rechnung mit drei Flächen CD +0,111 (+22 %, dünne chirale Schicht). Ohne Unterteilung lag σ₊ bei 8 nm (Schicht mit
   d/a = 0,4) um +3,7 % daneben; unterteilt −0,7 %.
+
+## Chirales Außenmedium (v0.21)
+
+Teilchen in einer optisch aktiven Umgebung (chirale Lösung, chirale Matrix): Der Außenraum ist ein Pasteur-Medium. Das
+Streufeld wird durch E₂ = P₊E_{k₊} + P₋E_{k₋} dargestellt; alle Formulierungen (`ScatteringProblem`, Zweitor, exakte
+Mehrschichtmethode, Dünnschicht-Näherung in der Dirac-Form) bleiben formal unverändert (Theorie: AP 1, Nachtrag „Chirales
+Außenmedium“; `include/cbem/sources/chiral_incidence.hpp`).
+
+- **Anregung:** Nur Helizitätswellen sind Eigenmoden. Die Wellenimpedanz ist für beide gleich, daher bleibt
+  F_inc = √ε(p + I d × p) e^{ik_σ d·x} für zirkulares p gültig; das Programm bestimmt den Kanal σ aus F_inc. Lineare
+  Polarisation ist keine Eigenmode und wird abgelehnt.
+- **Extinktion:** Mit der einfallenden Welle interferiert nur der Kanal derselben Helizität (der andere läuft mit einer
+  anderen Wellenzahl, die Kreuzterme mitteln sich heraus); das optische Theorem gilt je Kanal mit dem Fernfeld von P_σ h_s.
+- **Referenz:** `tools/mie_chiral_layered.py` mit chiralem Außengebiet (`chi2`): σ_ext^± aus dem Koeffizienten desselben
+  Kanals, σ_sca aus beiden. Energieerhaltung (verlustfrei) auf 10⁻¹⁵, eine Kugel aus dem Außenmedium streut nicht (10⁻³³),
+  χ₂ → 0 ergibt den achiralen Fall.
+- **Einschränkungen:** Der Blockvorkonditionierer lehnt chirale Außenmedien ab (HODLR und punktweise gehen); absorbierende
+  chirale Außenmedien (komplexes χ) haben dieselben Deutungsprobleme der Extinktion wie jedes absorbierende Wirtsmedium.
+- Aufruf: `spectrum --host-chi χ --pol circ …`, `scatter_coated --host-chi χ --cd …`.
+
+**Validierung** (Goldkugel, ε = −11 + 1,2i, in chiralem Wasser ε₂ = 1,7689, χ₂ = 0,05, ωa = 0,5):
+
+| n | σ₊-Fehler | σ₋-Fehler | CD | CD-Fehler |
+|---:|---:|---:|---:|---:|
+| 6 | −2,37 % | −2,46 % | −0,1331 | −9,7 % |
+| 8 | −1,36 % | −1,41 % | −0,1392 | −5,5 % |
+| 12 | −0,61 % | −0,63 % | −0,1437 | −2,5 % |
+| Mie | 11,7655 | 11,9128 | −0,1473 | – |
+
+σ± haben denselben Diskretisierungsfehler wie im achiralen Außenmedium (n = 6: −2,43 %); der CD konvergiert mit Ordnung 2.
+Beschichtete Teilchen (Goldkern, Glasschale 0,05) in chiralem Wasser: Zweitor, Dünnschicht-Näherung und exakte
+Mehrschichtmethode stimmen im CD untereinander auf 0,3 % überein (n = 8: −0,1812 / −0,1805 / −0,1806; Mie −0,1904).
+Chirale Schale (χ = 0,1) in chiraler Lösung: CD −6,5 % (n = 8), −2,9 % (n = 12) gegen Mie.
+
+### Anwendung: Goldkugel in chiraler Lösung (Sensorik)
+
+Goldkugel (Radius 20 nm, Johnson–Christy) in Wasser mit (a) chiraler Lösung (χ = 10⁻³, freie Moleküle), (b) nur einer
+gebundenen 1-nm-Molekülschicht (n = 1,5, χ = 10⁻²) in achiralem Wasser, (c) beidem; Zweitor, n = 8
+(`results/ausphere20_hostchi.csv`, `…_layerchi_tp.csv`, `…_both.csv`). Die Werte von χ sind zur Veranschaulichung gewählt;
+der CD ist in χ linear.
+
+![Goldkugel in chiraler Lösung](fig_coated_sensing.png)
+
+| λ (nm) | (a) BEM | (a) Mie | (b) BEM | (b) Mie | (c) BEM | (c) Mie | (a)+(b)−(c) BEM | Mie |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 450 | +1,471 | +1,486 | +0,055 | +0,062 | +1,522 | +1,542 | +0,004 | +0,006 |
+| 510 | +2,411 | +2,439 | −0,145 | −0,134 | +2,285 | +2,319 | −0,018 | −0,014 |
+| 530 | +2,973 | +3,008 | −0,205 | −0,194 | +2,906 | +2,952 | −0,14 | −0,14 |
+| 550 | +1,971 | +1,984 | −0,109 | −0,102 | +2,035 | +2,056 | −0,17 | −0,17 |
+| 590 | +0,509 | +0,505 | +0,012 | +0,011 | +0,556 | +0,552 | −0,035 | −0,036 |
+| 650 | +0,106 | +0,102 | +0,026 | +0,023 | +0,134 | +0,128 | −0,002 | −0,003 |
+
+(CD in nm².)
+
+- Die Lösung erzeugt an der Resonanz einen positiven CD von etwa 3 nm², rund 15-mal mehr als die gebundene Schicht mit
+  zehnfach höherer Chiralität, und mit anderem Vorzeichen. Sie umgibt das Teilchen vollständig. Eine einfache Deutung über
+  die verschiedenen Wellenzahlen k± trägt nicht: Ein achirales Ersatzmedium mit n ± χ liefert 3- bis 13-mal zu große Werte,
+  weil es auch den Permittivitätskontrast ändert. Die Deutung bleibt offen.
+- (a) + (b) ≠ (c): In (a) füllt die Lösung auch die Schale zwischen 20 und 21 nm, in (c) sitzt dort die Schicht. Der Rest
+  (−0,14 nm² bei 530 nm, etwa 5 % des Lösungs-CD) ist der Beitrag der Lösung im ersten Nanometer um das Teilchen. Die BEM trifft
+  diesen Unterschied zweier Rechnungen auf wenige Prozent.
+- Abweichung gegen Mie: (a) −1,0 … −2,3 % an der Resonanz, bis +3,6 % an der roten Flanke (Diskretisierung der Goldkugel,
+  σ₊ bei 650 nm +7 %); (c) 1,5–4,6 %.
+- Kosten je Wellenlänge (beide Helizitäten, n = 8): (a) etwa 20 s, (c) 30–45 s.
 
 ### Einordnung
 

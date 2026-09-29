@@ -1,5 +1,6 @@
 #include "cbem/problems/scattering_problem.hpp"
 #include <stdexcept>
+#include "cbem/sources/chiral_incidence.hpp"
 #include "cbem/sources/fields.hpp"
 #include "cbem/operators/dense_blocks.hpp"
 
@@ -9,7 +10,6 @@ ScatteringProblem::ScatteringProblem(const std::vector<TriangleMesh>& bodies, co
                                      Medium outer, HMatrixParams hp, EntryParams ep, bool union_interior)
     : mb_(make_multibody(bodies)), omega_(omega), outer_(outer) {
     if (media.size() != bodies.size()) throw std::invalid_argument("ScatteringProblem: ein Medium je Koerper");
-    if (std::abs(outer.chi) > 0) throw std::invalid_argument("ScatteringProblem: chirales Aussenmedium nicht unterstuetzt");
     const TriangleMesh& m = mb_.all;
     auto add = [&](const TriangleMesh& mesh, cplx k) -> CauchyOperator* {
         ents_.push_back(std::make_unique<KernelEntries>(mesh, k, ep));
@@ -17,7 +17,12 @@ ScatteringProblem::ScatteringProblem(const std::vector<TriangleMesh>& bodies, co
         cops_.push_back(std::make_unique<CauchyOperator>(mesh, *hms_.back()));
         return cops_.back().get();
     };
-    outer_op_ = add(m, outer.k(omega)); outer_entries_ = ents_.back().get();
+    if (std::abs(outer.chi) > 0) {               // chirales Aussenmedium (v0.21): P+ E_{k+} + P- E_{k-}
+        CauchyOperator* p = add(m, outer.k(omega, +1)); const KernelEntries* ep = ents_.back().get();
+        CauchyOperator* q = add(m, outer.k(omega, -1)); const KernelEntries* eq = ents_.back().get();
+        chops_.push_back(std::make_unique<ChiralCauchyOperator>(*p, *q)); outer_op_ = chops_.back().get();
+        outer_parts_ = {{ep, +1}, {eq, -1}}; outer_entries_ = nullptr;
+    } else { outer_op_ = add(m, outer.k(omega)); outer_entries_ = ents_.back().get(); outer_parts_ = {{outer_entries_, 0}}; }
     std::vector<Medium> per_tri(m.size());
     for (std::size_t b = 0; b < bodies.size(); ++b)
         for (std::size_t t = mb_.body_begin[b]; t < mb_.body_begin[b + 1]; ++t) per_tri[t] = media[b];
@@ -57,7 +62,12 @@ Mat8 ScatteringProblem::system_entry(std::size_t i, std::size_t j) const {
         for (auto& v : R) v *= s;
         return R;
     };
-    Mat8 E2 = cauchy(*outer_entries_, i, j), E1{};
+    Mat8 E2{}, E1{};
+    for (const auto& part : outer_parts_) {
+        Mat8 C = cauchy(*part.E, i, j);
+        if (part.helicity != 0) { Mat8 P = helicity_projector(part.helicity), PC{}; for (int r = 0; r < 8; ++r) for (int q = 0; q < 8; ++q) { cplx v = 0; for (int t = 0; t < 8; ++t) v += P[r * 8 + t] * C[t * 8 + q]; PC[r * 8 + q] = v; } C = PC; }
+        for (int q = 0; q < 64; ++q) E2[q] += C[q];
+    }
     const std::size_t b = body_of_[i];
     if (body_of_[j] == b) {
         const std::size_t li = i - inner_begin_[b], lj = j - inner_begin_[b];
@@ -106,6 +116,7 @@ Matrix ScatteringProblem::inner_block(const std::vector<std::size_t>& B) const {
 }
 
 void ScatteringProblem::use_block_preconditioner(const std::vector<std::vector<std::size_t>>& groups) {
+    if (!outer_entries_) throw std::invalid_argument("Blockvorkonditionierer: chirales Aussenmedium nicht unterstuetzt (HODLR oder punktweise verwenden)");
     hodlr_.reset();
     prec_ = std::make_unique<BlockPreconditioner>(mb_.all, [this](const std::vector<std::size_t>& B) { return inner_block(B); },
                                                   *outer_entries_, *T_, groups);
@@ -114,16 +125,17 @@ void ScatteringProblem::use_block_preconditioner(const std::vector<std::vector<s
 double ScatteringProblem::hmatrix_bytes() const { double b = 0; for (auto& h : hms_) b += h->stats().bytes(); return b; }
 
 PlaneWaveResult ScatteringProblem::solve_plane_wave(const Vec3& d, const CVec3& p, const SolveOptions& o) const {
-    const TriangleMesh& m = mb_.all; const cplx k2 = outer_.k(omega_);
-    auto b = project_plane_wave(m, k2, outer_.eps, d, p);
+    const TriangleMesh& m = mb_.all;
+    const PlaneWaveIncidence inc = plane_wave_incidence(outer_, omega_, d, p);   // chiral: Helizitaetswelle mit k_sigma
+    auto b = project_plane_wave(m, inc.k, outer_.eps, d, p);
     LinOp A = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { T_->apply(x, y); };
     LinOp M = [&](const std::vector<cplx>& x, std::vector<cplx>& y) {
         if (hodlr_) hodlr_->apply(x, y); else if (prec_) prec_->apply(x, y); else T_->precondition(x, y); };
     PlaneWaveResult r; GmresResult g = gmres(A, b, r.h, &M, o.tol, o.restart, o.max_iter);
     r.iterations = g.iterations; r.residual = g.rel_residual;
     std::vector<cplx> hs(r.h.size()); for (std::size_t i = 0; i < hs.size(); ++i) hs[i] = r.h[i] - b[i];
-    r.sigma_ext = extinction_cross_section(m, hs, k2, outer_.eps, d, p);
-    r.forward = forward_amplitude(m, hs, k2, outer_.eps, d, p);
+    r.sigma_ext = extinction_in_medium(m, hs, outer_, inc, d, p);
+    r.forward = forward_amplitude_in_medium(m, hs, outer_, inc, d, p);
     return r;
 }
 

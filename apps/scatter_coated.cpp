@@ -34,12 +34,12 @@ static std::vector<std::string> split(const std::string& s, char c) { std::vecto
 static cplx cval(const std::string& s) { auto c = s.find(','); return {std::stod(s.substr(0, c)), c == std::string::npos ? 0.0 : std::stod(s.substr(c + 1))}; }
 int main(int argc, char** argv) {
     std::string ns = "4,6,8", path, core = "-11,1.2", coat = "0.05,2.25,0", pol = "lin", csv, nbs = "1";
-    double om = 0.5, heps = 1e-4, tol = 1e-6, scale = 1.0; bool offset = false, inward = false, bare = false, neutral = false, oldnear = false, thin = false, cd = false, twoport = false; double thinref = -1; ThinLayerModel tmodel = ThinLayerModel::Dirac2Fit; std::string tmname = "dirac2fit"; Vec3 d(0, 0, 1);
+    double om = 0.5, heps = 1e-4, tol = 1e-6, scale = 1.0; bool offset = false, inward = false, bare = false, neutral = false, oldnear = false, thin = false, cd = false, twoport = false; double host_chi = 0; double thinref = -1; ThinLayerModel tmodel = ThinLayerModel::Dirac2Fit; std::string tmname = "dirac2fit"; Vec3 d(0, 0, 1);
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
         if (o == "--n") ns = nxt(); else if (o == "--mesh") path = nxt(); else if (o == "--scale") scale = std::stod(nxt());
         else if (o == "--omega") om = std::stod(nxt()); else if (o == "--core") core = nxt(); else if (o == "--coat") coat = nxt();
-        else if (o == "--nbg") nbs = nxt(); else if (o == "--pol") pol = nxt();
+        else if (o == "--nbg") nbs = nxt(); else if (o == "--pol") pol = nxt(); else if (o == "--host-chi") host_chi = std::stod(nxt());
         else if (o == "--dir") { auto v = split(nxt(), ','); d = Vec3(std::stod(v[0]), std::stod(v[1]), std::stod(v[2])); d = d / norm(d); }
         else if (o == "--offset") offset = true; else if (o == "--inward") inward = true;
         else if (o == "--bare") bare = true;              // zusaetzlich dieselbe Flaeche ohne Schicht (Differenzen; Q auf denselben Radius bezogen)
@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt()); else if (o == "--csv") csv = nxt();
         else { std::printf("unbekannte Option %s\n", o.c_str()); return 1; }
     }
-    const real nbg = std::stod(nbs); const Medium ext{nbg * nbg, 1.0, 0.0};
+    const real nbg = std::stod(nbs); const Medium ext{nbg * nbg, 1.0, host_chi};   // --host-chi: chirales Aussenmedium (--pol circ oder --cd)
     const auto cv = split(core, ','); const Medium mcore{cval(core), 1.0, cv.size() > 2 ? std::stod(cv[2]) : 0.0};
     std::vector<Coating> coats;
     if (!coat.empty() && coat != "none")

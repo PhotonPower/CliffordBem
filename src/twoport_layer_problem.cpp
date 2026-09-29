@@ -1,6 +1,7 @@
 #include "cbem/problems/twoport_layer_problem.hpp"
 #include <cmath>
 #include <stdexcept>
+#include "cbem/sources/chiral_incidence.hpp"
 #include "cbem/sources/fields.hpp"
 
 namespace cbem {
@@ -79,11 +80,17 @@ void TwoPortLayerProblem::build(HMatrixParams hp, EntryParams ep) {
         }
     }
     L_ = lay_.size();
-    if (std::abs(outer_.chi) > 0) throw std::invalid_argument("TwoPort: chirales Aussenmedium nicht unterstuetzt");
     const TriangleMesh& mb = S_[0]; const TriangleMesh& ma = S_[L_];
     for (std::size_t j = 0; j < L_; ++j) fv_.push_back(std::make_unique<SurfaceFV>(S_[j]));
-    K2_ = std::make_unique<KernelEntries>(ma, outer_.k(omega_), ep); H2_ = std::make_unique<KernelHMatrix>(*K2_, hp);
-    E2_ = std::make_unique<CauchyOperator>(ma, *H2_);
+    if (std::abs(outer_.chi) > 0) {                                           // chirales Aussenmedium (v0.21)
+        K2_ = std::make_unique<KernelEntries>(ma, outer_.k(omega_, +1), ep); H2_ = std::make_unique<KernelHMatrix>(*K2_, hp);
+        K2m_ = std::make_unique<KernelEntries>(ma, outer_.k(omega_, -1), ep); H2m_ = std::make_unique<KernelHMatrix>(*K2m_, hp);
+        E2_ = std::make_unique<CauchyOperator>(ma, *H2_); E2m_ = std::make_unique<CauchyOperator>(ma, *H2m_);
+        E2ch_ = std::make_unique<ChiralCauchyOperator>(*E2_, *E2m_); E2op_ = E2ch_.get();
+    } else {
+        K2_ = std::make_unique<KernelEntries>(ma, outer_.k(omega_), ep); H2_ = std::make_unique<KernelHMatrix>(*K2_, hp);
+        E2_ = std::make_unique<CauchyOperator>(ma, *H2_); E2op_ = E2_.get();
+    }
     if (std::abs(core_.chi) > 0) {
         K1p_ = std::make_unique<KernelEntries>(mb, core_.k(omega_, +1), ep); H1p_ = std::make_unique<KernelHMatrix>(*K1p_, hp);
         K1m_ = std::make_unique<KernelEntries>(mb, core_.k(omega_, -1), ep); H1m_ = std::make_unique<KernelHMatrix>(*K1m_, hp);
@@ -187,7 +194,7 @@ void TwoPortLayerProblem::apply(const std::vector<cplx>& x, std::vector<cplx>& y
     const std::size_t N = N_, L = L_;
     auto seg = [&](std::size_t j) { return x.begin() + 8 * N * slot(j); };
     std::vector<cplx> XL(seg(L), seg(L) + 8 * N), V(seg(0), seg(0) + 8 * N), E2X, E1V;
-    E2_->apply(XL, E2X); E1_->apply(V, E1V);
+    E2op_->apply(XL, E2X); E1_->apply(V, E1V);
     y.assign(size(), cplx(0));
     for (std::size_t i = 0; i < 8 * N; ++i) y[i] = 0.5 * (XL[i] + E2X[i]) + (sq_[L][i / 8] / sq_[0][i / 8]) * 0.5 * (V[i] - E1V[i]);   // Zeile I
     // Werte aller Spuren
@@ -231,17 +238,17 @@ void TwoPortLayerProblem::precondition(const std::vector<cplx>& x, std::vector<c
 }
 
 LayeredResult TwoPortLayerProblem::solve_plane_wave(const Vec3& dir, const CVec3& p, const SolveOptions& o) const {
-    const cplx k = outer_.k(omega_);
+    const PlaneWaveIncidence inc = plane_wave_incidence(outer_, omega_, dir, p);
     const TriangleMesh& ma = S_[L_];
-    const std::vector<cplx> ba = project_plane_wave(ma, k, outer_.eps, dir, p);
+    const std::vector<cplx> ba = project_plane_wave(ma, inc.k, outer_.eps, dir, p);
     std::vector<cplx> b(size(), cplx(0)); std::copy(ba.begin(), ba.end(), b.begin());
     LinOp A = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { apply(x, y); };
     LinOp M = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { precondition(x, y); };
     LayeredResult r; GmresResult g = gmres(A, b, r.h, &M, o.tol, o.restart, o.max_iter);
     r.iterations = g.iterations; r.residual = g.rel_residual;
     std::vector<cplx> hs(8 * N_); for (std::size_t i = 0; i < 8 * N_; ++i) hs[i] = r.h[8 * N_ * slot(L_) + i] - ba[i];
-    r.sigma_ext = extinction_cross_section(ma, hs, k, outer_.eps, dir, p);
-    r.forward = forward_amplitude(ma, hs, k, outer_.eps, dir, p);
+    r.sigma_ext = extinction_in_medium(ma, hs, outer_, inc, dir, p);
+    r.forward = forward_amplitude_in_medium(ma, hs, outer_, inc, dir, p);
     return r;
 }
 

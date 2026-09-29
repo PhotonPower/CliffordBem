@@ -1,6 +1,7 @@
 #include "cbem/problems/layered_problem.hpp"
 #include <stdexcept>
 #include <string>
+#include "cbem/sources/chiral_incidence.hpp"
 #include "cbem/sources/fields.hpp"
 
 namespace cbem {
@@ -81,7 +82,6 @@ LayeredScatteringProblem::LayeredScatteringProblem(const LayeredGeometry& g, rea
     : g_(g), omega_(omega), all_(make_multibody(g.surfaces)) {
     const std::size_t S = g_.surfaces.size(), NR = g_.region_medium.size();
     if (S == 0) throw std::invalid_argument("LayeredScatteringProblem: keine Flaechen");
-    if (std::abs(g_.region_medium[0].chi) > 0) throw std::invalid_argument("LayeredScatteringProblem: chirales Aussenmedium nicht unterstuetzt");
     for (std::size_t s = 0; s < S; ++s) {
         const int a = g_.inside[s], b = g_.outside[s];
         if (a <= 0 || a >= static_cast<int>(NR) || b < 0 || b >= static_cast<int>(NR) || a == b)
@@ -128,9 +128,10 @@ LayeredScatteringProblem::LayeredScatteringProblem(const LayeredGeometry& g, rea
 }
 
 LayeredResult LayeredScatteringProblem::solve_plane_wave(const Vec3& d, const CVec3& p, const SolveOptions& o) const {
-    const Medium& ext = g_.region_medium[0]; const cplx k = ext.k(omega_);
+    const Medium& ext = g_.region_medium[0];
+    const PlaneWaveIncidence inc = plane_wave_incidence(ext, omega_, d, p);   // chiral: Helizitaetswelle mit k_sigma
     const TriangleMesh& me = *region_mesh_[0];                  // Rand des Aussenraums
-    const std::vector<cplx> be = project_plane_wave(me, k, ext.eps, d, p);
+    const std::vector<cplx> be = project_plane_wave(me, inc.k, ext.eps, d, p);
     std::vector<cplx> b(T_->size(), cplx(0));
     for (std::size_t l = 0; l < ext_tri_.size(); ++l) for (int q = 0; q < 8; ++q) b[8 * ext_tri_[l] + q] = be[8 * l + q];
     LinOp A = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { T_->apply(x, y); };
@@ -139,8 +140,8 @@ LayeredResult LayeredScatteringProblem::solve_plane_wave(const Vec3& d, const CV
     r.iterations = gr.iterations; r.residual = gr.rel_residual;
     std::vector<cplx> hs(be.size());
     for (std::size_t l = 0; l < ext_tri_.size(); ++l) for (int q = 0; q < 8; ++q) hs[8 * l + q] = r.h[8 * ext_tri_[l] + q] - be[8 * l + q];
-    r.sigma_ext = extinction_cross_section(me, hs, k, ext.eps, d, p);
-    r.forward = forward_amplitude(me, hs, k, ext.eps, d, p);
+    r.sigma_ext = extinction_in_medium(me, hs, ext, inc, d, p);
+    r.forward = forward_amplitude_in_medium(me, hs, ext, inc, d, p);
     return r;
 }
 

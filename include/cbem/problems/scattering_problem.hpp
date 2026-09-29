@@ -44,7 +44,7 @@ private:
     std::vector<std::unique_ptr<ChiralCauchyOperator>> chops_;
     std::unique_ptr<BoundaryOperator> inner_;
     const BoundaryOperator* inner_ptr_ = nullptr;
-    const CauchyOperator* outer_op_ = nullptr;
+    const BoundaryOperator* outer_op_ = nullptr;           // chirales Aussenmedium: P+ E_{k+} + P- E_{k-}
     std::unique_ptr<TransmissionOperator> T_;
     std::unique_ptr<BlockPreconditioner> prec_;
     std::unique_ptr<HodlrSolver> hodlr_;
@@ -54,6 +54,7 @@ private:
     // je Koerper: Teile des Innenoperators (Eintraege, Helizitaet 0/+1/-1) und Dreiecksbereich
     struct InnerPart { const KernelEntries* E; int helicity; };
     std::vector<std::vector<InnerPart>> inner_parts_;
+    std::vector<InnerPart> outer_parts_;                   // Anteile des Aussenoperators (Einzeleintraege)
     std::vector<std::size_t> inner_begin_;
 };
 
