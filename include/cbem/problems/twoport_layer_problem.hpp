@@ -42,6 +42,13 @@ struct TwoPortOptions {
     real split = 0.1;
 };
 
+// Ein Koerper fuer das Zweitor: Flaechen Gamma_0 (Kern) ... Gamma_L (aussen) gleicher Topologie, Kernmedium, Schichten von
+// innen nach aussen
+struct TwoPortBody { std::vector<TriangleMesh> surfaces; Medium core; std::vector<Coating> layers; };
+
+// Mehrere Koerper (v0.22): E_2 wirkt auf der Vereinigung aller Aussenflaechen, E_1 blockdiagonal auf den Kernen; jeder
+// Koerper hat seinen eigenen Schichtstapel mit eigenen Zweitor-Zeilen. Anordnung der Unbekannten: [X_L aller Koerper |
+// v aller Koerper | Zwischenspuren Koerper 0 | Koerper 1 | ...]; fuer einen Koerper identisch mit v0.20.
 class TwoPortLayerProblem {
 public:
     // eine Schicht: core_surface = Gamma_0, outer_surface = Gamma_1, d = Schichtdicke
@@ -50,45 +57,55 @@ public:
     // Mehrfachschichten: surfaces = Gamma_0 ... Gamma_L (gleiche Topologie), layers von innen nach aussen (Dicke, Medium)
     TwoPortLayerProblem(const std::vector<TriangleMesh>& surfaces, const Medium& core, const std::vector<Coating>& layers,
                         real omega, Medium outer = {}, HMatrixParams hp = {}, EntryParams ep = {}, TwoPortOptions opt = {});
+    // mehrere Koerper
+    TwoPortLayerProblem(const std::vector<TwoPortBody>& bodies, real omega, Medium outer = {}, HMatrixParams hp = {},
+                        EntryParams ep = {}, TwoPortOptions opt = {});
     // Parallelflaechen aus der Kernoberflaeche (offset_surface, kumulative Dicken; Pruefung auf Faltung/Durchdringung)
     static std::vector<TriangleMesh> layer_surfaces(const TriangleMesh& core_surface, const std::vector<Coating>& layers);
     LayeredResult solve_plane_wave(const Vec3& dir, const CVec3& p, const SolveOptions& o = {}) const;
     void apply(const std::vector<cplx>& x, std::vector<cplx>& y) const;
     void precondition(const std::vector<cplx>& x, std::vector<cplx>& y) const;
-    std::size_t size() const { return 8 * (L_ + 1) * N_; }
-    std::size_t layers() const { return L_; }                        // nach der Unterteilung
-    std::size_t input_layers() const { return L_in_; }
-    int poles(std::size_t l = 0) const { return lay_[l].M; }
+    std::size_t size() const { return size_; }
+    std::size_t bodies() const { return B_.size(); }
+    std::size_t layers(std::size_t b = 0) const { return B_[b]->L; }            // nach der Unterteilung
+    std::size_t input_layers(std::size_t b = 0) const { return B_[b]->L_in; }
+    int poles(std::size_t l = 0, std::size_t b = 0) const { return B_[b]->lay[l].M; }
     double mean_inner_iterations() const { return inner_calls_ ? double(inner_its_) / inner_calls_ : 0.0; }
-    const TriangleMesh& outer_mesh() const { return S_.back(); }
+    const TriangleMesh& outer_mesh() const { return outer_.all; }             // Vereinigung der Aussenflaechen
 private:
     struct Layer {
         Medium m; real d = 0, numid = 0;             // numid: Abstand der Mitte von der unteren Flaeche Gamma_{l-1}
         int M = 0; std::vector<real> sigma; real tail0 = 0, tail1 = 0;
         std::vector<Mat8> Jtop, Jtops;              // X_l (Medium m_{l+1}) -> Medium m_l, Facetten- bzw. glatte Normalen
     };
-    void build(HMatrixParams hp, EntryParams ep);
-    void apply_g(std::size_t l, const std::vector<Multivector>& z, std::vector<Multivector>& gz) const;   // Schicht l (0-basiert)
+    struct Body {
+        std::vector<TriangleMesh> S; Medium core; std::vector<Layer> lay;
+        std::size_t N = 0, L = 0, L_in = 0, pre = 0;               // pre: erster Index in der Vereinigung
+        std::size_t offXL = 0, offV = 0; std::vector<std::size_t> offInt;   // Positionen (Koeffizienten) im Vektor
+        std::vector<std::unique_ptr<SurfaceFV>> fv;                // je Flaeche Gamma_0 ... Gamma_{L-1}
+        std::vector<Mat8> Jb, Jbs;                                 // Kernspur v -> Medium m_1
+        std::vector<std::vector<real>> sq;                         // sqrt|tau| je Flaeche
+        std::vector<std::vector<cplx>> Pinv;                       // Vorkonditionierer je Dreieck (8(L+1))^2
+        std::size_t pos(std::size_t j) const { return j == L ? offXL : j == 0 ? offV : offInt[j - 1]; }   // Position von X_j
+        std::size_t row(std::size_t l) const { return l == 0 ? offXL : l == 1 ? offV : offInt[l - 2]; }    // Zeile I bzw. Schicht l
+    };
+    void build(std::vector<TwoPortBody> bodies, HMatrixParams hp, EntryParams ep);
+    void setup_body(Body& Bd);
+    void apply_g(const Body& Bd, std::size_t l, const std::vector<Multivector>& z, std::vector<Multivector>& gz) const;
     void resolvent(const SurfaceFV& fv, const std::vector<Multivector>& z, cplx shift, std::vector<Multivector>& x) const;
-    std::size_t slot(std::size_t j) const { return j == L_ ? 0 : j == 0 ? 1 : j + 1; }   // Position von X_j im Vektor
-    std::vector<TriangleMesh> S_;
-    std::size_t N_ = 0, L_ = 0, L_in_ = 0;
-    Medium core_, outer_;
+    std::vector<std::unique_ptr<Body>> B_;
+    std::size_t Ntot_ = 0, size_ = 0;
+    Medium outer_m_;
     real omega_;
     TwoPortOptions opt_;
-    std::vector<Layer> lay_;
-    std::vector<std::unique_ptr<SurfaceFV>> fv_;   // je Flaeche Gamma_0 ... Gamma_{L-1} (untere Flaeche der Schichten)
-    std::unique_ptr<KernelEntries> K2_, K1p_, K1m_;
-    std::unique_ptr<KernelHMatrix> H2_, H1p_, H1m_;
-    std::unique_ptr<KernelEntries> K2m_;
-    std::unique_ptr<KernelHMatrix> H2m_;
-    std::unique_ptr<CauchyOperator> E2_, E2m_, E1p_, E1m_;
-    std::unique_ptr<ChiralCauchyOperator> E1ch_, E2ch_;
-    const BoundaryOperator* E1_ = nullptr;
-    const BoundaryOperator* E2op_ = nullptr;          // Aussenoperator (chiral: P+ E_{k+} + P- E_{k-})
-    std::vector<Mat8> Jb_, Jbs_;                    // Kernspur v -> Medium m_1 (Facetten- bzw. glatte Normalen)
-    std::vector<std::vector<real>> sq_;              // sqrt|tau| je Flaeche
-    std::vector<std::vector<cplx>> Pinv_;            // Vorkonditionierer je Dreieck (8(L+1))^2
+    MultiBodyMesh outer_;
+    std::vector<std::unique_ptr<KernelEntries>> ents_;
+    std::vector<std::unique_ptr<KernelHMatrix>> hms_;
+    std::vector<std::unique_ptr<CauchyOperator>> cops_;
+    std::vector<std::unique_ptr<ChiralCauchyOperator>> chops_;
+    std::unique_ptr<BlockDiagonalOperator> E1bd_;
+    const BoundaryOperator* E1_ = nullptr;           // Kerne (blockdiagonal)
+    const BoundaryOperator* E2op_ = nullptr;          // Aussenoperator auf der Vereinigung (chiral: P+ E_{k+} + P- E_{k-})
     mutable long inner_its_ = 0, inner_calls_ = 0;
 };
 

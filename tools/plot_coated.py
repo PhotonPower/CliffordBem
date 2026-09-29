@@ -323,3 +323,20 @@ if all(os.path.exists(f) for f in ['results/ausphere20_hostchi.csv', 'results/au
     for i, l in enumerate(Lb):
         j = ia[i]
         print(f"  {l:4.0f} | {ca[j]:+.4f} {mA[i, 0]:+.4f} | {cb[i]:+.4f} {mB[i, 0]:+.4f} | {cc[i]:+.4f} {mC[i, 0]:+.4f} | {ca[j] + cb[i] - cc[i]:+.1e} {mA[i, 0] + mB[i, 0] - mC[i, 0]:+.1e} | {sa[j] / mA[i, 1] - 1:+.1%}")
+
+# 10. Gold-Dimer (2 x 20 nm, Spalt 4 nm zwischen den Kernen, 2 nm zwischen den Schichten) mit 1 nm chiraler Schicht gegen 2 x Einzelkugel (Zweitor, n = 8)
+if os.path.exists('results/audimer_chiral1.csv') and os.path.exists('results/aumono_chiral1.csv'):
+    cf = lambda rr, k: np.array([float(r[k]) for r in rr])
+    Dm, Mo = rd('results/audimer_chiral1.csv'), rd('results/aumono_chiral1.csv')
+    n = min(len(Dm), len(Mo)); Dm, Mo = Dm[:n], Mo[:n]
+    L = cf(Dm, 'lambda_nm'); sd, sm = cf(Dm, 'sigma_nm2'), cf(Mo, 'sigma_nm2'); cdd, cdm = cf(Dm, 'CD_nm2'), cf(Mo, 'CD_nm2')
+    fig, ax = plt.subplots(2, 1, figsize=(5.8, 5.4), sharex=True)
+    ax[0].plot(L, sd / 1e3, 'C3o-', label='Dimer (Spalt 4 nm zwischen den Kernen)'); ax[0].plot(L, 2 * sm / 1e3, 'ko--', mfc='none', label='2 × Einzelkugel')
+    ax[0].set_ylabel(r'$\sigma_{ext}$ (10$^3$ nm$^2$)'); ax[0].legend(fontsize=7)
+    ax[0].set_title('Gold-Dimer 2 × 20 nm, 1 nm chirale Schicht (χ = 0,01), Wasser', fontsize=9)
+    ax[1].plot(L, cdd, 'C3o-', label='Dimer'); ax[1].plot(L, 2 * cdm, 'ko--', mfc='none', label='2 × Einzelkugel'); ax[1].axhline(0, color='k', lw=0.5)
+    ax[1].set_ylabel(r'CD (nm$^2$)'); ax[1].set_xlabel('Wellenlänge (nm)'); ax[1].legend(fontsize=7)
+    fig.tight_layout(); fig.savefig('docs/fig_coated_dimer_cd.png', dpi=130)
+    print('\nDimer: lam, sigma Dimer, 2 x Einzel, CD Dimer, 2 x CD Einzel, Verhaeltnis, It. Dimer')
+    for i, l in enumerate(L):
+        print(f"  {l:4.0f} {sd[i]:8.1f} {2 * sm[i]:8.1f} {cdd[i]:+.4f} {2 * cdm[i]:+.4f} {cdd[i] / (2 * cdm[i]) if abs(cdm[i]) > 1e-3 else float('nan'):+6.2f} {Dm[i]['iterations']}")

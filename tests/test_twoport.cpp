@@ -1,7 +1,9 @@
 // Zweitor-Formulierung beschichteter Grenzflaechen (S-Matrix, v0.19): Grenzfall duenner neutraler Schicht, Genauigkeit
 // gegen Aden-Kerker fuer duenne und fuer dicke Schichten (d > h, Stabilitaet), chirale Schicht (Spiegelsymmetrie, CD);
 // Mehrfachschichten (v0.20): Zerlegung einer Schicht, Oxid + Glas gegen Mie, chirale Schicht auf Abstandshalter (CD);
-// Unterteilung dicker Schichten (Fehler faellt mit dem Netz statt zu wachsen).
+// Unterteilung dicker Schichten (Fehler faellt mit dem Netz statt zu wachsen); mehrere Koerper (v0.22): Additivitaet bei
+// grossem Abstand, Dimer mit engem Spalt gegen die exakte Mehrschichtmethode.
+#include "cbem/problems/layered_problem.hpp"
 #include <cmath>
 #include "cbem/problems/twoport_layer_problem.hpp"
 #include "cbem/sources/fields.hpp"
@@ -69,6 +71,22 @@ int main() {
         std::printf("  Glas d = 0,3: mit Unterteilung %+.2f %% (n=6), %+.2f %% (n=8); ohne %+.2f %% (n=8)\n", 100 * e6, 100 * e8, 100 * e8n);
         CHECK(std::abs(e8) < std::abs(e6) && std::abs(e8) < 0.02, "Unterteilung: keine Konvergenz");
         CHECK(std::abs(e8) < std::abs(e8n), "Unterteilung verbessert nichts");
+    }
+    // 6. mehrere Koerper: Additivitaet bei grossem Abstand; Dimer (Spalt 0,3 zwischen den Schalen) gegen exakte Methode
+    {
+        auto body = [&](const Vec3& c) { return TwoPortBody{{translated(make_icosphere(4), c), translated(make_icosphere(4, 1.05), c)}, gold, {Coating{0.05, glass}}}; };
+        const real one = TwoPortLayerProblem({body(Vec3(0, 0, 0))}, om, {}, hp).solve_plane_wave(d, px, so).sigma_ext;
+        const real far = TwoPortLayerProblem({body(Vec3(-40, 0, 0)), body(Vec3(40, 0, 0))}, om, {}, hp).solve_plane_wave(d, px, so).sigma_ext;
+        std::printf("  zwei Koerper im Abstand 80: sigma %.6f, 2 x einzeln %.6f (rel. %.1e)\n", far, 2 * one, std::abs(far / (2 * one) - 1));
+        CHECK(std::abs(far / (2 * one) - 1) < 5e-3, "mehrere Koerper nicht additiv");
+        const real sh = 1.2; const Vec3 A(-sh, 0, 0), Bv(sh, 0, 0);
+        const real tp = TwoPortLayerProblem({body(A), body(Bv)}, om, {}, hp).solve_plane_wave(d, px, so).sigma_ext;
+        LayeredGeometry g;
+        add_layered_body(g, {translated(make_icosphere(4, 1.05), A), translated(make_icosphere(4), A)}, {glass, gold});
+        add_layered_body(g, {translated(make_icosphere(4, 1.05), Bv), translated(make_icosphere(4), Bv)}, {glass, gold});
+        const real ex = LayeredScatteringProblem(g, om, hp).solve_plane_wave(d, px, so).sigma_ext;
+        std::printf("  Dimer (Spalt 0,3): Zweitor %.5f, exakte Methode %.5f (rel. %.1e)\n", tp, ex, std::abs(tp / ex - 1));
+        CHECK(std::abs(tp / ex - 1) < 0.01, "Dimer: Zweitor und exakte Methode weichen ab");
     }
     REPORT();
 }

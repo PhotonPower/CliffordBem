@@ -12,8 +12,8 @@
 //   --thin-model jump|dirac1|dirac2|dirac2fit: Sprungform 1. Ordnung, Dirac-Form 1. bzw. 2. Ordnung (Standard dirac2fit).
 //   Mit --mesh und --thin: alle Koerper der Gmsh-Datei mit denselben Schichten (Referenz = Netzflaeche bzw. --thin-ref).
 // --twoport: Schichten als Zweitore (S-Matrix-Formulierung, v0.19/v0.20; Schichten nach aussen, auch mehrere): E_2 auf der
-//   Aussenflaeche, E_1 auf dem Kern, stabil fuer beliebiges d/h. Kugel: konzentrische Flaechen; --mesh: ein Koerper,
-//   Schichtflaechen als Parallelflaechen der Netzflaeche (Kernoberflaeche).
+//   Aussenflaeche, E_1 auf dem Kern, stabil fuer beliebiges d/h. Kugel: konzentrische Flaechen; --mesh: alle Koerper (v0.22),
+//   Schichtflaechen als Parallelflaechen der Netzflaechen (Kernoberflaechen).
 // --bare: dieselbe Flaeche ohne Schicht; --neutral: dieselben Netze, Schichten aus dem Aussenmedium. Die Wirkung einer
 // duennen Schicht ist als Differenz zur neutralen Rechnung genauer als zur Rechnung ohne Schicht (docs/results_coated.md).
 // Beispiele:
@@ -103,12 +103,13 @@ int main(int argc, char** argv) {
             report(label, n, P.mesh().size(), r, Aref, P.near_pairs(), P.near_seconds(), tb, std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count()); return r.sigma_ext; });
     };
     std::vector<Coating> ncoats = coats; for (auto& c : ncoats) c.medium = ext;
-    if (!path.empty() && twoport) {                                 // Gmsh-Koerper (der erste) mit Zweitor-Schichten
+    if (!path.empty() && twoport) {                                 // Gmsh-Koerper (alle) mit Zweitor-Schichten
         auto bodies = read_gmsh(path, scale);
-        if (bodies.size() != 1) std::printf("Hinweis: --twoport rechnet nur den ersten Koerper\n");
         if (coats.empty() || inward) { std::printf("--twoport: Schichten nach aussen\n"); return 1; }
         auto t0 = std::chrono::steady_clock::now();
-        TwoPortLayerProblem P(TwoPortLayerProblem::layer_surfaces(bodies[0].mesh, coats), mcore, coats, om, ext, hp);
+        std::vector<TwoPortBody> tb;
+        for (auto& b : bodies) tb.push_back(TwoPortBody{TwoPortLayerProblem::layer_surfaces(b.mesh, coats), mcore, coats});
+        TwoPortLayerProblem P(tb, om, ext, hp);
         const double tb_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         for_pols([&]() { auto t1 = std::chrono::steady_clock::now(); auto r = P.solve_plane_wave(d, p, so);
             report("twoport", 0, (coats.size() + 1) * P.outer_mesh().size(), r, 1.0, 0, 0.0, tb_s, std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count()); return r.sigma_ext; });

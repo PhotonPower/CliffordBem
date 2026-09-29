@@ -44,7 +44,7 @@
   {\Large\textbf{Clifford-BEM: Mathematische Ausarbeitung zu AP 1}}\\[0.3cm]
   {\large Teil I: Grundlagen, Cauchy-Darstellung, Transmission, chirale Medien\\
   Teil II: Resonanzfreiheit und Kugel, Teil III: Eindeutigkeit und Torus}\\[0.3cm]
-  {\small Arbeitsstand, Version 0.26}
+  {\small Arbeitsstand, Version 0.27}
 \end{center}
 
 \section*{Überblick und Status}
@@ -2921,7 +2921,11 @@ Dicke höchstens $0{,}1/\kappa_{\max}$ zerlegt ($\kappa_{\max}$ größte Hauptkr
 Zwischenflächen entstehen durch lineare Interpolation der Knoten (exakt für konzentrische Kugeln und Parallelflächen). Das kostet
 nur lokale Unbekannte. Numerisch (Glasschale auf Gold): Der Fehler, der ohne Unterteilung mit dem Netz wuchs
 ($d/a=0{,}3$: $+3{,}0\,\%\to+4{,}1\,\%$ für $n=8\to12$), fällt jetzt ($-1{,}5\,\%\to-0{,}5\,\%$), bei $d/a=0{,}5$ von $+18\,\%$
-auf $-2\,\%$ ($n=8$). Mit Unterteilung ist das Zweitor also auch für dicke Schalen verwendbar. Für die lokale Dünnschicht-Näherung gilt: Für $d\gtrsim h$
+auf $-2\,\%$ ($n=8$). Mit Unterteilung ist das Zweitor also auch für dicke Schalen verwendbar.
+
+\emph{Mehrere Körper (v0.22).} $E_2$ wirkt auf der Vereinigung aller Außenflächen, $E_1$ blockdiagonal auf den Kernen; jeder
+Körper hat seinen eigenen Schichtstapel und eigene Zweitor-Zeilen, Zeile~I paart Außenraum und Kerne aller Körper. Ein Dimer mit
+engem Spalt stimmt mit \eqref{eq:schicht} auf $0{,}1\,\%$ überein. Für die lokale Dünnschicht-Näherung gilt: Für $d\gtrsim h$
 wachsen ihre Terme wie $(d/h)^2$, und die Iterationen steigen stark ($d/h=1{,}5$: 476); dort sind die Zweitor-Formulierung
 (oben) oder, für $d/a\gtrsim0{,}3$, die exakte Formulierung \eqref{eq:schicht} zu verwenden.
 

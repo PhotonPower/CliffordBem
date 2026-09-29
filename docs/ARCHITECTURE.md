@@ -1,4 +1,4 @@
-# Architektur und Ausbauplan (Stand 0.21)
+# Architektur und Ausbauplan (Stand 0.22)
 
 ## Leitlinien
 
@@ -31,7 +31,7 @@
 | operators | Cauchy-Operator, chiraler Innenoperator, blockdiagonaler Mehrkörper-Innenoperator, T₁ mit Medium je Dreieck, geschichtete Transmission (Gebietsoperatoren je Gebiet), dichte Blöcke | Substrate (geschichtete Außenmedien, Green-Funktion der Schichtung) |
 | solvers | GMRES, punktweise 2(1+J)⁻¹, Blockvorkonditionierung (Kanten/Ecken, Cluster; mehrere Körper, chiral), HODLR-Faktorisierung | H-LU mit starker Zulässigkeit, Krylov-Recycling (GCRO-DR), Deflation resonanter Moden, Parallelisierung |
 | sources | ebene Welle (linear/zirkular), Fernfeld, Extinktion, Vorwärtsamplitude S(0) (Betrag, Phase), Lebedev-Richtungen; chirales Außenmedium: Helizitätswelle, Extinktion je Kanal (`chiral_incidence`) | Dipolquellen, Nahfeld, Streuquerschnitt, Streumatrix |
-| problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, Systemeinträge); LayeredScatteringProblem (Grenzflächengraph: Kern-Schale, Mehrfachschichten, Einschlüsse, chirale Schichten); ThinLayerScatteringProblem (eine Fläche je Körper, mehrere Körper; Dirac-Form 2. Ordnung mit Formoperator, glatten Normalen und quadratischer Anpassung der zweiten Ableitungen über die Knotennachbarschaft; Sprungform 1. Ordnung mit Kleinste-Quadrate-Gradient und Divergenz in Flussform; chirale Schichten und Kerne über den zentralen Multivektor K = k₊P₊ + k₋P₋); TwoPortLayerProblem (Schichten als Zweitore nach dem Vorbild der S-Matrix, E₂ auf der Außenfläche, E₁ auf dem Kern, g(s) über Partialbrüche mit dünnbesetzten Resolventen; Mehrfachschichten blockbidiagonal, jede Schicht auf ihrer eigenen Fläche, automatische Unterteilung dicker Schichten) | mehrere rechte Seiten gleichzeitig, Wiederverwendung über Wellenlängen; Block-/HODLR-Vorkonditionierung für geschichtete Körper; neutrale Referenz mit gemeinsamem Aufbau; Dünnschicht: Krümmungssprünge an Rundungsübergängen, Nahfelder und Kräfte in chiralen Medien; Zweitor: mehrere Körper, Vorkonditionierer mit Kopplung benachbarter Schichten (Iterationen wachsen mit der Zahl der Teilschichten), Schichten nach innen |
+| problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, Systemeinträge); LayeredScatteringProblem (Grenzflächengraph: Kern-Schale, Mehrfachschichten, Einschlüsse, chirale Schichten); ThinLayerScatteringProblem (eine Fläche je Körper, mehrere Körper; Dirac-Form 2. Ordnung mit Formoperator, glatten Normalen und quadratischer Anpassung der zweiten Ableitungen über die Knotennachbarschaft; Sprungform 1. Ordnung mit Kleinste-Quadrate-Gradient und Divergenz in Flussform; chirale Schichten und Kerne über den zentralen Multivektor K = k₊P₊ + k₋P₋); TwoPortLayerProblem (Schichten als Zweitore nach dem Vorbild der S-Matrix, E₂ auf der Außenfläche, E₁ auf dem Kern, g(s) über Partialbrüche mit dünnbesetzten Resolventen; Mehrfachschichten blockbidiagonal, jede Schicht auf ihrer eigenen Fläche, automatische Unterteilung dicker Schichten; mehrere Körper mit E₂ auf der Vereinigung und E₁ blockdiagonal) | mehrere rechte Seiten gleichzeitig, Wiederverwendung über Wellenlängen; Block-/HODLR-Vorkonditionierung für geschichtete Körper; neutrale Referenz mit gemeinsamem Aufbau; Dünnschicht: Krümmungssprünge an Rundungsübergängen, Nahfelder und Kräfte in chiralen Medien; Zweitor: Vorkonditionierer mit Kopplung benachbarter Schichten (Iterationen wachsen mit der Zahl der Teilschichten), Schichten nach innen |
 | apps | Kugel, chirale Kugel, Würfel, Würfel-Dimer, Kugel-Dimer, Gmsh-Geometrien, Spektren (auch beschichtet), beschichtete Körper, Kompressionsbenchmark | Parameterstudien für AP 4 |
 | prototype/resonance | 2D-Galerkin mit Streckung in log r, Absorber, angereicherte Eckelemente, 3D-Nullstellenanalyse | transparenter Kantenabschluss (diskrete DtN, Hardy-Raum-Ansatz) |
 | bindings | – | pybind11-Modul für Skripting |
@@ -57,7 +57,8 @@
   Viertelrundung 5–13 % Unterschied zur exakten Rechnung (Diskretisierung, fällt mit dem Netz). Chirale Schichten und
   Kerne nur in der Dirac-Form; das Außenmedium muss achiral sein.
 - **Zweitor:** Krümmung je (Teil-)Schicht bis O(d²); durch die automatische Unterteilung konvergent bis d/a = 0,5, dafür
-  wachsen die Iterationen (d/a = 0,5: 156 bei n = 12). Ein Körper, Schichten nach außen; Kugel und Gmsh.
+  wachsen die Iterationen (d/a = 0,5: 156 bei n = 12). Schichten nach außen; mehrere Körper (Durchdringung der Hüllen
+  verschiedener Körper wird nicht geprüft); Kugel, Kugel-Dimer und Gmsh.
 - **CD dünner chiraler Schalen:** Die exakte Zwei-Flächen-Rechnung verfehlt ihn bei d/h ≲ 0,4 um 30–50 %; die
   Dünnschicht-Näherung ist dort vorzuziehen.
 - **Rechenumgebung der Studien:** ein Kern, 3 GB Speicher; die Netzgrößen der Berichte sind dadurch begrenzt.

@@ -641,6 +641,64 @@ Plasmonresonanz), `spectrum --sphere 8 --twoport --pol circ` (`results/au_spacer
   exakte Rechnung mit drei Flächen CD +0,111 (+22 %, dünne chirale Schicht). Ohne Unterteilung lag σ₊ bei 8 nm (Schicht mit
   d/a = 0,4) um +3,7 % daneben; unterteilt −0,7 %.
 
+### Mehrere Körper im Zweitor (v0.22)
+
+`TwoPortLayerProblem(std::vector<TwoPortBody>, …)`: E₂ wirkt auf der Vereinigung aller Außenflächen, E₁ blockdiagonal auf
+den Kernen, jeder Körper hat seinen eigenen Schichtstapel (mit eigener Unterteilung) und eigene Zweitor-Zeilen. Anordnung
+der Unbekannten [X_L aller Körper | v aller Körper | Zwischenspuren je Körper]; für einen Körper identisch mit v0.20
+(`test_twoport` unverändert). `scatter_coated --mesh … --twoport` und `spectrum --twoport` rechnen alle Körper;
+`spectrum --sphere n --sphere-dimer g` erzeugt zwei Kugeln mit Spalt g (nm).
+
+Dimer aus Goldkugeln mit Glasschale (d = 0,05, Spalt 0,3 zwischen den Schalen, Polarisation entlang der Achse):
+
+| n | Zweitor | exakt (zwei Flächen) | Dünnschicht 2. Ordnung |
+|---:|---:|---:|---:|
+| 6 | 19,1874 (+0,09 %) | 19,1695 | 18,9934 (−0,92 %) |
+| 8 | 19,5776 (+0,06 %) | 19,5664 | 19,4235 (−0,73 %) |
+
+Das Zweitor trifft die exakte Rechnung auch bei starker Kopplung auf 0,1 %. Zwei Körper im Abstand 80 sind auf 9·10⁻⁴
+additiv (`test_twoport`).
+
+**Anwendung: Gold-Dimer mit chiraler Molekülschicht.** Zwei Goldkugeln (Radius 20 nm, Johnson–Christy) in Wasser, 4 nm
+Spalt zwischen den Kernen, auf beiden eine 1-nm-Schicht (n = 1,5, χ = 0,01); Einfall senkrecht zur Achse, zirkular
+polarisiert; Zweitor, n = 8 (`spectrum --sphere 8 --sphere-dimer 4 --twoport --pol circ`, `results/audimer_chiral1.csv`,
+Einzelkugel `results/aumono_chiral1.csv`).
+
+![Gold-Dimer mit chiraler Schicht](fig_coated_dimer_cd.png)
+
+| λ (nm) | σ Dimer | 2 × Einzelkugel | CD Dimer | 2 × CD Einzelkugel | Iterationen |
+|---:|---:|---:|---:|---:|---:|
+| 460 | 3 894 | 3 799 | +0,75 | +0,058 | 32 |
+| 520 | 6 243 | 7 421 | +0,38 | −0,41 | 49 |
+| 560 | 7 708 | 3 910 | +2,15 | −0,12 | 62 |
+| 580 | 8 283 | 1 945 | +2,93 | −0,002 | 64 |
+| 600 | 4 728 | 1 052 | +1,80 | +0,038 | 64 |
+| 620 | 2 272 | 612 | +0,92 | +0,051 | 63 |
+| 660 | 770 | 266 | +0,36 | +0,050 | 62 |
+
+(σ, CD in nm².)
+
+- Die gekoppelte Spaltmode liegt bei etwa 580 nm und erhöht σ dort auf das 4,3-Fache der beiden Einzelkugeln. Der CD ist über
+  das ganze Spektrum positiv und im Bereich der gekoppelten Mode um ein bis zwei Größenordnungen größer als bei den
+  Einzelkugeln (bei 600 nm etwa das 47-Fache), bei 520–560 nm mit anderem Vorzeichen. Auch der relative CD g = CD/σ steigt bei
+  600 nm etwa auf das Zehnfache (3,8·10⁻⁴ gegen 3,6·10⁻⁵).
+- Gegenprobe mit der Dünnschicht-Näherung zweiter Ordnung für mehrere Körper (gleiche Geometrie, `spectrum --thin 0`):
+
+  | λ (nm) | 560 | 580 | 600 | 620 |
+  |---|---:|---:|---:|---:|
+  | σ Zweitor gegen Dünnschicht | −1,6 % | +2,1 % | +4,2 % | +3,2 % |
+  | CD Zweitor gegen Dünnschicht | −1,0 % | +3,7 % | +5,7 % | +4,4 % |
+
+  Die beiden unabhängigen Verfahren stimmen auf 1–6 % überein; der Unterschied entspricht einer leicht verschobenen
+  Resonanzlage. Beim Einzelkörper lag die Übereinstimmung bei etwa 1 %, der Dimer mit seinem starken Spaltfeld ist
+  anspruchsvoller. Eine analytische Referenz gibt es nicht.
+- Der erste Lauf mit 2 nm Spalt zwischen den Kernen war falsch aufgestellt: Bei je 1 nm Schicht berührten sich die beiden
+  Schichtaußenflächen im Spalt, also genau dort, wo der stärkste Beitrag entsteht. Er wurde verworfen. Die
+  Durchdringungsprüfung von `offset_surface` wirkt nur innerhalb eines Körpers; ein Test auf sich berührende oder
+  durchdringende Hüllen verschiedener Körper fehlt noch.
+- Kosten je Wellenlänge (beide Helizitäten): 60–90 s für den Dimer (2 × 2 560 Dreiecke in zwei Flächen), 20–30 s für die
+  Einzelkugel.
+
 ## Chirales Außenmedium (v0.21)
 
 Teilchen in einer optisch aktiven Umgebung (chirale Lösung, chirale Matrix): Der Außenraum ist ein Pasteur-Medium. Das
@@ -714,7 +772,7 @@ der CD ist in χ linear.
 | dicke Schichten (d ≳ h) | ja | nein (Iterationen ∼ (d/h)²) | ja |
 | CD dünner chiraler Schichten | grob falsch bei d/h ≲ 0,4 | Ordnung 2 | Ordnung 2 |
 | Kosten | zwei Flächen, Schichtoperator, neutrale Rechnung | wie ohne Schicht | zwei H-Matrizen (unabhängig von der Schichtzahl), dünnbesetzte Lösungen; Iterationen wachsen mit der Zahl der Teilschichten |
-| Umfang | Mehrfachschichten, mehrere Körper, Gmsh | mehrere Körper, Gmsh, Mehrfachschichten | Mehrfachschichten, ein Körper, Kugel und Gmsh |
+| Umfang | Mehrfachschichten, mehrere Körper, Gmsh | mehrere Körper, Gmsh, Mehrfachschichten | Mehrfachschichten, mehrere Körper, Kugel und Gmsh |
 | Referenzfläche / Netz | – | Metallseite, Krümmung aufgelöst | Kern und Parallelfläche gleicher Topologie |
 
 Die Sprungform erster Ordnung (`ThinLayerModel::Jump1`) bleibt als einfachere Variante erhalten; sie ist durch die

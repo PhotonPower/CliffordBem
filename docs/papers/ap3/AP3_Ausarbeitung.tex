@@ -291,7 +291,7 @@ Konvergenz bei Gold lag also an der Nahfeldquadratur, nicht an Formulierung oder
 Damit ist H3 (zweiter Teil) im Bereich bis etwa 160\,000 Unbekannte und $kD\lesssim16$ numerisch
 gestützt: Der Aufwand ist $\mathcal{O}(N\log^\alpha N)$ mit $\alpha\approx2$ für den Speicher.
 
-\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.21)}\label{sec:cpp2}
+\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.22)}\label{sec:cpp2}
 Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
 \begin{itemize}[leftmargin=*]
   \item \emph{Nahfeld.} Sauter-Schwab-Quadratur für benachbarte Paare: Die bisherige Regel hatte an gemeinsamen
@@ -349,7 +349,9 @@ Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
     automatisch unterteilt: konvergent bis $d/a=0{,}5$, die Iterationen wachsen mit der Zahl der Teilschichten (bis 156).
   \item \emph{Chirales Außenmedium} (v0.21). Der Außenoperator wird $P_+E_{k_+}+P_-E_{k_-}$ (doppelte Zahl der
     Außen-$\mathcal{H}$-Matrizen), die Anregung eine Helizitätswelle, die Extinktion das optische Theorem je Kanal. Die
-    Blockvorkonditionierung ist dafür noch nicht angepasst (HODLR und punktweise funktionieren). Die $\mathcal{H}$-Matrizen der Schichtgebiete
+    Blockvorkonditionierung ist dafür noch nicht angepasst (HODLR und punktweise funktionieren).
+  \item \emph{Mehrere Körper im Zweitor} (v0.22): $E_2$ auf der Vereinigung der Außenflächen, $E_1$ blockdiagonal; der
+    Aufwand bleibt bei zwei (chiral vier) Operatoren. Die $\mathcal{H}$-Matrizen der Schichtgebiete
     enthalten mehr unzulässige Blöcke, weil sich die Cluster beider Flächen überlappen; Speicher und Nahpaare etwa
     verdoppeln sich je Schicht.
 \end{itemize}
