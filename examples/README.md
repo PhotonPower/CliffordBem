@@ -24,5 +24,7 @@ python3 tools/make_geometries.py roundcube 0.3 examples/rc04.msh --radius 0.4 --
 ./build/scatter_coated --n 8 --omega 0.5 --core -11,1.2 --coat 0.05,2.25,0,0.1 --thin --cd   # chirale Hülle, CD gegen tools/mie_chiral_layered.py
 ./build/spectrum --sphere 8 --unit 20 --materials Au --nbg 1.33 --lambda 450:650:10 --coating "1:2.25,0:0.01" --thin 0 --pol circ --heps 1e-6 --tol 1e-9
 ./build/scatter_coated --n 8 --omega 0.5 --core -11,1.2 --coat 0.2,2.25,0 --twoport   # Zweitor, Schicht dicker als die Elemente
+./build/scatter_coated --n 8 --omega 0.5 --core -11,1.2 --coat "0.03,4,1;0.03,2.25,0" --twoport   # Oxid + Glas
+./build/spectrum --sphere 8 --unit 20 --materials Au --nbg 1.33 --lambda 450:650:10 --coating "2:2.1025,0;1:2.25,0:0.01" --twoport --pol circ --heps 1e-6 --tol 1e-9
 ./build/spectrum --mesh examples/rc04.msh --unit 25 --materials Ag --nbg 1.33 --lambda 400:480:20 --coating "2:2.89,0" --thin 0
 ```

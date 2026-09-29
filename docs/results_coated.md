@@ -574,16 +574,83 @@ auf Radius 1 wären durch den verschiedenen Diskretisierungsfehler verfälscht. 
 
 Der CD konvergiert mit Ordnung 2; bei d = 0,2 läuft der Fehler gegen den Krümmungs-Modellrest von etwa 2 %.
 
+### Mehrfachschichten, Auswertung je Schicht, Unterteilung (v0.20)
+
+**Mehrfachschichten:** Für Schichten l = 1 … L zwischen Γ_{l−1} und Γ_l kommen die Spuren X_l auf den inneren
+Grenzflächen als Unbekannte hinzu (im Medium oberhalb von Γ_l). Zeile I bleibt die Paarung Außenraum–Kern, jede Schicht
+liefert ihre eigene Zweitor-Beziehung. Das System ist blockbidiagonal und wird als Ganzes gelöst (keine Produkte von
+Transfermatrizen, Stabilität wie beim Redheffer-Sternprodukt); E₂ und E₁ bleiben die einzigen H-Matrizen. Für eine
+Schicht sind die Ergebnisse identisch mit v0.19. `scatter_coated --twoport --coat "d,re,im[,χ];…"` (Kugel und `--mesh`),
+`spectrum --twoport --coating "d:Material[:χ];…"`.
+
+**Auswertung je Schicht:** Zunächst wurden B_l und s_l um die Kernoberfläche entwickelt (D^(ν) ≈ D − νD_S mit ν = Abstand
+der Schichtmitte). Für weit außen liegende Schichten ist das zu grob: Eine chirale Schicht 4 nm über einer 20-nm-Goldkugel
+ergab einen um 75 % falschen CD. Jede Schicht wird jetzt auf ihrer eigenen unteren Fläche ausgewertet (eigene Stencils,
+Formoperator, Laplace–Beltrami).
+
+**Unterteilung:** Der Krümmungsfehler einer Schicht wächst mit (d_l/a)². Jede Schicht wird automatisch in Teilschichten
+der Dicke höchstens 0,1/κ_max zerlegt (κ_max größte Hauptkrümmung der Kernfläche; `TwoPortOptions::split`, 0 schaltet ab),
+Zwischenflächen durch lineare Interpolation der Knoten. Das kostet nur lokale Unbekannte, aber Iterationen.
+
+Goldkern, Glasschale bzw. Mehrfachschichten, relativer Fehler von σ_ext gegen Aden–Kerker (`results/twoport2.csv`,
+`tools/analyze_twoport.py results/twoport2.csv`):
+
+| Schichten (innen → außen) | n = 4 | n = 6 | n = 8 | n = 12 | Iterationen n = 12 |
+|---|---:|---:|---:|---:|---:|
+| ohne Schicht | +7,31 % | +3,25 % | +1,81 % | +0,80 % | 36 |
+| Glas 0,05 | +3,65 % | +1,60 % | +0,90 % | +0,41 % | 41 |
+| Glas 0,1 | +0,71 % | +0,27 % | +0,16 % | +0,10 % | 51 |
+| Glas 0,2 | −3,59 % | −1,62 % | −0,86 % | −0,28 % | 76 |
+| Glas 0,3 | −6,51 % | −2,89 % | −1,51 % | −0,48 % | 101 |
+| Glas 0,5 | −9,88 % | −4,29 % | −2,18 % | −0,62 % | 156 |
+| Oxid (4 + i) 0,03 + Glas 0,03 | – | – | +0,33 % | +0,15 % | 41 |
+| Oxid 0,02 + Glas 0,2 | – | – | −1,26 % | −0,46 % | 79 |
+| Glas 0,05 + Oxid 0,02 + (ε = 2) 0,1 | – | – | −0,75 % | −0,29 % | 68 |
+
+- Alle Fälle konvergieren mit dem Netz, auch dicke Schalen. Ohne Unterteilung wuchs der Fehler bei d/a = 0,3 mit dem Netz
+  (+3,0 → +4,1 % für n = 8 → 12) und lag bei d/a = 0,5 bei +18 % (n = 8); jetzt −1,5 → −0,5 % bzw. −2,2 %.
+- Eine Glasschicht als zwei Teilschichten (0,03 + 0,07) weicht von der einen Schicht um 2·10⁻⁴ ab (`test_twoport`).
+- Die Iterationen wachsen mit der Zahl der Teilschichten (d/a = 0,5 in 5–6 Teilschichten: 156 bei n = 12); ein
+  Vorkonditionierer, der die Kopplung benachbarter Schichten enthält, wäre der nächste Schritt.
+
+**Chirale Mehrfachschicht:** chirale Schicht (χ = 0,1, 0,05) auf Glasabstandshalter (0,05) über Gold: CD +1,2 % (n = 6),
++0,8 % (n = 8) gegen `tools/mie_chiral_layered.py`.
+
+**Anwendung: chirale Schicht im Abstand zum Gold.** Goldkugel (20 nm, Johnson–Christy) in Wasser, dielektrischer
+Abstandshalter (n = 1,45, 0–8 nm), darauf 1 nm chirale Schicht (n = 1,5, χ = 0,01); CD bei 530 nm (nahe der
+Plasmonresonanz), `spectrum --sphere 8 --twoport --pol circ` (`results/au_spacer_cd.csv`):
+
+![CD gegen Abstand](fig_coated_spacer.png)
+
+| Abstand (nm) | CD BEM (nm²) | CD Mie (nm²) | Fehler (absolut) | σ₊-Fehler | Iterationen |
+|---:|---:|---:|---:|---:|---:|
+| 0 | −0,2054 | −0,1935 | −0,012 | −1,2 % | 36 |
+| 1 | −0,1352 | −0,1216 | −0,014 | −1,1 % | 41 |
+| 2 | −0,0648 | −0,0499 | −0,015 | −1,1 % | 48 |
+| 3 | +0,0050 | +0,0209 | −0,016 | −1,0 % | 54 |
+| 4 | +0,0737 | +0,0905 | −0,017 | −0,9 % | 61 |
+| 6 | +0,2077 | +0,2257 | −0,018 | −0,8 % | 74 |
+| 8 | +0,3367 | +0,3554 | −0,019 | −0,7 % | 87 |
+
+- Bei 530 nm wechselt der CD bei etwa 2,7 nm Abstand das Vorzeichen (BEM: 2,9 nm) und wächst danach nahezu linear. Die
+  Wellenlänge liegt fest, die zweiteilige CD-Struktur um die Resonanz verschiebt sich mit dem Abstand, und das Volumen der
+  chiralen Schicht nimmt zu; eine vollständige Deutung verlangte Spektren je Abstand.
+- Der CD-Fehler ist ein nahezu konstanter Versatz (−0,012 … −0,019 nm²), derselbe wie ohne Abstandshalter: der
+  Diskretisierungsfehler der Goldkugel an der Resonanz (n = 8). σ₊ liegt durchgehend 0,7–1,2 % zu tief.
+- Zum Vergleich bei 4 nm: vor der Auswertung je Schicht CD +0,021 (−76 %), Dünnschicht-Näherung σ₊ −12 % (280 Iterationen),
+  exakte Rechnung mit drei Flächen CD +0,111 (+22 %, dünne chirale Schicht). Ohne Unterteilung lag σ₊ bei 8 nm (Schicht mit
+  d/a = 0,4) um +3,7 % daneben; unterteilt −0,7 %.
+
 ### Einordnung
 
-| | exakt (zwei Flächen) | Dünnschicht 2. Ordnung | Zweitor (v0.19) |
+| | exakt (zwei Flächen) | Dünnschicht 2. Ordnung | Zweitor (v0.20) |
 |---|---|---|---|
-| Gültigkeit | beliebige Dicke, Mehrfachschichten, chiral | d/a ≲ 0,1, d ≲ h | d/a ≲ 0,1–0,2, beliebiges d/h |
+| Gültigkeit | beliebige Dicke, Mehrfachschichten, chiral | d/a ≲ 0,1, d ≲ h | beliebige Dicke (Unterteilung) und beliebiges d/h, Mehrfachschichten, chiral |
 | dünne Schichten (d ≪ h) | Differenz zur neutralen Rechnung nötig | direkt | direkt |
 | dicke Schichten (d ≳ h) | ja | nein (Iterationen ∼ (d/h)²) | ja |
 | CD dünner chiraler Schichten | grob falsch bei d/h ≲ 0,4 | Ordnung 2 | Ordnung 2 |
-| Kosten | zwei Flächen, Schichtoperator, neutrale Rechnung | wie ohne Schicht | zwei H-Matrizen, einige dünnbesetzte Lösungen |
-| Umfang | Mehrfachschichten, mehrere Körper, Gmsh | mehrere Körper, Gmsh, Mehrfachschichten | Prototyp: eine Schicht, ein Körper |
+| Kosten | zwei Flächen, Schichtoperator, neutrale Rechnung | wie ohne Schicht | zwei H-Matrizen (unabhängig von der Schichtzahl), dünnbesetzte Lösungen; Iterationen wachsen mit der Zahl der Teilschichten |
+| Umfang | Mehrfachschichten, mehrere Körper, Gmsh | mehrere Körper, Gmsh, Mehrfachschichten | Mehrfachschichten, ein Körper, Kugel und Gmsh |
 | Referenzfläche / Netz | – | Metallseite, Krümmung aufgelöst | Kern und Parallelfläche gleicher Topologie |
 
 Die Sprungform erster Ordnung (`ThinLayerModel::Jump1`) bleibt als einfachere Variante erhalten; sie ist durch die

@@ -4,7 +4,8 @@ Bewertet werden Absolutwerte gegen Aden-Kerker bzw. die chirale Schicht-Mie-Loes
 Aussenflaeche (Radius 1 + d) rechnet: Differenzen zu einer Rechnung ohne Schicht auf Radius 1 waeren durch den
 unterschiedlichen Diskretisierungsfehler verfaelscht. Zum Vergleich: Fehler der Kugel ohne Schicht auf demselben Netz.
 Methoden: twoport (Zweitor), thin-dirac2fit (Duennschicht 2. Ordnung), zwei Flaechen (exakt, LayeredScatteringProblem).
-Aufruf: python3 tools/analyze_twoport.py
+Aufruf: python3 tools/analyze_twoport.py [results/twoport.csv]   (v0.20: results/twoport2.csv, mit Unterteilung dicker
+Schichten und Mehrfachschichten; Schichtangabe "d,re,im;d,re,im" von innen nach aussen)
 """
 import csv, os, sys
 from collections import defaultdict
@@ -13,8 +14,18 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mie_coated as mc, mie_chiral_layered as mcl
 
 om = 0.5; core = complex(-11, 1.2)
-if os.path.exists('results/twoport.csv'):
-    rows = list(csv.DictReader(open('results/twoport.csv')))
+fn = sys.argv[1] if len(sys.argv) > 1 else 'results/twoport.csv'
+
+
+def mie_sigma_arg(spec):
+    radii = [1.0]; eps = [core]
+    for part in spec.split(';'):
+        v = [float(x) for x in part.split(',')]; radii.append(radii[-1] + v[0]); eps.append(complex(v[1], v[2] if len(v) > 2 else 0.0))
+    S = mc.forward_amplitude(om, radii, eps); return 16 * np.pi * S.real, np.angle(S)
+
+
+if os.path.exists(fn):
+    rows = list(csv.DictReader(open(fn)))
     res = defaultdict(dict); bare = {}
     for r in rows:
         n = int(r['n']); c = r['coat']
@@ -22,19 +33,19 @@ if os.path.exists('results/twoport.csv'):
         if c.startswith('twoport:'): m, spec = 'Zweitor', c.split(':', 1)[1]
         elif c.startswith('thin'): m, spec = 'Dünnschicht', c.split(':', 1)[1]
         else: m, spec = 'zwei Flächen', c
-        d = float(spec.split(',')[0]); res[(d, m)][n] = r
+        res[(spec, m)][n] = r
     S0 = mc.forward_amplitude(om, [1.0], [core])
     print("Kugel ohne Schicht: rel. Fehler sigma / Fehler arg S je Netz")
     for n in sorted(bare):
         s = float(bare[n]['sigma_ext']); print(f"  n={n:2d}: {s / (16 * np.pi * S0.real) - 1:+7.2%}  {float(bare[n]['S_arg']) - np.angle(S0):+.4f} rad")
     print(f"\n{'d':>6} {'Methode':>13} | " + " | ".join(f"n={n:2d}: sigma / arg S / It." for n in [4, 6, 8, 12]))
-    for (d, m) in sorted(res, key=lambda k: (k[0], k[1])):
-        S = mc.forward_amplitude(om, [1.0, 1.0 + d], [core, 2.25]); sx = 16 * np.pi * S.real
+    for (spec, m) in sorted(res, key=lambda k: (';' in k[0], float(k[0].split(',')[0]), k[0], k[1])):
+        sx, ax = mie_sigma_arg(spec)
         cells = []
         for n in [4, 6, 8, 12]:
-            r = res[(d, m)].get(n)
-            cells.append(f"{float(r['sigma_ext']) / sx - 1:+6.2%} {float(r['S_arg']) - np.angle(S):+.4f} {int(r['iterations']):4d}" if r else " " * 24)
-        print(f"{d:6.3f} {m:>13} | " + " | ".join(cells))
+            r = res[(spec, m)].get(n)
+            cells.append(f"{float(r['sigma_ext']) / sx - 1:+6.2%} {float(r['S_arg']) - ax:+.4f} {int(r['iterations']):4d}" if r else " " * 24)
+        print(f"{spec:>30} {m:>13} | " + " | ".join(cells))
 
 if os.path.exists('results/twoport_chiral.csv'):
     g = defaultdict(dict)

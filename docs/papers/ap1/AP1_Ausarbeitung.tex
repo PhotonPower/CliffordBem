@@ -44,7 +44,7 @@
   {\Large\textbf{Clifford-BEM: Mathematische Ausarbeitung zu AP 1}}\\[0.3cm]
   {\large Teil I: Grundlagen, Cauchy-Darstellung, Transmission, chirale Medien\\
   Teil II: Resonanzfreiheit und Kugel, Teil III: Eindeutigkeit und Torus}\\[0.3cm]
-  {\small Arbeitsstand, Version 0.24}
+  {\small Arbeitsstand, Version 0.25}
 \end{center}
 
 \section*{Überblick und Status}
@@ -105,6 +105,7 @@ Dünnschicht-Näherung erster Ordnung (\ref{sec:schicht}) & hergeleitet, num.\ b
 Dünnschicht zweiter Ordnung, Dirac-Form (\ref{sec:schicht}) & hergeleitet, num.\ belegt & \texttt{test\_thin\_layer}\\
 Dünnschicht mit chiralen Schichten (\ref{sec:schicht}) & hergeleitet, num.\ belegt & \texttt{test\_thin\_layer}\\
 Zweitor-Formulierung (S-Matrix) (\ref{sec:schicht}) & hergeleitet, num.\ belegt & \texttt{test\_twoport}\\
+Zweitor: Mehrfachschichten, Unterteilung (\ref{sec:schicht}) & num.\ belegt & \texttt{test\_twoport}\\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -2897,8 +2898,29 @@ Lösungen je Anwendung.
 Numerisch (Goldkern, Glasschale, \texttt{docs/results\_coated.md}): Der absolute Fehler bleibt bis $d/a\approx0{,}2$ auf dem
 Niveau der Diskretisierung ohne Schicht, auch für $d/h$ bis 1,5; die Iterationen bleiben unter 60 (Dünnschicht zweiter
 Ordnung: 476 bei $d/h=1{,}5$). Bei $d/a=0{,}5$ steigt der Fehler auf 15--18\,\% und wächst mit dem Netz: Die Krümmung ist nur bis
-$\mathcal{O}(d^2)$ enthalten. Die Zweitor-Formulierung löst also die Beschränkung auf $d\lesssim h$, nicht die auf $d\ll a$; für
-dicke Schalen bleibt \eqref{eq:schicht} das Mittel der Wahl. Für die lokale Dünnschicht-Näherung gilt: Für $d\gtrsim h$
+$\mathcal{O}(d^2)$ enthalten. Ohne Unterteilung (unten) löst die Zweitor-Formulierung also die Beschränkung auf $d\lesssim h$, nicht die auf
+$d\ll a$; dafür bliebe \eqref{eq:schicht} das Mittel der Wahl.
+
+\emph{Mehrfachschichten (v0.20).} Für Schichten $l=1,\dots,L$ zwischen den Flächen $\Gamma_{l-1}$ und $\Gamma_l$ kommen die
+Spuren $X_l$ auf den inneren Grenzflächen als Unbekannte hinzu (im Medium oberhalb von $\Gamma_l$). Zeile~I bleibt die Paarung
+Außenraum--Kern; jede Schicht liefert ihre eigene Zweitor-Beziehung
+$u^{(l)}_{\mathrm{oben}}-u^{(l)}_{\mathrm{unten}}=g_l(s_l)B_l(u^{(l)}_{\mathrm{oben}}+u^{(l)}_{\mathrm{unten}})$. Das System ist
+blockbidiagonal und wird als Ganzes gelöst: Es werden keine Transfermatrizen multipliziert, jede Zeile ist beschränkt (die
+Stabilitätseigenschaft des Redheffer-Sternprodukts, ohne explizite Elimination). $E_2$ und $E_1$ bleiben die einzigen
+$\mathcal{H}$-Matrizen. Für $d_l\to0$ wird jede Zeile zur Stetigkeit, und mit $J_{a\leftarrow b}J_{b\leftarrow c}=J_{a\leftarrow c}$
+folgt $T_1$.
+
+\emph{Auswertung je Schicht.} Entwickelt man $B_l$ und $s_l$ um die Kernoberfläche ($D^{(\nu)}\approx D-\nu D_S$ mit $\nu$ = Abstand
+der Schichtmitte vom Kern), ist das für weit außen liegende Schichten zu grob: Eine chirale Schicht 4\,nm über einer
+20-nm-Goldkugel ergab einen um 75\,\% falschen CD. Jede Schicht wird deshalb auf ihrer eigenen unteren Fläche
+$\Gamma_{l-1}$ ausgewertet (eigene Stencils, Formoperator, Laplace-Beltrami), die Entwicklung reicht nur über $d_l/2$.
+
+\emph{Unterteilung.} Der Krümmungsfehler einer Schicht wächst mit $(d_l/a)^2$. Jede Schicht wird daher in Teilschichten der
+Dicke höchstens $0{,}1/\kappa_{\max}$ zerlegt ($\kappa_{\max}$ größte Hauptkrümmung der Kernfläche, aus dem Formoperator); die
+Zwischenflächen entstehen durch lineare Interpolation der Knoten (exakt für konzentrische Kugeln und Parallelflächen). Das kostet
+nur lokale Unbekannte. Numerisch (Glasschale auf Gold): Der Fehler, der ohne Unterteilung mit dem Netz wuchs
+($d/a=0{,}3$: $+3{,}0\,\%\to+4{,}1\,\%$ für $n=8\to12$), fällt jetzt ($-1{,}5\,\%\to-0{,}5\,\%$), bei $d/a=0{,}5$ von $+18\,\%$
+auf $-2\,\%$ ($n=8$). Mit Unterteilung ist das Zweitor also auch für dicke Schalen verwendbar. Für die lokale Dünnschicht-Näherung gilt: Für $d\gtrsim h$
 wachsen ihre Terme wie $(d/h)^2$, und die Iterationen steigen stark ($d/h=1{,}5$: 476); dort sind die Zweitor-Formulierung
 (oben) oder, für $d/a\gtrsim0{,}3$, die exakte Formulierung \eqref{eq:schicht} zu verwenden.
 

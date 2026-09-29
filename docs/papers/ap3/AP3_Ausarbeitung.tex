@@ -291,7 +291,7 @@ Konvergenz bei Gold lag also an der Nahfeldquadratur, nicht an Formulierung oder
 Damit ist H3 (zweiter Teil) im Bereich bis etwa 160\,000 Unbekannte und $kD\lesssim16$ numerisch
 gestützt: Der Aufwand ist $\mathcal{O}(N\log^\alpha N)$ mit $\alpha\approx2$ für den Speicher.
 
-\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.19)}\label{sec:cpp2}
+\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.20)}\label{sec:cpp2}
 Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
 \begin{itemize}[leftmargin=*]
   \item \emph{Nahfeld.} Sauter-Schwab-Quadratur für benachbarte Paare: Die bisherige Regel hatte an gemeinsamen
@@ -343,7 +343,10 @@ Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
   \item \emph{Schicht als Zweitor} (v0.19, Prototyp). Nach dem Vorbild der S-Matrix von Schichtsystemen: zwei
     $\mathcal{H}$-Matrizen ($E_2$ auf der Außenfläche, $E_1$ auf dem Kern) und eine Zweitor-Beziehung mit
     $g(s)=\tanh(d\sqrt s/2)/\sqrt s$, ausgewertet über Partialbrüche mit dünnbesetzten Resolventen des
-    Laplace-Beltrami-Operators (5--11 innere Schritte je Pol). Stabil bis $d/h=3{,}8$ bei unter 62 Iterationen. Die $\mathcal{H}$-Matrizen der Schichtgebiete
+    Laplace-Beltrami-Operators (5--11 innere Schritte je Pol). Stabil bis $d/h=3{,}8$ bei unter 62 Iterationen.
+  \item \emph{Mehrfachschichten im Zweitor} (v0.20). Blockbidiagonales System mit den Spuren auf den inneren
+    Grenzflächen; weiterhin nur zwei $\mathcal{H}$-Matrizen. Jede Schicht auf ihrer eigenen Fläche, dicke Schichten
+    automatisch unterteilt: konvergent bis $d/a=0{,}5$, die Iterationen wachsen mit der Zahl der Teilschichten (bis 156). Die $\mathcal{H}$-Matrizen der Schichtgebiete
     enthalten mehr unzulässige Blöcke, weil sich die Cluster beider Flächen überlappen; Speicher und Nahpaare etwa
     verdoppeln sich je Schicht.
 \end{itemize}

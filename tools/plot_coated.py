@@ -267,3 +267,26 @@ if os.path.exists('results/twoport.csv'):
     ax[1].set_xlabel('Elementgröße h'); ax[1].set_ylabel('rel. Fehler des CD'); ax[1].grid(True, which='both', alpha=0.3)
     ax[1].set_title('Zweitor: chirale Hülle (χ = 0,1)', fontsize=10); ax[1].legend(fontsize=6.5)
     fig.tight_layout(); fig.savefig('docs/fig_coated_twoport.png', dpi=130)
+
+# 8. Plasmoninduzierter CD gegen den Abstand der chiralen Schicht vom Gold (results/au_spacer_cd.csv, Zweitor)
+if os.path.exists('results/au_spacer_cd.csv'):
+    import mie_chiral_layered as mcl
+    rows = rd('results/au_spacer_cd.csv')
+    spacers = []
+    for r in rows:
+        c = r['coating'].split(' ')[0]; parts = c.split(';')
+        spacers.append(float(parts[0].split(':')[0]) if len(parts) > 1 else 0.0)
+    cdb = np.array([float(r['CD_nm2']) for r in rows]); spb = np.array([float(r['sigma_plus_nm2']) for r in rows])
+    L = 530.0; e = eps_tab('data/materials/Au_Johnson.yml', L); o = 2 * np.pi / L; nb2 = 1.33 ** 2
+    def mie_cd(s):
+        R = [20.0] + ([20.0 + s] if s > 0 else []) + [21.0 + s]; M = [(e, 1, 0)] + ([(2.1025, 1, 0)] if s > 0 else []) + [(2.25, 1, 0.01)]
+        p = mcl.cross_sections(o, R, M, +1, eps2=nb2)[0]; q = mcl.cross_sections(o, R, M, -1, eps2=nb2)[0]; return p - q, p
+    sf = np.linspace(0, 10, 41); cdf = np.array([mie_cd(s)[0] for s in sf])
+    fig, ax = plt.subplots(figsize=(5.6, 3.6))
+    ax.plot(sf, cdf, 'k-', lw=1, label='Mie (geschichtet, chiral)'); ax.plot(spacers, cdb, 'C3o', label='BEM Zweitor (n = 8)')
+    ax.axhline(0, color='k', lw=0.5); ax.set_xlabel('Dicke des Abstandshalters (nm, n = 1,45)'); ax.set_ylabel(r'CD bei 530 nm (nm$^2$)')
+    ax.set_title('Goldkugel 20 nm, 1 nm chirale Schicht (χ = 0,01), Wasser', fontsize=10); ax.legend(fontsize=7)
+    fig.tight_layout(); fig.savefig('docs/fig_coated_spacer.png', dpi=130)
+    print('\nAbstandshalter: s, CD BEM, CD Mie, Fehler absolut, sigma+ BEM, Mie, Fehler, Iterationen')
+    for s, c, sp, r in zip(spacers, cdb, spb, rows):
+        m, p = mie_cd(s); print(f"  {s:4.0f} {c:+.5f} {m:+.5f} {c - m:+.4f} {sp:8.1f} {p:8.1f} {sp / p - 1:+6.1%} {r['iterations']}")
