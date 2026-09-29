@@ -16,6 +16,7 @@
 | `results_aca_multivector.md` | ACA mit Multivektor-Pivots (H3) |
 | `results_resonance_window.md` | Resonanzfenster an Ecken (2D-Lösung, 3D-Hindernisse) |
 | `results_roundcube.md` | abgerundete Würfel im Fenster, Silberwürfel-Spektren |
+| `results_nearfield.md` | Nahfeld: Validierung gegen Mie, Spaltfeld und optische Chiralität des Gold-Dimers |
 | `results_coated.md` | beschichtete Grenzflächen: Aden–Kerker, dünne Schichten, Silberteilchen mit Oxid, Dünnschicht-Näherung erster und zweiter Ordnung, chirale Schichten, Zweitor |
 
 ## Arbeitspapiere und Antrag

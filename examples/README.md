@@ -26,6 +26,7 @@ python3 tools/make_geometries.py roundcube 0.3 examples/rc04.msh --radius 0.4 --
 ./build/scatter_coated --n 8 --omega 0.5 --core -11,1.2 --coat 0.2,2.25,0 --twoport   # Zweitor, Schicht dicker als die Elemente
 ./build/scatter_coated --n 8 --omega 0.5 --core -11,1.2 --coat "0.03,4,1;0.03,2.25,0" --twoport   # Oxid + Glas
 ./build/spectrum --sphere 8 --unit 20 --materials Au --nbg 1.33 --host-chi 0.001 --pol circ --lambda 450:650:10 --heps 1e-6 --tol 1e-9   # Goldkugel in chiraler Lösung
+./build/nearfield --sphere 8 --sphere-dimer 4 --unit 20 --materials Au --nbg 1.33 --coating "1:2.25,0:0.01" --lambda 580 --pol circ --plane xz --extent "-50:50:201,-30:30:121" --csv nf.csv && python3 tools/plot_nearfield.py nf.csv nf.png   # Nahfeldkarte
 ./build/spectrum --sphere 8 --sphere-dimer 2 --unit 20 --materials Au --nbg 1.33 --coating "1:2.25,0:0.01" --twoport --pol circ --lambda 460:700:20 --heps 1e-6 --tol 1e-9   # Gold-Dimer mit chiraler Schicht
 ./build/spectrum --sphere 8 --unit 20 --materials Au --nbg 1.33 --lambda 450:650:10 --coating "2:2.1025,0;1:2.25,0:0.01" --twoport --pol circ --heps 1e-6 --tol 1e-9
 ./build/spectrum --mesh examples/rc04.msh --unit 25 --materials Ag --nbg 1.33 --lambda 400:480:20 --coating "2:2.89,0" --thin 0
