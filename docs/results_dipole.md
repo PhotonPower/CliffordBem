@@ -187,9 +187,18 @@ ihre relative Phase über den freien Helizitätsdipol, und die Fernfelder sind l
 - Tangential bzw. senkrecht zur Achse orientierte Emitter gewinnen: Ihre elektrische Abstrahlung wird vom Spiegelbild im Metall
   nahezu ausgelöscht (Kugel bei 5 nm γ_rad = 0,05, Spalt 0,27), ein tangentialer magnetischer Dipol strahlt vor Metall eher
   verstärkt. Im Spalt wechselt g_lum dabei das Vorzeichen: Die Umgebung verschiebt die Phase zwischen elektrischem und
-  magnetischem Anteil so, dass die Interferenz der Helizitätsanteile umkehrt. Dieser Befund hängt empfindlich vom Verhältnis
-  zweier stark veränderter Beiträge ab und verdient eine Gegenprüfung mit feinerem Netz (bei 2 nm Abstand etwa 20 % Genauigkeit
-  in den Raten).
+  magnetischem Anteil so, dass die Interferenz der Helizitätsanteile umkehrt. Gegenprüfung mit feinerem Netz (n = 16, h am
+  Fußpunkt etwa d/7,6 statt d/5,7; `results/cpl_dimer_600_n16.csv`):
+
+  | Größe | n = 12 | n = 16 |
+  |---|---:|---:|
+  | g_lum senkrecht zur Achse | +0,09332 | +0,09366 (+0,4 %) |
+  | g_lum entlang der Achse | −0,00083 | −0,00081 |
+  | g_lum gemittelt | −0,00080 | −0,00078 |
+  | γ_rad senkrecht / entlang | 0,2695 / 1 463 | 0,2692 / 1 532 |
+  | γ_tot senkrecht / entlang | 1 306 / 13 550 | 1 245 / 13 587 |
+
+  Der Vorzeichenwechsel ist damit robust: g_lum ändert sich um 0,4 %, die Raten um höchstens etwa 5 %.
 - Im Orientierungsmittel dominieren die stark strahlenden radialen bzw. axialen Emitter: Achirale plasmonische Strukturen
   verdünnen die zirkular polarisierte Lumineszenz eines chiralen Emitters (Kugel bei 5 nm auf ein Drittel, im Spalt auf 2 %),
   obwohl einzelne Orientierungen verstärkt werden.
