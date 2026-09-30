@@ -48,6 +48,10 @@ std::vector<real> distance_to_surface(const TriangleMesh& m, const std::vector<V
 // Windungszahl der geschlossenen, nach aussen orientierten Flaeche m um den Punkt x (Raumwinkel nach Van Oosterom und
 // Strackee): 1 innen, 0 aussen
 real winding_number(const TriangleMesh& m, const Vec3& x);
+// Ikosaederkugel (Radius r) mit konform zum Pol e verdichtetem Netz (v0.26): stereographische Projektion vom Gegenpol, Skalierung
+// mit lambda < 1, Rueckprojektion. Elementgroesse am Pol etwa lambda h, am Gegenpol h / lambda; gleiche Dreieckszahl, Winkel
+// erhalten. Fuer Quellen dicht vor der Oberflaeche (Dipol im Abstand d: lambda so, dass lambda h ~ d/3).
+TriangleMesh make_icosphere_graded(int n, const Vec3& pole, real lambda, real r = 1.0);
 // Pruefung zweier Flaechen verschiedener Koerper (Innengebiete disjunkt): wirft std::runtime_error, wenn ein Knoten der
 // einen innerhalb der anderen liegt (Durchdringung) oder der kleinste Abstand abzueglich 'extra' kleiner als 5 % der
 // mittleren Elementgroesse ist (Beruehrung). 'extra' beruecksichtigt nach aussen wachsende Schichten, die nicht als Flaeche

@@ -286,14 +286,19 @@ LayeredResult TwoPortLayerProblem::solve_plane_wave(const Vec3& dir, const CVec3
     const PlaneWaveIncidence inc = plane_wave_incidence(outer_m_, omega_, dir, p);
     const TriangleMesh& ma = outer_.all;
     const std::vector<cplx> ba = project_plane_wave(ma, inc.k, outer_m_.eps, dir, p);
+    LayeredResult r = solve_rhs(ba, o);
+    std::vector<cplx> hs(8 * Ntot_); for (std::size_t i = 0; i < 8 * Ntot_; ++i) hs[i] = r.h[i] - ba[i];
+    r.sigma_ext = extinction_in_medium(ma, hs, outer_m_, inc, dir, p);
+    r.forward = forward_amplitude_in_medium(ma, hs, outer_m_, inc, dir, p);
+    return r;
+}
+
+LayeredResult TwoPortLayerProblem::solve_rhs(const std::vector<cplx>& ba, const SolveOptions& o) const {
     std::vector<cplx> b(size_, cplx(0)); std::copy(ba.begin(), ba.end(), b.begin());
     LinOp A = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { apply(x, y); };
     LinOp M = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { precondition(x, y); };
     LayeredResult r; GmresResult g = gmres(A, b, r.h, &M, o.tol, o.restart, o.max_iter);
     r.iterations = g.iterations; r.residual = g.rel_residual;
-    std::vector<cplx> hs(8 * Ntot_); for (std::size_t i = 0; i < 8 * Ntot_; ++i) hs[i] = r.h[i] - ba[i];
-    r.sigma_ext = extinction_in_medium(ma, hs, outer_m_, inc, dir, p);
-    r.forward = forward_amplitude_in_medium(ma, hs, outer_m_, inc, dir, p);
     return r;
 }
 

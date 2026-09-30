@@ -291,7 +291,7 @@ Konvergenz bei Gold lag also an der Nahfeldquadratur, nicht an Formulierung oder
 Damit ist H3 (zweiter Teil) im Bereich bis etwa 160\,000 Unbekannte und $kD\lesssim16$ numerisch
 gestützt: Der Aufwand ist $\mathcal{O}(N\log^\alpha N)$ mit $\alpha\approx2$ für den Speicher.
 
-\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.25)}\label{sec:cpp2}
+\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.26)}\label{sec:cpp2}
 Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
 \begin{itemize}[leftmargin=*]
   \item \emph{Nahfeld.} Sauter-Schwab-Quadratur für benachbarte Paare: Die bisherige Regel hatte an gemeinsamen
@@ -356,7 +356,10 @@ Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
     die Randoperatoren); direkte Summation, 24\,321 Punkte bei 5\,120 Dreiecken in 17\,s. Gegen Mie auf 0,3--2\,\% bis dicht an
     die Oberfläche; im Spalt eines Dimers verlangt das Nahfeld feinere Netze als die Spektren. Seit v0.25 als rechteckige
     $\mathcal{H}$-Matrix (Punkte $\times$ Dreiecke, ACA über die vier Kernkomponenten): 4,5-fach schneller bei 28\,800 Punkten,
-    die Anwendung allein 60- bis 90-fach, Kompressionsfehler $10^{-5}$. Die $\mathcal{H}$-Matrizen der Schichtgebiete
+    die Anwendung allein 60- bis 90-fach, Kompressionsfehler $10^{-5}$.
+  \item \emph{Dipolanregung} (v0.26): elektrischer Dipol als rechte Seite, Zerfallsraten und Quantenausbeute von Emittern.
+    Das Quenching verlangt am Fußpunkt Elemente von etwa $d/8$; ein konform verdichtetes Kugelnetz erreicht das ohne mehr
+    Dreiecke, kostet aber durch die kleinen Elemente Aufbauzeit der $\mathcal{H}$-Matrix. Die $\mathcal{H}$-Matrizen der Schichtgebiete
     enthalten mehr unzulässige Blöcke, weil sich die Cluster beider Flächen überlappen; Speicher und Nahpaare etwa
     verdoppeln sich je Schicht.
 \end{itemize}

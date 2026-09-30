@@ -129,14 +129,19 @@ PlaneWaveResult ScatteringProblem::solve_plane_wave(const Vec3& d, const CVec3& 
     const TriangleMesh& m = mb_.all;
     const PlaneWaveIncidence inc = plane_wave_incidence(outer_, omega_, d, p);   // chiral: Helizitaetswelle mit k_sigma
     auto b = project_plane_wave(m, inc.k, outer_.eps, d, p);
+    PlaneWaveResult r = solve_rhs(b, o);
+    std::vector<cplx> hs(r.h.size()); for (std::size_t i = 0; i < hs.size(); ++i) hs[i] = r.h[i] - b[i];
+    r.sigma_ext = extinction_in_medium(m, hs, outer_, inc, d, p);
+    r.forward = forward_amplitude_in_medium(m, hs, outer_, inc, d, p);
+    return r;
+}
+
+PlaneWaveResult ScatteringProblem::solve_rhs(const std::vector<cplx>& b, const SolveOptions& o) const {
     LinOp A = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { T_->apply(x, y); };
     LinOp M = [&](const std::vector<cplx>& x, std::vector<cplx>& y) {
         if (hodlr_) hodlr_->apply(x, y); else if (prec_) prec_->apply(x, y); else T_->precondition(x, y); };
     PlaneWaveResult r; GmresResult g = gmres(A, b, r.h, &M, o.tol, o.restart, o.max_iter);
     r.iterations = g.iterations; r.residual = g.rel_residual;
-    std::vector<cplx> hs(r.h.size()); for (std::size_t i = 0; i < hs.size(); ++i) hs[i] = r.h[i] - b[i];
-    r.sigma_ext = extinction_in_medium(m, hs, outer_, inc, d, p);
-    r.forward = forward_amplitude_in_medium(m, hs, outer_, inc, d, p);
     return r;
 }
 

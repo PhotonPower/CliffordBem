@@ -5,12 +5,12 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.25.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.26.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
 beliebiger Dicke), chirale Außenmedien (Teilchen in chiraler Lösung), dispersive
-Materialien, Spektren mit Orientierungsmittelung, Nahfeldkarten (Feldverstärkung, optische Chiralität), Phase der Vorwärtsamplitude, Block- und hierarchische
+Materialien, Spektren mit Orientierungsmittelung, Nahfeldkarten (Feldverstärkung, optische Chiralität), Dipolanregung und Zerfallsraten von Emittern (Fluorophore), Phase der Vorwärtsamplitude, Block- und hierarchische
 Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 
 ## Was der Kern kann
@@ -21,6 +21,7 @@ Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 | Chirale Medien | Pasteur-Medien innen, Helizitätszerlegung, chirale J | chirale Mie-Lösung: Q₊, Q₋, CD auf 10⁻⁴ |
 | Mehrere Körper | eigenes Medium je Körper, blockdiagonaler Innenoperator | Additivität bei großem Abstand, zwei unabhängige Formulierungen, Enantiomere mit entgegengesetztem CD |
 | Beschichtete Grenzflächen | verschachtelte Gebiete (Grenzflächengraph), Parallelflächen, Schichten nach außen/innen, chirale Schichten, Vorwärtsamplitude S(0) mit Phase | beschichtete Kugel gegen Aden–Kerker: Q_ext und S(0) Ordnung 2; dünne Schichten (d/h bis 0,04) als Differenz zur neutralen Rechnung auf 1–5 % |
+| Dipolanregung | elektrischer Dipol als Quelle (beliebige rechte Seite `solve_rhs`), Zerfallsraten gesamt / strahlend / nicht strahlend, Quantenausbeute, konform verdichtetes Kugelnetz | Goldkugel gegen die Reihenlösung: strahlende Rate 1–3 %, Gesamtrate bei Elementgröße ∼ d/8 am Fußpunkt auf wenige Prozent |
 | Nahfeld | Cauchy-Integral der Streuspur im Außenraum, halbanalytische Nahquadratur, rechteckige H-Matrix (Punkte × Dreiecke, ACA), Feldverstärkung und optische Chiralität, Karten (`nearfield`) | Goldkugel gegen Mie: Feldvektor auf 0,3–2 % (n = 12), auch 0,02 Radien vor der Oberfläche; Fernfeldgrenze 7,6·10⁻⁴ |
 | Chirales Außenmedium | Helizitätswellen mit k_±, Außenoperator P₊E_{k₊} + P₋E_{k₋}, optisches Theorem je Kanal; in allen Formulierungen | Goldkugel in chiralem Wasser gegen Mie: CD Ordnung 2; Kugel aus dem Außenmedium unsichtbar |
 | Zweitor (S-Matrix) | E₂ auf der Außenfläche, E₁ auf dem Kern, je Schicht ein Zweitor u_oben − u_unten = g(s)B(u_oben + u_unten) mit g = tanh(d√s/2)/√s (Partialbrüche, dünnbesetzte Resolventen), jede Schicht auf ihrer eigenen Fläche, automatische Unterteilung dicker Schichten | Mehrfachschichten gegen Mie auf 0,1–0,6 % (n = 12), dicke Schalen bis d/a = 0,5 konvergent, beliebiges d/h; CD chiraler Hüllen, auch im Abstand zum Gold; mehrere Körper (Dimer gegen exakte Methode auf 0,1 %) |
@@ -39,7 +40,7 @@ Für die Python-Werkzeuge: NumPy, SciPy, Matplotlib, optional `gmsh` (Geometrien
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release     # Optionen: -DCBEM_OPENMP=ON -DCBEM_NATIVE=ON
 cmake --build build -j
-ctest --test-dir build --output-on-failure         # 21 Tests
+ctest --test-dir build --output-on-failure         # 22 Tests
 ```
 
 | Test | prüft |
@@ -61,6 +62,7 @@ ctest --test-dir build --output-on-failure         # 21 Tests
 | `test_materials` | Materialtabellen, Lebedev-Momente |
 | `test_hodlr` | Systemeinträge gegen Operator, HODLR als direkter Löser und Vorkonditionierer |
 | `test_layered` | Parallelflächen, ohne Schicht = T₁, beschichtete Kugel gegen Aden–Kerker, neutrale Schale, chirale Schale |
+| `test_dipole` | Dipol: Kugel aus dem Außenmedium (Raten = 1), Goldkugel gegen die Reihenlösung, verdichtetes Netz |
 | `test_near_field` | Nahfeld: Fernfeldgrenze, Goldkugel gegen Mie (\|E\|², Chiralität), Markierungen, χ → 0, Zweitor gegen Mie |
 | `test_chiral_host` | chirales Außenmedium: Unsichtbarkeit, Ablehnung linearer Polarisation, χ → 0, Spiegelsymmetrie, Goldkugel gegen Mie, Zweitor gegen exakte Methode |
 | `test_twoport` | Zweitor: neutrale Schicht, Glasschale d/h = 0,29 und 1,14 gegen Aden–Kerker, chirale Schicht (Symmetrie, CD), Mehrfachschichten (Zerlegung, Oxid + Glas, chirale Schicht auf Abstandshalter), Unterteilung dicker Schichten |
@@ -76,6 +78,7 @@ ctest --test-dir build --output-on-failure         # 21 Tests
 | `scatter_cube_dimer` | Dimer aus gradierten Würfeln | `--L 3,5 --gap 0.5` |
 | `scatter_multi` | Kugel-Dimer, auch chiral | `--n 8 --dist 3 --pol circ` |
 | `scatter_mesh` | beliebige Gmsh-Geometrie | `--mesh stab.msh --media "-11,1.2" --pol circ --precond hodlr:1e-2` |
+| `dipole` | Zerfallsraten eines Emitters (Abstandsreihe, radial / tangential / gemittelt, Quantenausbeute) | `--sphere 16 --unit 20 --materials Au --nbg 1.33 --lambda 650 --dist "2,5,10,20" --orient average --q0 0.5` |
 | `nearfield` | Nahfeldkarte in einer Ebene (Kugel, Dimer, Gmsh, Schichten, chirales Außenmedium) | `--sphere 8 --sphere-dimer 4 --unit 20 --materials Au --nbg 1.33 --coating "1:2.25,0:0.01" --lambda 580 --pol circ --plane xz` |
 | `spectrum` | Spektren, Orientierungsmittelung, Beschichtungen (auch chiral, Dünnschicht-Näherung, Zweitor mit `--twoport`) | `--mesh x.msh --unit 25 --materials Ag --nbg 1.33 --lambda 340:520:20 [--coating "2:2.89,0[:χ]" --thin 0]` |
 | `scatter_coated` | beschichtete Kugel/Gmsh-Körper, gegen Aden–Kerker, neutrale Referenz, Dünnschicht-Näherung | `--n 4,8 --omega 0.5 --core -11,1.2 --coat 0.02,2.25,0 --neutral` bzw. `--thin --bare` (`--thin-model jump\|dirac1\|dirac2\|dirac2fit`, auch mit `--mesh`) |
@@ -86,7 +89,7 @@ Geometrien: `python3 tools/make_geometries.py sphere|rod|bornkuhn|roundcube h ou
 Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compression.py`, `mie_spectrum.py`,
 `mie_coated.py` (Aden–Kerker, Mehrfachschichten), `mie_chiral_layered.py` (geschichtete Kugeln mit chiralen Schichten),
 `analyze_coated.py`, `analyze_thin.py`, `analyze_chiral_thin.py`, `analyze_twoport.py`, `plot_coated.py`,
-`mie_nearfield.py` (Nahfeld nach Mie), `plot_nearfield.py`.
+`mie_nearfield.py` (Nahfeld nach Mie), `plot_nearfield.py`, `mie_dipole.py` (Zerfallsraten vor der Kugel).
 
 ## Ergebnisse
 
@@ -130,6 +133,8 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
   Oberfläche. Im Spalt des Gold-Dimers bis 2 000-fache Intensität und zehnfache optische Chiralität; das Spaltfeld
   verlangt feinere Netze als die Spektren. Seit v0.25 mit H-Matrix-Auswertung: 4,5-fach schneller bei 28 800 Punkten,
   Kompressionsfehler 10⁻⁵ (`results_nearfield.md`).
+- **Dipolanregung (v0.26):** Zerfallsraten und Quantenausbeute von Fluorophoren vor Nanostrukturen; das Quenching verlangt
+  am Fußpunkt Elemente von etwa d/8, dafür ein konform verdichtetes Kugelnetz (`results_dipole.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).

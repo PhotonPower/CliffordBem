@@ -202,6 +202,19 @@ std::vector<real> distance_to_surface(const TriangleMesh& m, const std::vector<V
     return out;
 }
 
+TriangleMesh make_icosphere_graded(int n, const Vec3& pole, real lambda, real r) {
+    TriangleMesh m = make_icosphere(n, 1.0);
+    const Vec3 e = pole / norm(pole);
+    for (auto& P : m.P) {
+        const Vec3 x = P / norm(P); const real xp = dot(x, e); const Vec3 xt = x - e * xp;
+        if (1 + xp < 1e-12) { P = x * r; continue; }                       // Gegenpol bleibt
+        const Vec3 w = xt * (lambda / (1 + xp)); const real w2 = dot(w, w);
+        P = (e * ((1 - w2) / (1 + w2)) + w * (2 / (1 + w2))) * r;
+    }
+    m.compute_geometry();
+    return m;
+}
+
 real winding_number(const TriangleMesh& m, const Vec3& x) {
     real omega = 0;
     for (const auto& tr : m.T) {                                        // Raumwinkel je Dreieck (Van Oosterom, Strackee 1983)

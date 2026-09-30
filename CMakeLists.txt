@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(CliffordBem VERSION 0.25.0 LANGUAGES CXX)
+project(CliffordBem VERSION 0.26.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -39,7 +39,8 @@ add_library(cbem
   src/thin_layer_problem.cpp
   src/twoport_layer_problem.cpp
   src/chiral_incidence.cpp
-  src/near_field.cpp)
+  src/near_field.cpp
+  src/dipole.cpp)
 target_include_directories(cbem PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(cbem PRIVATE -Wall -Wextra)
 if(CBEM_NATIVE)
@@ -66,6 +67,8 @@ if(CBEM_BUILD_APPS)
   target_link_libraries(scatter_multi PRIVATE cbem)
   add_executable(scatter_mesh apps/scatter_mesh.cpp)
   target_link_libraries(scatter_mesh PRIVATE cbem)
+  add_executable(dipole apps/dipole.cpp)
+  target_link_libraries(dipole PRIVATE cbem)
   add_executable(nearfield apps/nearfield.cpp)
   target_link_libraries(nearfield PRIVATE cbem)
   add_executable(spectrum apps/spectrum.cpp)
@@ -78,7 +81,7 @@ endif()
 
 if(CBEM_BUILD_TESTS)
   enable_testing()
-  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh test_materials test_hodlr test_layered test_thin_layer test_twoport test_chiral_host test_near_field)
+  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh test_materials test_hodlr test_layered test_thin_layer test_twoport test_chiral_host test_near_field test_dipole)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE cbem)
     add_test(NAME ${t} COMMAND ${t})

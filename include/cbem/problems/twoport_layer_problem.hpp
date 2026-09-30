@@ -63,6 +63,8 @@ public:
     // Parallelflaechen aus der Kernoberflaeche (offset_surface, kumulative Dicken; Pruefung auf Faltung/Durchdringung)
     static std::vector<TriangleMesh> layer_surfaces(const TriangleMesh& core_surface, const std::vector<Coating>& layers);
     LayeredResult solve_plane_wave(const Vec3& dir, const CVec3& p, const SolveOptions& o = {}) const;
+    // beliebige einfallende Spur b auf outer_mesh() (z. B. project_dipole); r.h: Gesamtvektor, Aussenspur = erste 8 N (v0.26)
+    LayeredResult solve_rhs(const std::vector<cplx>& b_outer, const SolveOptions& o = {}) const;
     void apply(const std::vector<cplx>& x, std::vector<cplx>& y) const;
     void precondition(const std::vector<cplx>& x, std::vector<cplx>& y) const;
     std::size_t size() const { return size_; }

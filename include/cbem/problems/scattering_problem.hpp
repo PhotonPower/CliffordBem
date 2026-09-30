@@ -22,6 +22,8 @@ public:
     ScatteringProblem(const std::vector<TriangleMesh>& bodies, const std::vector<Medium>& media, real omega,
                       Medium outer = {}, HMatrixParams hp = {}, EntryParams ep = {}, bool union_interior = false);
     PlaneWaveResult solve_plane_wave(const Vec3& d, const CVec3& p, const SolveOptions& o = {}) const;
+    // beliebige rechte Seite b (Spur der einfallenden Welle auf mesh(), z. B. project_dipole); r.h = Gesamtspur (v0.26)
+    PlaneWaveResult solve_rhs(const std::vector<cplx>& b, const SolveOptions& o = {}) const;
     // Innerer Operator E_1 auf B x B (blockdiagonal ueber Koerper, chiral: P+ E_{k+} + P- E_{k-}), dicht
     Matrix inner_block(const std::vector<std::size_t>& B) const;
     // Blockvorkonditionierung einschalten (Gruppen z. B. aus group_by_clusters / group_by_features)
