@@ -74,7 +74,8 @@ LowRank aca_plus(const RowFn& row, const ColFn& col, std::size_t m, std::size_t 
     };
     std::size_t ir = next_ref(m, nref_r, urow, m), jr = next_ref(n, nref_c, ucol, n);
     std::vector<cplx> rref, cref, u, v;
-    if (ir < m) res_row(ir, rref); if (jr < n) res_col(jr, cref);
+    if (ir < m) res_row(ir, rref);
+    if (jr < n) res_col(jr, cref);
     // Masstab fuer "verschwunden": relativ zum groessten bisher gesehenen Eintrag (Rundungsrauschen nach exakter Erfassung ist
     // nicht null; ein absoluter Grenzwert liesse die Referenz auf dem Rauschen pivotieren)
     real scale = 0;

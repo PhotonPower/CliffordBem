@@ -182,6 +182,7 @@ void TwoPortLayerProblem::resolvent(const SurfaceFV& fv, const std::vector<Multi
     for (std::size_t t = 0; t < N; ++t) for (int c = 0; c < 8; ++c) b[8 * t + c] = z[t].c[c];
     LinOp A = [&](const std::vector<cplx>& v, std::vector<cplx>& y) {
         y.resize(v.size());
+        CBEM_OMP(omp parallel for schedule(static))
         for (std::size_t t = 0; t < N; ++t)
             for (int c = 0; c < 8; ++c) {
                 cplx lap = 0; for (std::size_t j = 0; j < R[t].nb.size(); ++j) lap += R[t].lw[j] * (v[8 * R[t].nb[j] + c] - v[8 * t + c]);
@@ -204,6 +205,7 @@ void TwoPortLayerProblem::apply_g(const Body& Bd, std::size_t l, const std::vect
     const Multivector Pp = central(1.0, 0.0), Pm = central(0.0, 1.0), K2 = central(kp * kp, km * km);
     const auto& R = fv.ring;
     gz.resize(N);
+    CBEM_OMP(omp parallel for schedule(static))
     for (std::size_t t = 0; t < N; ++t) {                                   // Rest: tail0 z - tail1 s z, s z = -K^2 z - Delta z
         Multivector lap;
         for (std::size_t j = 0; j < R[t].nb.size(); ++j) lap = lap + (z[R[t].nb[j]] - z[t]) * R[t].lw[j];
@@ -244,6 +246,7 @@ void TwoPortLayerProblem::apply(const std::vector<cplx>& x, std::vector<cplx>& y
         std::vector<Multivector> ut(N), ubot(N), z(N), DF, DSF, DDF, Bz(N), gBz;
         for (std::size_t l = 1; l <= L; ++l) {
             const Layer& Ly = Bd.lay[l - 1];
+            CBEM_OMP(omp parallel for schedule(static))
             for (std::size_t t = 0; t < N; ++t) {
                 ut[t] = apply8(Ly.Jtop[t], X[l][t]);
                 ubot[t] = l == 1 ? apply8(Bd.Jb[t], X[0][t]) : X[l - 1][t];
@@ -252,6 +255,7 @@ void TwoPortLayerProblem::apply(const std::vector<cplx>& x, std::vector<cplx>& y
             const SurfaceFV& fv = *Bd.fv[l - 1];                              // untere Flaeche der Schicht l
             fv.dirac_fit(z, DF, DSF, DDF);
             const Multivector iK = central(Ly.m.k(omega_, +1), Ly.m.k(omega_, -1)) * cplx(0, 1);
+            CBEM_OMP(omp parallel for schedule(static))
             for (std::size_t t = 0; t < N; ++t) {
                 Multivector Xv = iK * z[t] - DF[t];
                 if (opt_.curvature) Xv = Xv + DSF[t] * Ly.numid;
@@ -259,6 +263,7 @@ void TwoPortLayerProblem::apply(const std::vector<cplx>& x, std::vector<cplx>& y
             }
             apply_g(Bd, l - 1, Bz, gBz);
             const std::size_t o = Bd.row(l);
+            CBEM_OMP(omp parallel for schedule(static))
             for (std::size_t t = 0; t < N; ++t) {
                 const Multivector r = ut[t] - ubot[t] - gBz[t];
                 for (int c = 0; c < 8; ++c) y[o + 8 * t + c] = r.c[c] * Bd.sq[0][t];

@@ -21,6 +21,7 @@ std::vector<cplx> project_plane_wave(const TriangleMesh& m, cplx k, cplx eps, co
     const CVec3 dp = {d.y * p[2] - d.z * p[1], d.z * p[0] - d.x * p[2], d.x * p[1] - d.y * p[0]};
     const Multivector A = Multivector::vector(p) * se + Multivector::blade(7) * Multivector::vector(dp) * se;
     std::vector<cplx> h(8 * m.size(), cplx(0));
+    CBEM_OMP(omp parallel for schedule(static))
     for (std::size_t t = 0; t < m.size(); ++t) {
         for (int a = 0; a < q.q; ++a) {
             cplx ph = std::exp(cplx(0, 1) * k * dot(d, q.points(t)[a])) * q.weights(t)[a];

@@ -107,29 +107,28 @@ void KernelHMatrix::partition(int t, int s, std::vector<std::pair<int, int>>& ad
 }
 
 void KernelHMatrix::apply(const std::vector<cplx>& Z, std::vector<cplx>& Y) const {
-    // Dichte Bloecke
-    for (auto& D : dense_) {
+    // Parallel ueber Bloecke (v0.31): mehrere Bloecke schreiben in dieselben Zeilen, daher je Thread ein eigener Ausgabepuffer,
+    // am Ende aufsummiert; bei einem Thread direkt in Y (keine Aenderung gegenueber der seriellen Rechnung)
+    auto dense_block = [&](const Dense& D, std::vector<cplx>& Yo) {
         const std::size_t n = D.C.size();
         for (std::size_t a = 0; a < D.R.size(); ++a) {
-            cplx* y = &Y[D.R[a] * 8];
+            cplx* y = &Yo[D.R[a] * 8];
             for (std::size_t c = 0; c < n; ++c) {
                 const KernelComp& K = D.K[a * n + c]; const cplx* z = &Z[D.C[c] * 32];
                 for (int q = 0; q < 4; ++q) for (int r = 0; r < 8; ++r) y[r] += K[q] * z[q * 8 + r];
             }
         }
-    }
-    // Niedrigrangbloecke
-    std::vector<cplx> tmp;
-    for (auto& B : lr_) {
+    };
+    auto lr_block = [&](const LR& B, std::vector<cplx>& Yo, std::vector<cplx>& tmp) {
         if (!B.mu.empty() || (prm_.mode == AcaMode::Multivector)) {
             // y_i += sum_k u_k(i) t_k,  t_k = sum_j w_k(j) z_j,  z_j = n_j x_j / sqrt|tau_j| = Z[j][c = 0]
             const std::size_t m = B.R.size(), n = B.C.size();
             for (std::size_t k = 0; k < B.mrank; ++k) {
                 Multivector t;
                 for (std::size_t b = 0; b < n; ++b) { Multivector z; for (int q = 0; q < 8; ++q) z.c[q] = Z[B.C[b] * 32 + q]; t = t + B.mw[k * n + b] * z; }
-                for (std::size_t a = 0; a < m; ++a) { Multivector y = B.mu[k * m + a] * t; cplx* yy = &Y[B.R[a] * 8]; for (int q = 0; q < 8; ++q) yy[q] += y.c[q]; }
+                for (std::size_t a = 0; a < m; ++a) { Multivector y = B.mu[k * m + a] * t; cplx* yy = &Yo[B.R[a] * 8]; for (int q = 0; q < 8; ++q) yy[q] += y.c[q]; }
             }
-            continue;
+            return;
         }
         const std::size_t m = B.R.size(), n = B.C.size();
         for (std::size_t fi = 0; fi < B.f.size(); ++fi) {
@@ -151,10 +150,24 @@ void KernelHMatrix::apply(const std::vector<cplx>& Z, std::vector<cplx>& Y) cons
                 }
             }
             for (std::size_t a = 0; a < m; ++a) {
-                cplx* y = &Y[B.R[a] * 8];
+                cplx* y = &Yo[B.R[a] * 8];
                 for (std::size_t k = 0; k < r; ++k) { cplx u = f.U(a, k); for (int q = 0; q < 8; ++q) y[q] += u * tmp[k * 8 + q]; }
             }
         }
+    };
+    const long nd = static_cast<long>(dense_.size()), nb = nd + static_cast<long>(lr_.size());
+    if (omp_threads() == 1) {
+        std::vector<cplx> tmp;
+        for (long b = 0; b < nb; ++b) { if (b < nd) dense_block(dense_[b], Y); else lr_block(lr_[b - nd], Y, tmp); }
+        return;
+    }
+    CBEM_OMP(omp parallel)
+    {
+        std::vector<cplx> Yl(Y.size(), cplx(0)), tmp;
+        CBEM_OMP(omp for schedule(dynamic) nowait)
+        for (long b = 0; b < nb; ++b) { if (b < nd) dense_block(dense_[b], Yl); else lr_block(lr_[b - nd], Yl, tmp); }
+        CBEM_OMP(omp critical)
+        for (std::size_t i = 0; i < Y.size(); ++i) Y[i] += Yl[i];
     }
 }
 

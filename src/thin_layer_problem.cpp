@@ -136,6 +136,7 @@ void SurfaceFV::dirac_fit(const std::vector<Multivector>& F, std::vector<Multive
                           std::vector<Multivector>& DDF) const {
     const std::size_t N = F.size();
     DF.assign(N, Multivector{}); DSF.assign(N, Multivector{}); DDF.assign(N, Multivector{});
+    CBEM_OMP(omp parallel for schedule(static))
     for (std::size_t t = 0; t < N; ++t) {
         std::array<CVec3, 8> g{}; std::array<cplx, 8> lap{};
         const Ring& R = ring[t];

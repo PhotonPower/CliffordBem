@@ -4,6 +4,24 @@
 #include <cmath>
 #include <complex>
 #include <cstddef>
+#ifdef CBEM_USE_OPENMP
+#include <omp.h>
+#endif
+// OpenMP-Hilfen (v0.31): CBEM_OMP(parallel for ...) wird ohne OpenMP zu nichts
+#ifdef CBEM_USE_OPENMP
+#define CBEM_OMP(x) _Pragma(#x)
+#else
+#define CBEM_OMP(x)
+#endif
+namespace cbem {
+inline int omp_threads() {
+#ifdef CBEM_USE_OPENMP
+    return omp_get_max_threads();
+#else
+    return 1;
+#endif
+}
+}  // namespace cbem
 
 namespace cbem {
 

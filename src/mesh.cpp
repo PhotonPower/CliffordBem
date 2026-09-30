@@ -193,6 +193,7 @@ std::vector<real> distance_to_surface(const TriangleMesh& m, const std::vector<V
                 for (long k = cell(a.z - r, lo.z); k <= cell(b.z + r, lo.z); ++k) grid[{i, j, k}].push_back(t);
     }
     std::vector<real> out(q.size(), rmax);
+    CBEM_OMP(omp parallel for schedule(dynamic, 64))
     for (std::size_t i = 0; i < q.size(); ++i) {
         auto it = grid.find({cell(q[i].x, lo.x), cell(q[i].y, lo.y), cell(q[i].z, lo.z)});
         if (it == grid.end()) continue;

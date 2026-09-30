@@ -54,6 +54,7 @@ std::vector<Multivector> densities(const TriangleMesh& m, const std::vector<cplx
 std::vector<Multivector> scattered_field(const TriangleMesh& m, const std::vector<cplx>& hs, cplx k, const std::vector<Vec3>& pts) {
     const EntryEval ev(m, k); const std::vector<Multivector> G = densities(m, hs);
     std::vector<Multivector> out(pts.size());
+    CBEM_OMP(omp parallel for schedule(dynamic, 16))
     for (std::size_t i = 0; i < pts.size(); ++i) {
         Multivector F;
         for (std::size_t t = 0; t < m.size(); ++t) {
@@ -72,12 +73,14 @@ NearFieldOperator::NearFieldOperator(const TriangleMesh& m, cplx k, const std::v
     std::vector<std::pair<int, int>> adm, inadm;
     partition(0, 0, adm, inadm);
     dense_.resize(inadm.size()); lr_.resize(adm.size());
+    CBEM_OMP(omp parallel for schedule(dynamic))
     for (std::size_t b = 0; b < inadm.size(); ++b) {
         Dense& D = dense_[b];
         D.R = rows_.indices(rows_.nodes[inadm[b].first]); D.C = cols_.indices(cols_.nodes[inadm[b].second]);
         D.K.resize(D.R.size() * D.C.size());
         for (std::size_t a = 0; a < D.R.size(); ++a) for (std::size_t c = 0; c < D.C.size(); ++c) D.K[a * D.C.size() + c] = ev(pts[D.R[a]], D.C[c]);
     }
+    CBEM_OMP(omp parallel for schedule(dynamic))
     for (std::size_t b = 0; b < adm.size(); ++b) {
         LR& B = lr_[b];
         B.R = rows_.indices(rows_.nodes[adm[b].first]); B.C = cols_.indices(cols_.nodes[adm[b].second]);
@@ -117,16 +120,15 @@ std::vector<Multivector> NearFieldOperator::apply(const std::vector<cplx>& hs) c
     }
     const std::size_t M = rows_.perm.size();
     std::vector<cplx> Y(8 * M, cplx(0));
-    for (const auto& D : dense_) {
+    auto dense_block = [&](const Dense& D, std::vector<cplx>& Yo) {
         const std::size_t n = D.C.size();
         for (std::size_t a = 0; a < D.R.size(); ++a) {
-            cplx* y = &Y[D.R[a] * 8];
+            cplx* y = &Yo[D.R[a] * 8];
             for (std::size_t c = 0; c < n; ++c) { const Comp& K = D.K[a * n + c]; const cplx* z = &Z[D.C[c] * 32];
                 for (int q = 0; q < 4; ++q) for (int r = 0; r < 8; ++r) y[r] += K[q] * z[q * 8 + r]; }
         }
-    }
-    std::vector<cplx> tmp;
-    for (const auto& B : lr_) {
+    };
+    auto lr_block = [&](const LR& B, std::vector<cplx>& Yo, std::vector<cplx>& tmp) {
         const std::size_t m = B.R.size(), n = B.C.size(), r = B.f.rank();
         tmp.assign(r * 8, cplx(0));
         for (std::size_t k = 0; k < r; ++k) {
@@ -134,7 +136,19 @@ std::vector<Multivector> NearFieldOperator::apply(const std::vector<cplx>& hs) c
             for (int c = 0; c < 4; ++c) for (std::size_t j = 0; j < n; ++j) { const cplx* z = &Z[B.C[j] * 32 + c * 8]; const cplx vv = v[c * n + j];
                 for (int q = 0; q < 8; ++q) tmp[k * 8 + q] += vv * z[q]; }
         }
-        for (std::size_t a = 0; a < m; ++a) { cplx* y = &Y[B.R[a] * 8]; for (std::size_t k = 0; k < r; ++k) { const cplx u = B.f.U(a, k); for (int q = 0; q < 8; ++q) y[q] += u * tmp[k * 8 + q]; } }
+        for (std::size_t a = 0; a < m; ++a) { cplx* y = &Yo[B.R[a] * 8]; for (std::size_t k = 0; k < r; ++k) { const cplx u = B.f.U(a, k); for (int q = 0; q < 8; ++q) y[q] += u * tmp[k * 8 + q]; } }
+    };
+    const long nd = static_cast<long>(dense_.size()), nb = nd + static_cast<long>(lr_.size());
+    if (omp_threads() == 1) { std::vector<cplx> tmp; for (long b = 0; b < nb; ++b) { if (b < nd) dense_block(dense_[b], Y); else lr_block(lr_[b - nd], Y, tmp); } }
+    else {
+        CBEM_OMP(omp parallel)
+        {
+            std::vector<cplx> Yl(Y.size(), cplx(0)), tmp;
+            CBEM_OMP(omp for schedule(dynamic) nowait)
+            for (long b = 0; b < nb; ++b) { if (b < nd) dense_block(dense_[b], Yl); else lr_block(lr_[b - nd], Yl, tmp); }
+            CBEM_OMP(omp critical)
+            for (std::size_t i = 0; i < Y.size(); ++i) Y[i] += Yl[i];
+        }
     }
     std::vector<Multivector> out(M);
     for (std::size_t i = 0; i < M; ++i) { for (int q = 0; q < 8; ++q) out[i].c[q] = Y[8 * i + q]; out[i] = out[i] * kSign; }
@@ -170,6 +184,7 @@ std::vector<NearFieldPoint> exterior_near_field(const TriangleMesh& outer0, cons
     std::vector<NearFieldPoint> out(pts.size());
     real hm = 0; for (real hh : outer.hmax) hm += hh; hm /= std::max<std::size_t>(1, outer.hmax.size());
     const std::vector<real> dist = distance_to_surface(outer, pts, 0.02 * hm);
+    CBEM_OMP(omp parallel for schedule(dynamic, 16))
     for (std::size_t i = 0; i < pts.size(); ++i) {
         NearFieldPoint& r = out[i];
         r.inside = winding_number(outer, pts[i]) > 0.5;

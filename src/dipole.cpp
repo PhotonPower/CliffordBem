@@ -43,13 +43,18 @@ std::vector<cplx> project_dipole(const TriangleMesh& mesh, const Medium& m, real
     const cplx se = std::sqrt(m.eps), sm = std::sqrt(m.mu);
     std::map<int, QuadRule> rules;
     std::vector<cplx> h(8 * mesh.size(), cplx(0));
-    for (std::size_t t = 0; t < mesh.size(); ++t) {
+    std::vector<int> subs(mesh.size());
+    for (std::size_t t = 0; t < mesh.size(); ++t) {                    // Unterteilung je Dreieck, Regeln vorab (seriell)
         const auto v = mesh.vertices(t);
         real rad = 0; for (const Vec3& q : v) rad = std::max(rad, norm(q - mesh.centroid[t]));
         const real dist = std::max(norm(r0 - mesh.centroid[t]) - rad, 1e-3 * mesh.hmax[t]);
-        const int sub = std::min(max_sub, std::max(2, static_cast<int>(std::ceil(4 * mesh.hmax[t] / dist))));
-        auto it = rules.find(sub); if (it == rules.end()) it = rules.emplace(sub, QuadRule::subdivided(sub)).first;
-        const QuadRule& R = it->second;
+        subs[t] = std::min(max_sub, std::max(2, static_cast<int>(std::ceil(4 * mesh.hmax[t] / dist))));
+        if (!rules.count(subs[t])) rules.emplace(subs[t], QuadRule::subdivided(subs[t]));
+    }
+    CBEM_OMP(omp parallel for schedule(dynamic, 32))
+    for (std::size_t t = 0; t < mesh.size(); ++t) {
+        const auto v = mesh.vertices(t);
+        const QuadRule& R = rules.at(subs[t]);
         for (std::size_t a = 0; a < R.w.size(); ++a) {
             const Vec3 x = v[0] * R.bary[a][0] + v[1] * R.bary[a][1] + v[2] * R.bary[a][2];
             CVec3 E, H; dipole_field(m, omega, r0, p, x, E, H);
@@ -81,6 +86,7 @@ DipoleRates dipole_rates(const TriangleMesh& outer, const std::vector<cplx>& h, 
     std::vector<real> ct, wt; gauss_legendre(ntheta, ct, wt);
     const int nphi = 2 * ntheta;
     real P = 0, P0 = 0;
+    CBEM_OMP(omp parallel for schedule(dynamic) reduction(+ : P, P0))
     for (int i = 0; i < ntheta; ++i) {
         const real st = std::sqrt(std::max(0.0, 1 - ct[i] * ct[i]));
         for (int j = 0; j < nphi; ++j) {

@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.30.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.31.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -142,6 +142,9 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
   Ritz-Vektoren): mit 20 statt 139 gespeicherten Richtungen 1,30-fach nahe einer Resonanz (`results_dipole.md`).
 - **ACA+ (v0.30)** als Voreinstellung der H-Matrizen: gleiche Ränge, etwa 10 % genauer, robust gegen unbemerkt zu kleinen
   Rang (`results_compression.md`).
+- **Parallelisierung (v0.31):** H-Matrix-Produkt, Nahfeld, Projektionen, Dipolraten und Zweitor mit OpenMP; mit 1, 2 und 4
+  Threads auf zwölf Stellen gleich. Über 90 % der Rechenzeit parallel; Beschleunigung auf Mehrkernrechnern noch nicht gemessen
+  (`results_parallel.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).
