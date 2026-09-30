@@ -1,4 +1,4 @@
-# Architektur und Ausbauplan (Stand 0.29)
+# Architektur und Ausbauplan (Stand 0.30)
 
 ## Leitlinien
 
@@ -27,7 +27,7 @@
 | geometry | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörpernetze, Parallelflächen (`offset_surface`, auf Gehrung, Prüfung auf Faltung/Durchdringung), Abstand Punkt–Fläche mit Gittersuche, Windungszahl, konform verdichtete Ikosaederkugel, Prüfung auf sich berührende oder durchdringende Körper, Gmsh-Import (2.2/4.1), Dunavant, Sauter-Schwab | gekrümmte Elemente, nichtkonforme Kantennetze, Selbstdurchdringung einzelner Gmsh-Netze |
 | kernel | Dirac-Kern, Wilton-Integrale (asinh-Form) | analytisch fortgesetzter Kern für komplexe Punkte (Streckung um Spitzen) |
 | assembly | Fernfeld (Gauß 7×7); benachbarte Paare: Sauter-Schwab (gleichseitig) bzw. halbanalytisch gradiert (gestreckt); nahe Paare: adaptive Außenregel, optional mit Randabstand (parallele Flächen); Nahfeld-Cache | nichtkonforme Nachbarschaften, schnellere Nahpaare auf gestreckten Elementen |
-| hmatrix | Clusterbaum, ACA (gemeinsam, komponentenweise, Multivektor-Pivots), Nachkompression, ACA mit exakten Einträgen | ACA+, complex64-Speicher, parallele Mat-Vek |
+| hmatrix | Clusterbaum (Netze und beliebige Punkte), ACA (gemeinsam, komponentenweise, Multivektor-Pivots), ACA+ (Voreinstellung), Nachkompression, ACA mit exakten Einträgen | complex64-Speicher, parallele Mat-Vek |
 | operators | Cauchy-Operator, chiraler Innenoperator, blockdiagonaler Mehrkörper-Innenoperator, T₁ mit Medium je Dreieck, geschichtete Transmission (Gebietsoperatoren je Gebiet), dichte Blöcke | Substrate (geschichtete Außenmedien, Green-Funktion der Schichtung) |
 | solvers | GMRES, punktweise 2(1+J)⁻¹, Blockvorkonditionierung (Kanten/Ecken, Cluster; mehrere Körper, chiral), HODLR-Faktorisierung, Krylov-Recycling (rohe Krylov-Vektoren und GCRO-DR mit harmonischen Ritz-Vektoren), Eigenlöser für kleine komplexe Matrizen | H-LU mit starker Zulässigkeit, Deflation resonanter Moden, Parallelisierung |
 | sources | ebene Welle (linear/zirkular), Fernfeld, Extinktion, Vorwärtsamplitude S(0) (Betrag, Phase), Lebedev-Richtungen; chirales Außenmedium: Helizitätswelle, Extinktion je Kanal (`chiral_incidence`); Nahfeld im Außenraum mit halbanalytischer Nahquadratur, Feldverstärkung, optische Chiralität, rechteckige H-Matrix `NearFieldOperator` (`near_field`); elektrischer Dipol als Quelle, Zerfallsraten, Fluoreszenzverstärkung (`dipole`) | magnetische und chirale Dipolquellen, Dipole in Schichten, Felder in Kernen und Schichten, Streumatrix |

@@ -27,6 +27,8 @@ struct HMatrixParams {
                                     // erlaubt sep_factor = 0 bei gestreckten Elementen
     real max_kdiam = 20.0;       // |k| diam <= max_kdiam
     AcaMode mode = AcaMode::Joint;
+    bool aca_plus = true;        // ACA+ statt teilpivotisierter ACA (Modi Joint und Separate, Nahfeld; v0.30): gleiche Raenge,
+                                 // etwa 10 % genauer, 2-6 % mehr Aufbauzeit, robust gegen unbemerkt zu kleinen Rang
 };
 
 struct HStats {

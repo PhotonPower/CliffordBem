@@ -74,13 +74,13 @@ KernelHMatrix::KernelHMatrix(const KernelEntries& E, HMatrixParams prm)
                 std::size_t c = J / n, j = J % n;
                 for (std::size_t i = 0; i < m; ++i) out[i] = ent(B.R[i], B.C[j])[c];
             };
-            LowRank f = aca_partial(row, col, m, 4 * n, prm_.eps); recompress(f, prm_.eps);
+            LowRank f = aca_select(prm_.aca_plus, row, col, m, 4 * n, prm_.eps); recompress(f, prm_.eps);
             B.f.push_back(std::move(f));
         } else {
             for (int c = 0; c < 4; ++c) {
                 RowFn row = [&, c](std::size_t i, cplx* out) { for (std::size_t j = 0; j < n; ++j) out[j] = ent(B.R[i], B.C[j])[c]; };
                 ColFn col = [&, c](std::size_t j, cplx* out) { for (std::size_t i = 0; i < m; ++i) out[i] = ent(B.R[i], B.C[j])[c]; };
-                LowRank f = aca_partial(row, col, m, n, prm_.eps); recompress(f, prm_.eps);
+                LowRank f = aca_select(prm_.aca_plus, row, col, m, n, prm_.eps); recompress(f, prm_.eps);
                 B.f.push_back(std::move(f));
             }
         }

@@ -84,7 +84,7 @@ NearFieldOperator::NearFieldOperator(const TriangleMesh& m, cplx k, const std::v
         const std::size_t mm = B.R.size(), n = B.C.size();
         RowFn row = [&](std::size_t i, cplx* out) { for (std::size_t j = 0; j < n; ++j) { const auto K = ev(pts[B.R[i]], B.C[j]); for (int c = 0; c < 4; ++c) out[c * n + j] = K[c]; } };
         ColFn col = [&](std::size_t J, cplx* out) { const std::size_t c = J / n, j = J % n; for (std::size_t i = 0; i < mm; ++i) out[i] = ev(pts[B.R[i]], B.C[j])[c]; };
-        B.f = aca_partial(row, col, mm, 4 * n, prm_.eps); recompress(B.f, prm_.eps);
+        B.f = aca_select(prm_.aca_plus, row, col, mm, 4 * n, prm_.eps); recompress(B.f, prm_.eps);
     }
     st_.n_dense = dense_.size(); st_.n_lowrank = lr_.size();
     std::size_t rsum = 0;

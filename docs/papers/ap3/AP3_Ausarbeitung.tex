@@ -291,7 +291,7 @@ Konvergenz bei Gold lag also an der Nahfeldquadratur, nicht an Formulierung oder
 Damit ist H3 (zweiter Teil) im Bereich bis etwa 160\,000 Unbekannte und $kD\lesssim16$ numerisch
 gestützt: Der Aufwand ist $\mathcal{O}(N\log^\alpha N)$ mit $\alpha\approx2$ für den Speicher.
 
-\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.29)}\label{sec:cpp2}
+\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.30)}\label{sec:cpp2}
 Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
 \begin{itemize}[leftmargin=*]
   \item \emph{Nahfeld.} Sauter-Schwab-Quadratur für benachbarte Paare: Die bisherige Regel hatte an gemeinsamen
@@ -365,7 +365,10 @@ Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
   \item \emph{Krylov-Recycling} (v0.28) für mehrere rechte Seiten: beim Dipolproblem nur 10--20\,\% Gewinn, weil der
     vorkonditionierte Operator zweiter Art keine ausgeprägten langsamen Eigenrichtungen hat; bei einer Testmatrix mit
     Ausreißer-Eigenwerten 3,6-fach. GCRO-DR (v0.29) mit 20 harmonischen Ritz-Vektoren statt 139 roher Richtungen: nahe
-    einer Plasmonresonanz 1,30-fach, ohne Resonanz 1,09-fach. Die $\mathcal{H}$-Matrizen der Schichtgebiete
+    einer Plasmonresonanz 1,30-fach, ohne Resonanz 1,09-fach.
+  \item \emph{ACA+} (v0.30) als Voreinstellung der $\mathcal{H}$-Matrizen: gleiche Ränge, etwa 10\,\% genauer, 2--6\,\% mehr
+    Aufbauzeit; bei den bisherigen Geometrien versagt die teilpivotisierte ACA nicht, ACA+ sichert gegen unbemerkt zu kleinen
+    Rang ab. Die $\mathcal{H}$-Matrizen der Schichtgebiete
     enthalten mehr unzulässige Blöcke, weil sich die Cluster beider Flächen überlappen; Speicher und Nahpaare etwa
     verdoppeln sich je Schicht.
 \end{itemize}

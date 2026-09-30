@@ -81,3 +81,32 @@ der langen Achse, dann Kriterien mit dem tatsächlichen Abstand zur Elementausde
   Zulässigkeitskriterien begrenzt. Für elektrisch große Streuer (kD ≫ 50) ist das Wachstum der
   Ränge noch nicht untersucht; dort sind H²- bzw. richtungsabhängige Verfahren zu erwarten
   (vgl. Rückfallebene in AP 3 des Antrags).
+
+## ACA+ (v0.30)
+
+Die teilpivotisierte ACA wählt das nächste Pivot nur aus der zuletzt berechneten Zeile bzw. Spalte und bricht ab, sobald das
+neue Kreuz klein ist. Sie kann Teile eines Blocks nie sehen, etwa Zeilen und Spalten, auf denen die bisherigen Kreuze
+verschwinden, und bricht dann unbemerkt mit zu kleinem Rang ab. ACA+ (Grasedyck 2005; `aca_plus` in `aca.hpp`) führt zusätzlich
+eine Referenzzeile und eine Referenzspalte mit, deren Reste nach jedem Schritt aktualisiert werden: Das Pivot kommt aus dem
+größeren Rest der beiden Referenzen, eine Referenz wird ersetzt, sobald sie Pivot war oder ihr Rest verschwindet (relativ zum
+größten bisher gesehenen Eintrag -- nach exakter Erfassung ist der Rest Rundungsrauschen, nicht null), und abgebrochen wird erst,
+wenn das neue Kreuz und die auf den Block hochgerechneten Referenzreste unter eps·‖S‖ liegen. Seit v0.30 Voreinstellung
+(`HMatrixParams::aca_plus`, Modi Joint und Separate sowie das Nahfeld); die teilpivotisierte ACA bleibt mit `aca_plus = false`.
+
+| Fall | teilpivotisierte ACA | ACA+ |
+|---|---|---|
+| A = u₁v₁ᵀ + 0,3 u₂v₂ᵀ, disjunkte Träger (`test_aca`) | Rang 2, Fehler 1,6·10⁻¹ | Rang 2, Fehler 10⁻¹⁶ |
+| Kugel n = 8, eps = 10⁻⁴, k = 0,5 | Fehler 5,5·10⁻⁶, Rang 6,9, 2,3 s | 4,8·10⁻⁶, 6,9, 2,4 s |
+| Würfel n = 10 (ebene Flächen), eps = 10⁻⁴ | 7,7·10⁻⁶, 8,2, 2,0 s | 6,6·10⁻⁶, 8,3, 2,1 s |
+| Kugel n = 12, eps = 10⁻⁶ | 5,6·10⁻⁸, 12,1, 11,9 s | 5,0·10⁻⁸, 12,1, 12,3 s |
+| Würfel n = 16, eps = 10⁻⁶ | 8,2·10⁻⁸, 14,9, 12,9 s | 7,3·10⁻⁸, 14,9, 13,1 s |
+| Kugel n = 12, eps = 10⁻⁴, k = 3 | 1,7·10⁻⁵, 7,1, 9,2 s | 1,6·10⁻⁵, 7,1, 9,8 s |
+| Nahfeld, 7 200 Punkte × 2 560 Dreiecke, eps = 10⁻⁴ | max. Fehler 8,2·10⁻⁶, 2,8 s | 6,0·10⁻⁶, 2,9 s |
+
+(Fehler der Anwendung gegen die dichte Matrix, η = 0; Speicher in allen Fällen gleich.)
+
+- Bei den bisherigen BEM-Matrizen versagt die teilpivotisierte ACA nicht, auch nicht auf ebenen Flächen, wo einzelne der vier
+  gestapelten Kernkomponenten verschwinden. ACA+ liefert dieselben Ränge und denselben Speicher, ist etwa 10–30 % genauer und
+  braucht 2–6 % mehr Aufbauzeit.
+- ACA+ ist damit eine Versicherung gegen unbemerkt falsch approximierte Blöcke bei Geometrien, die hier noch nicht vorkamen (dünne
+  Strukturen, sehr unterschiedliche Clustergrößen, stark variierende Kernkomponenten), für wenige Prozent Aufbauzeit.
