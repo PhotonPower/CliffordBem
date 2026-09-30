@@ -1,4 +1,5 @@
 #include "cbem/linalg/dense.hpp"
+#include <algorithm>
 #include <random>
 #include "check.hpp"
 using namespace cbem;

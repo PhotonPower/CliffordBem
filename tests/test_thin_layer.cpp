@@ -1,6 +1,7 @@
 // Duennschicht-Naeherung erster Ordnung (eine Flaeche): Flaechenoperatoren, Rueckfuehrung auf T_1, neutrale Schicht
 // exakt ohne Wirkung, Schichtwirkung gegen Aden-Kerker (tools/mie_coated.py); Dirac-Form 2. Ordnung (Formoperator,
 // Fehler O((d/a)^2)).
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include "cbem/problems/thin_layer_problem.hpp"

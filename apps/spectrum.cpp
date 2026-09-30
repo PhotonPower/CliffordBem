@@ -16,6 +16,7 @@
 //   --thin-model jump|dirac1|dirac2|dirac2fit: Sprungform 1. Ordnung, Dirac-Form 1. bzw. 2. Ordnung (zusammengesetzte
 //             Gradienten bzw. quadratische Anpassung; Standard dirac2fit, mit --thin 0 = Referenz auf der Metallseite).
 // Ausgabe zusaetzlich: Vorwaertsamplitude S(0) (Mittel ueber Richtungen/Polarisationen) und ihre Phase arg S.
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <fstream>

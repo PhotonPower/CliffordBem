@@ -1,4 +1,5 @@
 #include "cbem/kernel/triangle_integrals.hpp"
+#include <algorithm>
 #include <cmath>
 
 namespace cbem {

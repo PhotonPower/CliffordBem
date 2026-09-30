@@ -1,4 +1,5 @@
 #include "cbem/sources/near_field.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include "cbem/geometry/quadrature.hpp"

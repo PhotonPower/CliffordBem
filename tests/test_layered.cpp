@@ -1,5 +1,6 @@
 // Beschichtete Grenzflaechen: Parallelflaechen, Rueckfuehrung auf T_1 ohne Schicht, beschichtete Kugel gegen
 // Aden-Kerker (tools/mie_coated.py), Phase der Vorwaertsamplitude, chirale Schicht (Spiegelsymmetrie).
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include "cbem/problems/layered_problem.hpp"

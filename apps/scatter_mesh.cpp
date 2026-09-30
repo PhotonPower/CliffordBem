@@ -1,6 +1,7 @@
 // Streuung an beliebigen Koerpern aus einer Gmsh-Datei (ASCII 2.2/4.1). Ein Medium je Koerper (physikalische
 // Gruppe), in der Reihenfolge aufsteigender Tags; fehlende Medien werden mit dem letzten angegebenen aufgefuellt.
 // Beispiel: scatter_mesh --mesh stab.msh --omega 0.5 --media "-11,1.2;2.25,0" --chi "0;0.1" --pol circ --dir 0,0,1
+#include <algorithm>
 #include <cstdio>
 #include <sstream>
 #include <string>

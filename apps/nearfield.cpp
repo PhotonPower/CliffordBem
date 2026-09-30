@@ -6,6 +6,7 @@
 // Beispiel (Gold-Dimer mit chiraler Schicht, Schnitt durch den Spalt):
 //   nearfield --sphere 8 --sphere-dimer 4 --unit 20 --materials Au --nbg 1.33 --coating "1:2.25,0:0.01" --lambda 580 \
 //             --pol circ --plane xz --extent "-50:50:101,-30:30:61" --csv results/nf_dimer.csv
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <fstream>

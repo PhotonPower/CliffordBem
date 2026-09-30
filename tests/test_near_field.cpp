@@ -1,6 +1,7 @@
 // Nahfeld im Aussenraum (v0.24): Fernfeldgrenze, Goldkugel in Wasser gegen die Mie-Loesung (tools/mie_nearfield.py),
 // Markierung innerer und zu naher Punkte, chirales Aussenmedium im Grenzfall chi -> 0, Nahfeld am Zweitor;
 // H-Matrix-Auswertung gegen die direkte Summation (v0.25).
+#include <algorithm>
 #include <cmath>
 #include "cbem/problems/twoport_layer_problem.hpp"
 #include "cbem/sources/near_field.hpp"

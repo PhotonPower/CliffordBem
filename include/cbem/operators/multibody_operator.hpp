@@ -3,6 +3,7 @@
 // Innenraum (Medium, Wellenzahl) und damit seinen eigenen Cauchy-Operator auf dem eigenen Teilnetz; die
 // Dreiecke von Koerper b liegen im Gesamtvektor im Bereich [begin[b], begin[b+1]).
 // (Der aeussere Operator E_2 wirkt dagegen auf der Vereinigung aller Raender.)
+#include <algorithm>
 #include <vector>
 #include "cbem/operators/cauchy_operator.hpp"
 

@@ -1,4 +1,5 @@
 #include "cbem/sources/chiral_incidence.hpp"
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 

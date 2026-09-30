@@ -1,4 +1,5 @@
 #include "cbem/solvers/block_preconditioner.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <limits>

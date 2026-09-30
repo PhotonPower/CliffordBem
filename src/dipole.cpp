@@ -1,4 +1,5 @@
 #include "cbem/sources/dipole.hpp"
+#include <algorithm>
 #include <cmath>
 #include <map>
 #include <stdexcept>

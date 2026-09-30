@@ -1,5 +1,6 @@
 // Chirale Medien: Transmissionsabbildung gegen den Python-Prototyp (Fresnel-verifiziert, AP 1),
 // Reduktion auf den achiralen Fall, Symmetrie sigma_s(chi) = sigma_{-s}(-chi), Vergleich mit chiraler Mie-Loesung.
+#include <algorithm>
 #include "cbem/operators/chiral_cauchy_operator.hpp"
 #include "cbem/operators/transmission_operator.hpp"
 #include "cbem/solvers/gmres.hpp"

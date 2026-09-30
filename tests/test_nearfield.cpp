@@ -1,5 +1,6 @@
 // Nahfeld auf gestreckten Elementen: adaptive Aussenregel gegen feine Referenz; Cache gegen direkte Auswertung.
 #include "cbem/assembly/kernel_entries.hpp"
+#include <algorithm>
 #include <random>
 #include "check.hpp"
 using namespace cbem;

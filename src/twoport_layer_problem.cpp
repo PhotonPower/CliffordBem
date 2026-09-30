@@ -1,4 +1,5 @@
 #include "cbem/problems/twoport_layer_problem.hpp"
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include "cbem/sources/chiral_incidence.hpp"

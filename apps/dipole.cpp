@@ -9,6 +9,7 @@
 //   F/F0 = sum_a |E_a|^2 q_a / (|E0|^2 q0),   q_a = gamma_rad,a / (gamma_tot,a + (1 - q0)/q0),
 // Anregung und Quantenausbeute gemeinsam gemittelt (nicht das Produkt der Mittelwerte). --q0: intrinsische Quantenausbeute.
 // Beispiel: dipole --sphere 12 --unit 20 --materials Au --nbg 1.33 --lambda 600 --lambda-exc 580 --dist "2,5,10,20" --q0 0.1
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <fstream>

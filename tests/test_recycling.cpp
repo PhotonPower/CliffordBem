@@ -1,6 +1,7 @@
 // Krylov-Recycling (v0.28) und GCRO-DR (v0.29): gleiche Loesungen wie GMRES; bei einer Matrix mit wenigen kleinen
 // Ausreisser-Eigenwerten sinken die Iterationen folgender rechter Seiten deutlich (die langsamen Richtungen stecken im
 // gespeicherten Unterraum). GCRO-DR mit k = 10 findet die 8 Ausreisser als harmonische Ritz-Vektoren.
+#include <algorithm>
 #include <cmath>
 #include <random>
 #include "cbem/linalg/dense.hpp"
