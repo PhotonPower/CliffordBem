@@ -10,6 +10,7 @@
 #include "cbem/solvers/block_preconditioner.hpp"
 #include "cbem/solvers/hodlr.hpp"
 #include "cbem/solvers/gmres.hpp"
+#include "cbem/solvers/recycling_gmres.hpp"
 
 namespace cbem {
 
@@ -24,6 +25,10 @@ public:
     PlaneWaveResult solve_plane_wave(const Vec3& d, const CVec3& p, const SolveOptions& o = {}) const;
     // beliebige rechte Seite b (Spur der einfallenden Welle auf mesh(), z. B. project_dipole); r.h = Gesamtspur (v0.26)
     PlaneWaveResult solve_rhs(const std::vector<cplx>& b, const SolveOptions& o = {}) const;
+    // Krylov-Recycling fuer folgende Loesungen (solve_rhs, solve_plane_wave) mit demselben Operator (v0.28); der Unterraum
+    // haengt am Vorkonditionierer und wird bei dessen Wechsel verworfen. max_recycle: Zahl der gespeicherten Richtungen.
+    void use_recycling(std::size_t max_recycle = 120);
+    std::size_t recycled() const { return rec_ ? rec_->recycled() : 0; }
     // Innerer Operator E_1 auf B x B (blockdiagonal ueber Koerper, chiral: P+ E_{k+} + P- E_{k-}), dicht
     Matrix inner_block(const std::vector<std::size_t>& B) const;
     // Blockvorkonditionierung einschalten (Gruppen z. B. aus group_by_clusters / group_by_features)
@@ -32,6 +37,10 @@ public:
     // 8x8-Block T_ij des Gesamtsystems (exakte Eintraege) und hierarchische Faktorisierung als Vorkonditionierer
     Mat8 system_entry(std::size_t i, std::size_t j) const;
     void use_hodlr_preconditioner(HodlrParams p = {});
+private:
+    mutable std::unique_ptr<RecyclingGmres> rec_;
+    std::size_t rec_max_ = 0;
+public:
     const HodlrSolver* hodlr() const { return hodlr_.get(); }
     const TriangleMesh& mesh() const { return mb_.all; }
     const MultiBodyMesh& multibody() const { return mb_; }

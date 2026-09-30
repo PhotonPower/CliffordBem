@@ -87,7 +87,16 @@ Mat8 ScatteringProblem::system_entry(std::size_t i, std::size_t j) const {
     return T;
 }
 
+void ScatteringProblem::use_recycling(std::size_t max_recycle) {
+    rec_max_ = max_recycle;
+    LinOp A = [this](const std::vector<cplx>& x, std::vector<cplx>& y) { T_->apply(x, y); };
+    LinOp M = [this](const std::vector<cplx>& x, std::vector<cplx>& y) {
+        if (hodlr_) hodlr_->apply(x, y); else if (prec_) prec_->apply(x, y); else T_->precondition(x, y); };
+    rec_ = std::make_unique<RecyclingGmres>(A, &M, max_recycle);
+}
+
 void ScatteringProblem::use_hodlr_preconditioner(HodlrParams p) {
+    if (rec_) rec_->clear();                                            // Unterraum gehoert zum alten Vorkonditionierer
     prec_.reset();
     hodlr_ = std::make_unique<HodlrSolver>(mb_.all, [this](std::size_t i, std::size_t j) { return system_entry(i, j); }, p);
 }
@@ -118,6 +127,7 @@ Matrix ScatteringProblem::inner_block(const std::vector<std::size_t>& B) const {
 
 void ScatteringProblem::use_block_preconditioner(const std::vector<std::vector<std::size_t>>& groups) {
     if (!outer_entries_) throw std::invalid_argument("Blockvorkonditionierer: chirales Aussenmedium nicht unterstuetzt (HODLR oder punktweise verwenden)");
+    if (rec_) rec_->clear();                                            // Unterraum gehoert zum alten Vorkonditionierer
     hodlr_.reset();
     prec_ = std::make_unique<BlockPreconditioner>(mb_.all, [this](const std::vector<std::size_t>& B) { return inner_block(B); },
                                                   *outer_entries_, *T_, groups);
@@ -137,6 +147,7 @@ PlaneWaveResult ScatteringProblem::solve_plane_wave(const Vec3& d, const CVec3& 
 }
 
 PlaneWaveResult ScatteringProblem::solve_rhs(const std::vector<cplx>& b, const SolveOptions& o) const {
+    if (rec_) { PlaneWaveResult r; GmresResult g = rec_->solve(b, r.h, o.tol, o.restart, o.max_iter); r.iterations = g.iterations; r.residual = g.rel_residual; return r; }
     LinOp A = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { T_->apply(x, y); };
     LinOp M = [&](const std::vector<cplx>& x, std::vector<cplx>& y) {
         if (hodlr_) hodlr_->apply(x, y); else if (prec_) prec_->apply(x, y); else T_->precondition(x, y); };

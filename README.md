@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.27.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.28.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -40,7 +40,7 @@ Für die Python-Werkzeuge: NumPy, SciPy, Matplotlib, optional `gmsh` (Geometrien
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release     # Optionen: -DCBEM_OPENMP=ON -DCBEM_NATIVE=ON
 cmake --build build -j
-ctest --test-dir build --output-on-failure         # 22 Tests
+ctest --test-dir build --output-on-failure         # 23 Tests
 ```
 
 | Test | prüft |
@@ -62,6 +62,7 @@ ctest --test-dir build --output-on-failure         # 22 Tests
 | `test_materials` | Materialtabellen, Lebedev-Momente |
 | `test_hodlr` | Systemeinträge gegen Operator, HODLR als direkter Löser und Vorkonditionierer |
 | `test_layered` | Parallelflächen, ohne Schicht = T₁, beschichtete Kugel gegen Aden–Kerker, neutrale Schale, chirale Schale |
+| `test_recycling` | Krylov-Recycling: gleiche Lösungen wie GMRES, weniger Iterationen bei Ausreißer-Eigenwerten |
 | `test_dipole` | Dipol: Kugel aus dem Außenmedium (Raten = 1), Goldkugel gegen die Reihenlösung, verdichtetes Netz |
 | `test_near_field` | Nahfeld: Fernfeldgrenze, Goldkugel gegen Mie (\|E\|², Chiralität), Markierungen, χ → 0, Zweitor gegen Mie |
 | `test_chiral_host` | chirales Außenmedium: Unsichtbarkeit, Ablehnung linearer Polarisation, χ → 0, Spiegelsymmetrie, Goldkugel gegen Mie, Zweitor gegen exakte Methode |
@@ -136,7 +137,8 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
 - **Dipolanregung (v0.26):** Zerfallsraten und Quantenausbeute von Fluorophoren vor Nanostrukturen; das Quenching verlangt
   am Fußpunkt Elemente von etwa d/8, dafür ein konform verdichtetes Kugelnetz. Seit v0.27 die Fluoreszenzverstärkung aus
   Anregung und Emission: vor einer Goldkugel bis etwa 60-fach für schwache Emitter, in der Spaltmitte eines Gold-Dimers etwa
-  260-fach selbst für helle (`results_dipole.md`).
+  260-fach selbst für helle. Seit v0.28 optional Krylov-Recycling für mehrere rechte Seiten; beim Dipolproblem nur
+  10–20 % Gewinn, weil dem Operator ausgeprägte langsame Eigenrichtungen fehlen (`results_dipole.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).

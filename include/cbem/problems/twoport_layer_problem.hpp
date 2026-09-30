@@ -28,6 +28,7 @@
 #include <memory>
 #include <vector>
 #include "cbem/problems/thin_layer_problem.hpp"
+#include "cbem/solvers/recycling_gmres.hpp"
 
 namespace cbem {
 
@@ -65,6 +66,9 @@ public:
     LayeredResult solve_plane_wave(const Vec3& dir, const CVec3& p, const SolveOptions& o = {}) const;
     // beliebige einfallende Spur b auf outer_mesh() (z. B. project_dipole); r.h: Gesamtvektor, Aussenspur = erste 8 N (v0.26)
     LayeredResult solve_rhs(const std::vector<cplx>& b_outer, const SolveOptions& o = {}) const;
+    // Krylov-Recycling fuer folgende Loesungen mit demselben Operator (v0.28)
+    void use_recycling(std::size_t max_recycle = 120);
+    std::size_t recycled() const { return rec_ ? rec_->recycled() : 0; }
     void apply(const std::vector<cplx>& x, std::vector<cplx>& y) const;
     void precondition(const std::vector<cplx>& x, std::vector<cplx>& y) const;
     std::size_t size() const { return size_; }
@@ -109,6 +113,7 @@ private:
     const BoundaryOperator* E1_ = nullptr;           // Kerne (blockdiagonal)
     const BoundaryOperator* E2op_ = nullptr;          // Aussenoperator auf der Vereinigung (chiral: P+ E_{k+} + P- E_{k-})
     mutable long inner_its_ = 0, inner_calls_ = 0;
+    mutable std::unique_ptr<RecyclingGmres> rec_;
 };
 
 }  // namespace cbem

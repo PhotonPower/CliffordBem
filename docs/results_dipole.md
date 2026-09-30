@@ -1,4 +1,4 @@
-# Ergebnisse: Dipolanregung, Zerfallsraten und Fluoreszenzverstärkung von Emittern (v0.26, v0.27)
+# Ergebnisse: Dipolanregung, Zerfallsraten und Fluoreszenzverstärkung von Emittern (v0.26–v0.28)
 
 Fluorophore vor Nanostrukturen: Das Teilchen verändert die Zerfallsraten eines Emitters (Purcell-Effekt, Quenching) und
 damit seine Quantenausbeute. Die Formulierung bleibt unverändert; der Dipol ändert nur die rechte Seite
@@ -142,6 +142,37 @@ Einzelkugel bei 2 nm unter denselben Wellenlängen (`results/fluor_sphere_580_60
   F/F₀ ≈ 260 ist als Größenordnung mit etwa ±30 % zu verstehen; eine Konvergenzprüfung mit n = 16 steht aus.
 - `test_dipole` prüft F/F₀ für die Kugel gegen Mie (d = 0,5 Radien, q₀ = 0,1: −5,1 % bei n = 8, verdichtet; der größere Teil
   kommt aus der Anregung auf dem groben Netz, −2,9 %).
+
+## Krylov-Recycling für mehrere rechte Seiten (v0.28)
+
+`RecyclingGmres` (`include/cbem/solvers/recycling_gmres.hpp`, GCRO-Prinzip) speichert einen Unterraum U und C = B·U mit
+orthonormalem C (B = A·M, rechts vorkonditioniert) und löst jede neue rechte Seite auf dem deflationierten Operator
+(I − C·Cᴴ)·B; die Richtungen früherer Lösungen werden angehängt, bis eine Obergrenze erreicht ist.
+`ScatteringProblem::use_recycling()` und `TwoPortLayerProblem::use_recycling()` schalten es für folgende Lösungen ein.
+
+**Zeitaufteilung je Emitterort** (Goldkugel, n = 12, verdichtet, drei Orientierungen, vor dem Recycling gemessen): Aufbau 30 s
+(27 %), Lösen 3 × etwa 46 Iterationen 59 s (53 %), Raten 24 s (21 %, überwiegend die Fernfeldintegration der strahlenden Rate
+über 3 200 Richtungen).
+
+**Wirkung** (dieselben Lösungen wie GMRES auf 10⁻¹⁰; neun rechte Seiten: drei Orientierungen, dann sechs weitere Orte auf
+demselben Netz):
+
+| Fall | Iterationen ohne → mit Recycling | Lösezeit gesamt |
+|---|---|---:|
+| Gold, ε = −11 + 1,2i, n = 12 | 45, 46, 47, 50 … → 45, **52**, 47, 37–41 | 1,11-fach |
+| nahe der Plasmonresonanz, ε = −3,5 + 0,3i, n = 8 | 73, 67, 68, 82–83 … → 73, 66, 66, **54–60** | 1,19-fach |
+| Testmatrix mit 8 Ausreißer-Eigenwerten nahe 0 (`test_recycling`) | 89, 89, 89, 89 → 89, **25, 24, 23** | 3,6-fach (ab der 2.) |
+
+- Das Recycling arbeitet wie vorgesehen, wo wenige langsame Eigenrichtungen die Konvergenz bestimmen (Testmatrix). Beim
+  Dipolproblem ist der Gewinn klein: Der vorkonditionierte Operator ist von zweiter Art ohne ausgeprägte Ausreißer (gleichmäßige
+  Reduktion um etwa 0,63 je Iteration), und die lokalisierten Dipolanregungen haben wenig überlappende Krylov-Räume. Für die
+  zweite rechte Seite braucht es bei ε = −11 sogar mehr Iterationen (der deflationierte Raum enthält K_m(B, b) nicht).
+- Nahe einer Plasmonresonanz, wo der Operator nahezu singuläre Moden hat, sparen spätere rechte Seiten bis zu einem Drittel.
+- Die einfache Variante speichert rohe Krylov-Vektoren, bis die Obergrenze erreicht ist, und nimmt danach nichts mehr auf.
+  GCRO-DR behielte stattdessen eine feste Zahl von Näherungen der Eigenvektoren zu den kleinsten Eigenwerten (harmonische
+  Ritz-Vektoren) und aktualisierte sie laufend; das wäre der Schritt, falls sich Recycling bei resonanten Problemen mit vielen
+  rechten Seiten lohnen soll.
+- Für die Anwendung `dipole` (zwei bis drei Orientierungen je Ort, Netz je Ort neu verdichtet) ist es nicht eingeschaltet.
 
 ## Grenzen
 

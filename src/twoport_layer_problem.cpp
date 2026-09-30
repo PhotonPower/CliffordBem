@@ -293,8 +293,15 @@ LayeredResult TwoPortLayerProblem::solve_plane_wave(const Vec3& dir, const CVec3
     return r;
 }
 
+void TwoPortLayerProblem::use_recycling(std::size_t max_recycle) {
+    LinOp A = [this](const std::vector<cplx>& x, std::vector<cplx>& y) { apply(x, y); };
+    LinOp M = [this](const std::vector<cplx>& x, std::vector<cplx>& y) { precondition(x, y); };
+    rec_ = std::make_unique<RecyclingGmres>(A, &M, max_recycle);
+}
+
 LayeredResult TwoPortLayerProblem::solve_rhs(const std::vector<cplx>& ba, const SolveOptions& o) const {
     std::vector<cplx> b(size_, cplx(0)); std::copy(ba.begin(), ba.end(), b.begin());
+    if (rec_) { LayeredResult r; GmresResult g = rec_->solve(b, r.h, o.tol, o.restart, o.max_iter); r.iterations = g.iterations; r.residual = g.rel_residual; return r; }
     LinOp A = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { apply(x, y); };
     LinOp M = [&](const std::vector<cplx>& x, std::vector<cplx>& y) { precondition(x, y); };
     LayeredResult r; GmresResult g = gmres(A, b, r.h, &M, o.tol, o.restart, o.max_iter);
