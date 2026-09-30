@@ -1,6 +1,7 @@
 // Dipolanregung und Zerfallsraten (v0.26): Kugel aus dem Aussenmedium (Raten = 1), Goldkugel in Wasser gegen die
 // Reihenloesung (tools/mie_dipole.py, radial und tangential), verdichtetes Netz bei kleinem Abstand; Fluoreszenzverstaerkung
-// (v0.27) gegen Mie (Nahfeld bei der Anregung, Raten bei der Emission).
+// (v0.27) gegen Mie (Nahfeld bei der Anregung, Raten bei der Emission); chiraler Emitter (v0.32): freier Helizitaetsdipol
+// (g_lum = +-2), schwach chiraler Emitter (g_lum = 4 kappa/(1 + kappa^2)), magnetischer Dipol vor Gold gegen Mie (a_n <-> b_n).
 #include <cmath>
 #include "cbem/problems/scattering_problem.hpp"
 #include "cbem/sources/dipole.hpp"
@@ -56,6 +57,27 @@ int main() {
         std::printf("  Fluoreszenz (q0 = 0,1): Anregung %.3f (Mie 7.936), F/F0 %.3f (Mie %.3f, %+.1f %%)\n", exc[0], F, Fx, 100 * (F / Fx - 1));
         CHECK(std::abs(F / Fx - 1) < 0.06, "Fluoreszenzverstaerkung weicht von Mie ab");
         CHECK(std::abs(R[1].total / R[2].total - 1) < 0.02, "Kugelsymmetrie der tangentialen Raten verletzt");
+    }
+    // 5. chiraler Emitter
+    {
+        const real smu = std::sqrt(1.0 / 1.7689);                                // sqrt(mu/eps) in Wasser
+        auto rates_m = [&](const TriangleMesh& m, const Medium& core, real r0, const CVec3& p, const CVec3& md) {
+            ScatteringProblem P({m}, {core}, 0.5, water, hp); const Vec3 x0(r0, 0, 0);
+            const auto b = project_dipole(P.mesh(), water, 0.5, x0, p, 24, md); const auto r = P.solve_rhs(b, so);
+            return dipole_rates(P.mesh(), r.h, b, water, 0.5, x0, p, 40, md); };
+        for (int sg : {+1, -1}) {                                               // m = sg i sqrt(mu/eps) p: rein eine Helizitaet
+            const auto R = rates_m(make_icosphere(4), water, 1.3, pt, CVec3{0.0, 0.0, cplx(0, sg * smu)});
+            std::printf("  Helizitaetsdipol (%+d): g_lum %.6f, Raten %.6f / %.6f\n", sg, R.glum, R.total, R.radiative);
+            CHECK(std::abs(std::abs(R.glum) - 2) < 1e-6 && R.glum * sg < 0, "Helizitaetsdipol strahlt nicht rein");
+            CHECK(std::abs(R.total - 1) < 1e-8 && std::abs(R.radiative - 1) < 1e-6, "Raten des Helizitaetsdipols ohne Streuer nicht 1");
+        }
+        const real kap = 0.01; const auto K = rates_m(make_icosphere(4), water, 1.3, pt, CVec3{0.0, 0.0, cplx(0, kap * smu)});
+        CHECK(std::abs(std::abs(K.glum_free) - 4 * kap / (1 + kap * kap)) < 1e-8, "g_lum des schwach chiralen Emitters falsch");
+        CHECK(std::abs(K.rad_plus + K.rad_minus - K.radiative) < 1e-10, "Helizitaetsanteile summieren sich nicht");
+        const auto Mg = rates_m(make_icosphere(8), gold, 2.0, CVec3{}, pt);        // magnetischer Dipol tangential, r0 = 2
+        const real mt = 1.969990, mr = 1.863432;                               // Mie (a_n <-> b_n): gesamt, strahlend
+        std::printf("  magnetischer Dipol tangential, r0 = 2: gamma_tot %.4f (Mie %.4f), gamma_rad %.4f (Mie %.4f)\n", Mg.total, mt, Mg.radiative, mr);
+        CHECK(std::abs(Mg.total / mt - 1) < 0.02 && std::abs(Mg.radiative / mr - 1) < 0.02, "magnetischer Dipol weicht von Mie ab");
     }
     REPORT();
 }

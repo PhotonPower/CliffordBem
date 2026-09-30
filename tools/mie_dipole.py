@@ -43,10 +43,11 @@ def rates(om, radii, eps, eps2, r0, orient='radial', nmax=None, s=None):
     return np.real(tot), rad
 
 
-def rates_mp(om, R, eps1, eps2, r0, orient='radial', nmax=None, dps=60):
+def rates_mp(om, R, eps1, eps2, r0, orient='radial', nmax=None, dps=60, kind='electric'):
     """Homogene Kugel in hoher Genauigkeit (mpmath): dicht an der Kugel ueberlaufen a_n h_n(k r0)^2 in doppelter Genauigkeit
     (a_n winzig, h_n riesig), obwohl gerade diese Ordnungen n ~ R/(r0 - R) das Quenching bestimmen. Koeffizienten nach
-    Bohren-Huffman (4.53) mit mu = 1, Vorzeichen s = S."""
+    Bohren-Huffman (4.53) mit mu = 1, Vorzeichen s = S. kind = 'magnetic': magnetischer Dipol vor der nichtmagnetischen
+    Kugel, dieselben Reihen mit vertauschten Koeffizienten a_n <-> b_n (die Moden TE und TM tauschen die Rollen)."""
     import mpmath as mp
     mp.mp.dps = dps
     k = mp.mpf(om) * mp.sqrt(mp.mpc(eps2)); m = mp.sqrt(mp.mpc(eps1) / mp.mpc(eps2)); x = k * R; rho = k * mp.mpf(r0)
@@ -62,6 +63,7 @@ def rates_mp(om, R, eps1, eps2, r0, orient='radial', nmax=None, dps=60):
         jx, dpx = fun(n, x, 'j'); hx, dxx = fun(n, x, 'h'); jm, dpm = fun(n, m * x, 'j')
         a = (m ** 2 * jm * dpx - jx * dpm) / (m ** 2 * jm * dxx - hx * dpm)
         b = (jm * dpx - jx * dpm) / (jm * dxx - hx * dpm)
+        if kind == 'magnetic': a, b = b, a
         jr, dpr = fun(n, rho, 'j'); hr, dxr = fun(n, rho, 'h')
         if orient == 'radial':
             tot += s * mp.mpf(3) / 2 * n * (n + 1) * (2 * n + 1) * a * (hr / rho) ** 2

@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.31.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.32.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -63,7 +63,7 @@ ctest --test-dir build --output-on-failure         # 23 Tests
 | `test_hodlr` | Systemeinträge gegen Operator, HODLR als direkter Löser und Vorkonditionierer |
 | `test_layered` | Parallelflächen, ohne Schicht = T₁, beschichtete Kugel gegen Aden–Kerker, neutrale Schale, chirale Schale |
 | `test_recycling` | Krylov-Recycling und GCRO-DR: gleiche Lösungen wie GMRES, weniger Iterationen bei Ausreißer-Eigenwerten; Eigenlöser |
-| `test_dipole` | Dipol: Kugel aus dem Außenmedium (Raten = 1), Goldkugel gegen die Reihenlösung, verdichtetes Netz |
+| `test_dipole` | Dipol: Kugel aus dem Außenmedium (Raten = 1), Goldkugel gegen die Reihenlösung, verdichtetes Netz, Fluoreszenz, chiraler Emitter (Helizitätsdipol, magnetischer Dipol gegen Mie) |
 | `test_near_field` | Nahfeld: Fernfeldgrenze, Goldkugel gegen Mie (\|E\|², Chiralität), Markierungen, χ → 0, Zweitor gegen Mie |
 | `test_chiral_host` | chirales Außenmedium: Unsichtbarkeit, Ablehnung linearer Polarisation, χ → 0, Spiegelsymmetrie, Goldkugel gegen Mie, Zweitor gegen exakte Methode |
 | `test_twoport` | Zweitor: neutrale Schicht, Glasschale d/h = 0,29 und 1,14 gegen Aden–Kerker, chirale Schicht (Symmetrie, CD), Mehrfachschichten (Zerlegung, Oxid + Glas, chirale Schicht auf Abstandshalter), Unterteilung dicker Schichten |
@@ -145,6 +145,8 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
 - **Parallelisierung (v0.31):** H-Matrix-Produkt, Nahfeld, Projektionen, Dipolraten und Zweitor mit OpenMP; mit 1, 2 und 4
   Threads auf zwölf Stellen gleich. Gemessen: Zweitor mit 5 760 Dreiecken auf 6 Kernen (8 Threads) 4,7-fach schneller
   (32,4 s → 6,9 s), etwa 79 % Effizienz je Kern, paralleler Anteil etwa 95 % (`results_parallel.md`).
+- **Chirale Emitter (v0.32):** magnetischer Übergangsdipol, zirkular polarisierte Lumineszenz (g_lum) vor Nanostrukturen;
+  achirale Goldstrukturen verdünnen g_lum im Orientierungsmittel, einzelne Orientierungen werden verstärkt (`results_dipole.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).

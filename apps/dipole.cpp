@@ -8,6 +8,9 @@
 // lokales Feld am Emitterort; Fluoreszenzverstaerkung fuer fest, aber zufaellig orientierte Emitter:
 //   F/F0 = sum_a |E_a|^2 q_a / (|E0|^2 q0),   q_a = gamma_rad,a / (gamma_tot,a + (1 - q0)/q0),
 // Anregung und Quantenausbeute gemeinsam gemittelt (nicht das Produkt der Mittelwerte). --q0: intrinsische Quantenausbeute.
+// Chiraler Emitter (v0.32): --chiral kappa -- zu jedem elektrischen Dipol p ein magnetischer m = i kappa sqrt(mu/eps) p
+// (parallele Uebergangsdipole); ausgegeben werden g_lum = 2 (P+ - P-)/(P+ + P-) mit und ohne Nanostruktur sowie das Mittel ueber
+// die Orientierungen aus den gemittelten Leistungen je Helizitaet (Beschriftung s wie circular_polarization und der CD).
 // Beispiel: dipole --sphere 12 --unit 20 --materials Au --nbg 1.33 --lambda 600 --lambda-exc 580 --dist "2,5,10,20" --q0 0.1
 #include <algorithm>
 #include <chrono>
@@ -28,7 +31,7 @@ struct Geometry { std::vector<TriangleMesh> bodies; real lam = 1, hmin = 0; };
 
 int main(int argc, char** argv) {
     std::string mesh, mats = "Au", coating, dists, pos, graded = "auto", csv, datadir = "data/materials", edir = "0,0,1", epol = "1,0,0";
-    int sph = 0; double unit = 20, nbg = 1.0, lambda = 600, lexc = -1, q0 = 1.0, gap = -1, heps = 1e-6, tol = 1e-9;
+    int sph = 0; double unit = 20, nbg = 1.0, lambda = 600, lexc = -1, q0 = 1.0, gap = -1, heps = 1e-6, tol = 1e-9, kappa = 0;
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
         if (o == "--sphere") sph = std::stoi(nxt()); else if (o == "--sphere-dimer") gap = std::stod(nxt()); else if (o == "--mesh") mesh = nxt();
@@ -36,7 +39,7 @@ int main(int argc, char** argv) {
         else if (o == "--lambda") lambda = std::stod(nxt()); else if (o == "--lambda-exc") lexc = std::stod(nxt());
         else if (o == "--exc-dir") edir = nxt(); else if (o == "--exc-pol") epol = nxt();
         else if (o == "--coating") coating = nxt(); else if (o == "--dist") dists = nxt(); else if (o == "--pos") pos = nxt();
-        else if (o == "--graded") graded = nxt(); else if (o == "--q0") q0 = std::stod(nxt());
+        else if (o == "--graded") graded = nxt(); else if (o == "--q0") q0 = std::stod(nxt()); else if (o == "--chiral") kappa = std::stod(nxt());
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt()); else if (o == "--csv") csv = nxt();
         else if (o == "--data") datadir = nxt();
         else { std::printf("unbekannte Option %s\n", o.c_str()); return 1; }
@@ -87,7 +90,7 @@ int main(int argc, char** argv) {
     };
     std::ofstream f;
     if (!csv.empty()) { f.open(csv, std::ios::app); f.seekp(0, std::ios::end);
-        if (f.tellp() == 0) f << "lambda_nm,lambda_exc_nm,dist_nm,orientation,gamma_tot,gamma_rad,gamma_nr,q,exc,iterations,lambda_graded,hmin_nm\n"; }
+        if (f.tellp() == 0) f << "lambda_nm,lambda_exc_nm,dist_nm,orientation,gamma_tot,gamma_rad,gamma_nr,q,exc,iterations,lambda_graded,hmin_nm,kappa,rad_plus,rad_minus,glum,glum_free\n"; }
     std::printf("Emission %.1f nm", lambda); if (lexc > 0) std::printf(", Anregung %.1f nm", lexc); std::printf(", q0 = %.2f\n", q0);
     std::printf("  d (nm)  Orient.   gamma_tot   gamma_rad    gamma_nr        q   |E_a|^2/|E0|^2   It.  (lambda, h_min nm)\n");
     const char* NM[3] = {"x", "y", "z"};
@@ -112,9 +115,10 @@ int main(int argc, char** argv) {
         for (int a = 0; a < 3; ++a) {
             if (axial && a == 1) continue;                                        // y wie z
             CVec3 p{0.0, 0.0, 0.0}; p[a] = 1.0;
-            const auto b = project_dipole(S.outer, S.bg, S.om, sites[s], p);
+            CVec3 md{0.0, 0.0, 0.0}; md[a] = cplx(0, kappa * std::sqrt(std::real(S.bg.mu / S.bg.eps)));   // chiraler Emitter
+            const auto b = project_dipole(S.outer, S.bg, S.om, sites[s], p, 24, md);
             const auto h = solve(S, b, IT[a]);
-            R[a] = dipole_rates(S.outer, h, b, S.bg, S.om, sites[s], p);
+            R[a] = dipole_rates(S.outer, h, b, S.bg, S.om, sites[s], p, 40, md);
         }
         if (axial) { R[1] = R[2]; IT[1] = IT[2]; }
         real F = 0, gt = 0, gr = 0;
@@ -122,14 +126,22 @@ int main(int argc, char** argv) {
             const real q = R[a].radiative / (R[a].total + (1 - q0) / q0);
             gt += R[a].total / 3; gr += R[a].radiative / 3;
             (void)F;
-            std::printf("  %6.2f  %-7s %11.4f %11.4f %11.4f %8.4f %14.3f %6d  (%.2f, %.2f)%s\n", dnm[s], NM[a], R[a].total, R[a].radiative, R[a].nonradiative, q,
+            std::printf("  %6.2f  %-7s %11.4f %11.4f %11.4f %8.4f %14.3f %6d  (%.2f, %.2f)%s", dnm[s], NM[a], R[a].total, R[a].radiative, R[a].nonradiative, q,
                         exc[a], IT[a], G.lam, G.hmin * unit, R[a].too_close ? "  zu nah" : "");
+            if (kappa != 0) std::printf("   g_lum %+.5f (frei %+.5f)", R[a].glum, R[a].glum_free);
+            std::printf("\n");
             if (f) f << lambda << ',' << lexc << ',' << dnm[s] << ',' << NM[a] << ',' << R[a].total << ',' << R[a].radiative << ',' << R[a].nonradiative << ',' << q << ','
-                     << exc[a] << ',' << IT[a] << ',' << G.lam << ',' << G.hmin * unit << std::endl;
+                     << exc[a] << ',' << IT[a] << ',' << G.lam << ',' << G.hmin * unit << ',' << kappa << ',' << R[a].rad_plus << ',' << R[a].rad_minus
+                     << ',' << R[a].glum << ',' << R[a].glum_free << std::endl;
         }
         if (lexc > 0) F = fluorescence_enhancement(exc, R, q0);                   // sum_a |E_a|^2 q_a / (|E0|^2 q0)
         std::printf("  %6.2f  Mittel  %11.4f %11.4f %11.4f %8.4f", dnm[s], gt, gr, gt - gr, gr / (gt + (1 - q0) / q0));
         if (lexc > 0) std::printf("   F/F0 = %.3f (fest, zufaellig orientiert)", F);
+        if (kappa != 0) {                                                        // Mittel ueber die Orientierungen aus den Leistungen je Helizitaet
+            real pp = 0, pm = 0; for (int a = 0; a < 3; ++a) { pp += R[a].rad_plus; pm += R[a].rad_minus; }
+            const real g = 2 * (pp - pm) / (pp + pm), g0 = R[0].glum_free;
+            std::printf("   g_lum gemittelt %+.5f (frei %+.5f, Verhaeltnis %.3f)", g, g0, g / g0);
+        }
         std::printf("\n"); std::fflush(stdout);
     }
     return 0;

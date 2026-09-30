@@ -1,4 +1,4 @@
-# Ergebnisse: Dipolanregung, Zerfallsraten und Fluoreszenzverstärkung von Emittern (v0.26–v0.29)
+# Ergebnisse: Dipolanregung, Zerfallsraten und Fluoreszenzverstärkung von Emittern (v0.26–v0.32)
 
 Fluorophore vor Nanostrukturen: Das Teilchen verändert die Zerfallsraten eines Emitters (Purcell-Effekt, Quenching) und
 damit seine Quantenausbeute. Die Formulierung bleibt unverändert; der Dipol ändert nur die rechte Seite
@@ -143,6 +143,57 @@ Einzelkugel bei 2 nm unter denselben Wellenlängen (`results/fluor_sphere_580_60
 - `test_dipole` prüft F/F₀ für die Kugel gegen Mie (d = 0,5 Radien, q₀ = 0,1: −5,1 % bei n = 8, verdichtet; der größere Teil
   kommt aus der Anregung auf dem groben Netz, −2,9 %).
 
+## Chirale Emitter und zirkular polarisierte Lumineszenz (v0.32)
+
+Chirale Emitter haben neben dem elektrischen Übergangsdipol p einen magnetischen m. Der magnetische Dipol folgt aus dem
+elektrischen über die Dualität (E → H, H → −E, ε ↔ μ, p → m):
+
+    H_m = (1/μ) [k² (n × m) × n + (3n(n·m) − m)(1/r² − ik/r)] G,   E_m = −ωk (n × m) G (1 − 1/(ikr)).
+
+Mit dieser Normierung strahlt m im Vakuum wie p gleichen Betrags. Gesamtrate:
+
+    γ/γ₀ = 1 + [Im(p*·E_s) + Im(m*·H_s)] / [k³|p|²/(6πε) + k³|m|²/(6πμ)]
+
+(gleicher Vorfaktor nach der Dualität; in der Gesamtleistung keine Kreuzterme, weil die Abstrahlmuster von p und m entgegengesetzte
+Parität haben). Zirkular polarisierte Lumineszenz: Das gesamte Fernfeld E∞ (frei und gestreut) wird als F' = √ε(E∞ + I x̂ × E∞)
+mit P± in die Helizitäten zerlegt, g_lum = 2(P₊ − P₋)/(P₊ + P₋); P₊ + P₋ ist exakt die strahlende Rate. Beschriftung der
+Helizität wie `circular_polarization` und beim CD. `dipole_rates(…, md)`, `project_dipole(…, md)`, `dipole --chiral κ`
+(m = iκ√(μ/ε) p, parallele Übergangsdipole).
+
+**Prüfsteine** (`test_dipole`):
+
+| Fall | BEM | erwartet |
+|---|---:|---:|
+| Helizitätsdipol m = +i√(μ/ε) p, ohne Streuer | g_lum = −2,000000, Raten 1 | rein eine Helizität (x̂ × E = +iE, in der Beschriftung s = −1) |
+| m = −i√(μ/ε) p | +2,000000 | |
+| schwach chiral, κ = 0,01 | \|g_lum\| = 0,03999600 | 4κ/(1 + κ²) = 0,03999600 |
+| magnetischer Dipol vor Gold (ε = −11 + 1,2i), r₀ = 1,5, radial | 0,9320 / 0,8887 | Mie (a_n ↔ b_n): 0,9261 / 0,8872 |
+| dto. tangential | 2,933 / 2,646 | 2,952 / 2,690 |
+
+Für den gemeinsamen Emitter aus p und m vor der Kugel gibt es keine eigene Referenz; beide Teile sind einzeln gegen Mie geprüft,
+ihre relative Phase über den freien Helizitätsdipol, und die Fernfelder sind linear.
+
+**Anwendung: chiraler Emitter vor Gold** (κ = 0,01, frei g_lum = −0,040; Emission 600 nm, Wasser, n = 12 verdichtet;
+`results/cpl_sphere_600.csv`, `results/cpl_dimer_600.csv`):
+
+| Ort | g_lum radial bzw. entlang der Achse | tangential bzw. senkrecht | gemittelt | Verhältnis zu frei |
+|---|---:|---:|---:|---:|
+| Kugel (20 nm), d = 20 nm | −0,025 | −0,053 | −0,035 | 0,87 |
+| Kugel, d = 5 nm | −0,012 | −0,075 | −0,013 | 0,32 |
+| Dimer (4 nm Spalt), Spaltmitte | −0,00083 | **+0,093** | −0,00080 | 0,02 |
+
+- Radial bzw. entlang der Dimerachse orientierte Emitter verlieren Chiralität: Die elektrische Abstrahlung wird stark verstärkt
+  (im Spalt γ_rad = 1 463), die magnetische kaum, das Verhältnis beider Anteile sinkt.
+- Tangential bzw. senkrecht zur Achse orientierte Emitter gewinnen: Ihre elektrische Abstrahlung wird vom Spiegelbild im Metall
+  nahezu ausgelöscht (Kugel bei 5 nm γ_rad = 0,05, Spalt 0,27), ein tangentialer magnetischer Dipol strahlt vor Metall eher
+  verstärkt. Im Spalt wechselt g_lum dabei das Vorzeichen: Die Umgebung verschiebt die Phase zwischen elektrischem und
+  magnetischem Anteil so, dass die Interferenz der Helizitätsanteile umkehrt. Dieser Befund hängt empfindlich vom Verhältnis
+  zweier stark veränderter Beiträge ab und verdient eine Gegenprüfung mit feinerem Netz (bei 2 nm Abstand etwa 20 % Genauigkeit
+  in den Raten).
+- Im Orientierungsmittel dominieren die stark strahlenden radialen bzw. axialen Emitter: Achirale plasmonische Strukturen
+  verdünnen die zirkular polarisierte Lumineszenz eines chiralen Emitters (Kugel bei 5 nm auf ein Drittel, im Spalt auf 2 %),
+  obwohl einzelne Orientierungen verstärkt werden.
+
 ## Krylov-Recycling für mehrere rechte Seiten (v0.28)
 
 `RecyclingGmres` (`include/cbem/solvers/recycling_gmres.hpp`, GCRO-Prinzip) speichert einen Unterraum U und C = B·U mit
@@ -202,8 +253,8 @@ Schur-Form; Residuum 10⁻¹³ bei n = 80). `use_gcrodr(k, m)` in `ScatteringPro
 
 ## Grenzen
 
-- Nur elektrische Dipole im achiralen Außenmedium, außerhalb aller Körper und Schichten. Magnetische Dipole, chirale Emitter
-  und zirkular polarisierte Lumineszenz sowie Dipole innerhalb von Schichten sind nicht umgesetzt.
+- Elektrische und magnetische Dipole im achiralen Außenmedium, außerhalb aller Körper und Schichten; Dipole innerhalb von
+  Schichten und in chiralen Außenmedien sind nicht umgesetzt.
 - Unter etwa 1 nm Abstand wird das klassische lokale Modell selbst fragwürdig (nichtlokale Antwort des Metalls,
   Elektronentunneln); das ist eine Grenze der Physik, nicht der Numerik.
 - Die Orientierungsmittelung (γ⊥ + 2γ∥)/3 gilt für die Kugel und für schnell rotierende Emitter; für feste, zufällig
