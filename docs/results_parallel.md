@@ -43,7 +43,27 @@ paralleler Anteil von 95–98 % mit 4 Kernen höchstens 3,5–3,8-fach und mit 8
 
 **Erwartung in der Praxis** (nicht gemessen): Der Aufbau ist rechenintensiv und sollte nahe an diese Grenzen kommen. Das
 H-Matrix-Produkt ist speicherbandbreitenbegrenzt (jeder Block wird einmal gelesen) und dürfte auf 4 Kernen eher 2,5–3,5-fach
-erreichen. Die Summation der Thread-Puffer kostet je Produkt O(p·N). Eine Messung auf einem Mehrkernrechner steht aus.
+erreichen. Die Summation der Thread-Puffer kostet je Produkt O(p·N). Messung siehe unten.
+
+## Messung auf einem Mehrkernrechner
+
+Windows, `scatter_coated --n 12 --omega 0.5 --core "-11,1.2" --coat "0.05,2.25,0" --twoport` (Zweitor, Goldkern mit
+Glasschale, 5 760 Dreiecke in zwei Flächen), Gesamtlaufzeit mit `Measure-Command`:
+
+| Threads | Laufzeit | Beschleunigung |
+|---:|---:|---:|
+| 1 | 32,4 s | 1 |
+| 8 | 6,86 s | **4,72** |
+
+- Die Ergebnisse (σ, S(0), 30 Iterationen) stimmen auf alle ausgegebenen Stellen überein.
+- Aus Amdahl, 1/((1 − f) + f/8) = 4,72, folgt ein paralleler Anteil f ≈ 0,90 und eine Effizienz von knapp 60 %. Der serielle Rest
+  (etwa 3,2 s) macht bei 8 Threads fast die Hälfte der Laufzeit aus; mehr Kerne brächten ohne seine Verringerung wenig
+  (16 Kerne: etwa 6,4-fach).
+- Ob der Rechner 8 Kerne oder 4 Kerne mit Hyperthreading hat, ist offen; im zweiten Fall ist die Effizienz besser, als sie
+  aussieht.
+- Vermutete serielle Anteile beim Zweitor: Vorkonditionierer-Blöcke (16×16-Inversion je Dreieck), Aufbau der
+  Flächenoperatoren (`SurfaceFV`), Transmissionsabbildungen, Clusterbäume und Blockaufteilung, Vektoroperationen von GMRES
+  und der inneren Resolventen. Eine Zerlegung der Laufzeit in Phasen steht aus.
 
 ## Hinweise
 
