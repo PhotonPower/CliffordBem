@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.24.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.25.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -21,7 +21,7 @@ Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 | Chirale Medien | Pasteur-Medien innen, Helizitätszerlegung, chirale J | chirale Mie-Lösung: Q₊, Q₋, CD auf 10⁻⁴ |
 | Mehrere Körper | eigenes Medium je Körper, blockdiagonaler Innenoperator | Additivität bei großem Abstand, zwei unabhängige Formulierungen, Enantiomere mit entgegengesetztem CD |
 | Beschichtete Grenzflächen | verschachtelte Gebiete (Grenzflächengraph), Parallelflächen, Schichten nach außen/innen, chirale Schichten, Vorwärtsamplitude S(0) mit Phase | beschichtete Kugel gegen Aden–Kerker: Q_ext und S(0) Ordnung 2; dünne Schichten (d/h bis 0,04) als Differenz zur neutralen Rechnung auf 1–5 % |
-| Nahfeld | Cauchy-Integral der Streuspur im Außenraum, halbanalytische Nahquadratur, Feldverstärkung und optische Chiralität, Karten (`nearfield`) | Goldkugel gegen Mie: Feldvektor auf 0,3–2 % (n = 12), auch 0,02 Radien vor der Oberfläche; Fernfeldgrenze 7,6·10⁻⁴ |
+| Nahfeld | Cauchy-Integral der Streuspur im Außenraum, halbanalytische Nahquadratur, rechteckige H-Matrix (Punkte × Dreiecke, ACA), Feldverstärkung und optische Chiralität, Karten (`nearfield`) | Goldkugel gegen Mie: Feldvektor auf 0,3–2 % (n = 12), auch 0,02 Radien vor der Oberfläche; Fernfeldgrenze 7,6·10⁻⁴ |
 | Chirales Außenmedium | Helizitätswellen mit k_±, Außenoperator P₊E_{k₊} + P₋E_{k₋}, optisches Theorem je Kanal; in allen Formulierungen | Goldkugel in chiralem Wasser gegen Mie: CD Ordnung 2; Kugel aus dem Außenmedium unsichtbar |
 | Zweitor (S-Matrix) | E₂ auf der Außenfläche, E₁ auf dem Kern, je Schicht ein Zweitor u_oben − u_unten = g(s)B(u_oben + u_unten) mit g = tanh(d√s/2)/√s (Partialbrüche, dünnbesetzte Resolventen), jede Schicht auf ihrer eigenen Fläche, automatische Unterteilung dicker Schichten | Mehrfachschichten gegen Mie auf 0,1–0,6 % (n = 12), dicke Schalen bis d/a = 0,5 konvergent, beliebiges d/h; CD chiraler Hüllen, auch im Abstand zum Gold; mehrere Körper (Dimer gegen exakte Methode auf 0,1 %) |
 | Dünnschicht-Näherung | eine Fläche je Körper, auch mehrere Körper; zweite Ordnung in Dirac-Form (Schritte ∂_ν F = n(ik − D)F auf Parallelflächen, Formoperator, quadratische Anpassung der zweiten Ableitungen), glatte Normalen; erste Ordnung als Sprungform | Schichtwirkung gegen Aden–Kerker: 0,1–0,7 % bis d/a = 0,05; Dimer und Silberwürfel gegen die exakte Rechnung extrapoliert ≈ 1 %; chirale Schichten: CD gegen chirale Schicht-Mie-Lösung mit Ordnung 2 (0,5–1 % bei n = 12) |
@@ -128,7 +128,8 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
   sich berührende oder durchdringende Körper und Hüllen ab (`results_coated.md`).
 - **Nahfeld (v0.24):** Feldverstärkung und optische Chiralität im Außenraum, gegen Mie auf wenige Prozent bis dicht an die
   Oberfläche. Im Spalt des Gold-Dimers bis 2 000-fache Intensität und zehnfache optische Chiralität; das Spaltfeld
-  verlangt feinere Netze als die Spektren (`results_nearfield.md`).
+  verlangt feinere Netze als die Spektren. Seit v0.25 mit H-Matrix-Auswertung: 4,5-fach schneller bei 28 800 Punkten,
+  Kompressionsfehler 10⁻⁵ (`results_nearfield.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).

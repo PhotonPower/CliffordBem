@@ -1,5 +1,5 @@
 #pragma once
-// Geometrischer Clusterbaum ueber Dreiecksschwerpunkten (Halbierung entlang der laengsten Achse).
+// Geometrischer Clusterbaum ueber Dreiecksschwerpunkten bzw. beliebigen Punkten (Halbierung entlang der laengsten Achse).
 #include <vector>
 #include "cbem/geometry/mesh.hpp"
 
@@ -17,11 +17,13 @@ struct ClusterNode {
 class ClusterTree {
 public:
     ClusterTree(const TriangleMesh& m, std::size_t leaf_size);
+    // beliebige Punkte mit Groesse je Punkt (z. B. 0 fuer Auswertepunkte des Nahfelds)
+    ClusterTree(const std::vector<Vec3>& points, const std::vector<real>& size, std::size_t leaf_size);
     std::vector<std::size_t> perm;        // Dreiecksindizes, clusterweise zusammenhaengend
     std::vector<ClusterNode> nodes;       // nodes[0] = Wurzel
     std::vector<std::size_t> indices(const ClusterNode& c) const { return {perm.begin() + c.begin, perm.begin() + c.end}; }
 private:
-    int build(const TriangleMesh& m, std::size_t b, std::size_t e, std::size_t leaf_size);
+    int build(const Vec3* P, const real* H, std::size_t b, std::size_t e, std::size_t leaf_size);
 };
 
 real box_distance(const ClusterNode& a, const ClusterNode& b);

@@ -1,5 +1,6 @@
 // Nahfeld im Aussenraum (v0.24): Fernfeldgrenze, Goldkugel in Wasser gegen die Mie-Loesung (tools/mie_nearfield.py),
-// Markierung innerer und zu naher Punkte, chirales Aussenmedium im Grenzfall chi -> 0, Nahfeld am Zweitor.
+// Markierung innerer und zu naher Punkte, chirales Aussenmedium im Grenzfall chi -> 0, Nahfeld am Zweitor;
+// H-Matrix-Auswertung gegen die direkte Summation (v0.25).
 #include <cmath>
 #include "cbem/problems/twoport_layer_problem.hpp"
 #include "cbem/sources/near_field.hpp"
@@ -60,6 +61,25 @@ int main() {
         const real ex = 10.700987268;                                     // tools/mie_nearfield.py, radii [1, 1.05]
         std::printf("  Zweitor, Glasschale: |E|^2 bei (1,2, 0, 0) %.4f (Mie %.4f, %+.1f %%)\n", f[0].enhancement, ex, 100 * (f[0].enhancement / ex - 1));
         CHECK(std::abs(f[0].enhancement / ex - 1) < 0.05, "Nahfeld am Zweitor weicht von Mie ab");
+    }
+    // 6. H-Matrix gegen direkte Summation (Gitter in der xz-Ebene, auch Punkte im Inneren)
+    {
+        const cplx k = water.k(0.5); const auto b = project_plane_wave(P.mesh(), k, water.eps, d, p);
+        std::vector<cplx> hs(r.h.size()); for (std::size_t i = 0; i < hs.size(); ++i) hs[i] = r.h[i] - b[i];
+        std::vector<Vec3> pts;
+        for (int j = 0; j < 40; ++j) for (int i = 0; i < 80; ++i) pts.push_back(Vec3(-2.5 + 5.0 * i / 79, 0.0, -1.5 + 3.0 * j / 39));
+        const auto Fd = scattered_field(P.mesh(), hs, k, pts);
+        HMatrixParams q; q.eps = 1e-4; const NearFieldOperator H(P.mesh(), k, pts, q); const auto Fh = H.apply(hs);
+        real emax = 0, fmax = 0;
+        for (std::size_t i = 0; i < pts.size(); ++i) {
+            if (winding_number(P.mesh(), pts[i]) > 0.5) continue;
+            real e = 0, f = 0; for (int c = 0; c < 8; ++c) { e += std::norm(Fh[i].c[c] - Fd[i].c[c]); f += std::norm(Fd[i].c[c]); }
+            emax = std::max(emax, std::sqrt(e)); fmax = std::max(fmax, std::sqrt(f));
+        }
+        const auto& st = H.stats(); const real mem = (st.entries_dense + st.entries_lowrank) / (4.0 * pts.size() * P.mesh().size());
+        std::printf("  H-Matrix (eps 1e-4): max Fehler / max|F| = %.1e, Speicher %.1f %% der dichten Matrix, Rang %.1f\n", emax / fmax, 100 * mem, st.mean_rank);
+        CHECK(emax / fmax < 1e-3, "H-Matrix weicht von der direkten Summation ab");
+        CHECK(mem < 0.6, "H-Matrix komprimiert nicht");
     }
     REPORT();
 }

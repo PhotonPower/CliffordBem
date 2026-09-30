@@ -2,6 +2,7 @@
 // Geometrie wie in spectrum: --sphere n [--sphere-dimer g] oder --mesh datei.msh, Laengen in nm mit --unit (Radius der Kugel).
 // Schichten: --coating "d:Material[:chi];..." (nach aussen) mit --twoport (Standard) oder --thin 0; --host-chi fuer ein chirales
 // Aussenmedium (dann --pol circ). Punkte innerhalb eines Koerpers bzw. seiner Huelle werden markiert (inside = 1).
+// Auswertung: H-Matrix ab 2000 Punkten (--nf-direct erzwingt direkte Summation, --nf-hmatrix die H-Matrix, --nf-eps Toleranz).
 // Beispiel (Gold-Dimer mit chiraler Schicht, Schnitt durch den Spalt):
 //   nearfield --sphere 8 --sphere-dimer 4 --unit 20 --materials Au --nbg 1.33 --coating "1:2.25,0:0.01" --lambda 580 \
 //             --pol circ --plane xz --extent "-50:50:101,-30:30:61" --csv results/nf_dimer.csv
@@ -19,6 +20,7 @@ using namespace cbem;
 static std::vector<std::string> split(const std::string& s, char c) { std::vector<std::string> v; std::stringstream ss(s); std::string t; while (std::getline(ss, t, c)) v.push_back(t); return v; }
 int main(int argc, char** argv) {
     std::string mesh, mats = "Au", coating, pol = "circ", plane = "xz", extent = "-40:40:81,-40:40:81", csv, datadir = "data/materials";
+    NearFieldOptions nfo;
     int sph = 0; double unit = 20, nbg = 1.0, host_chi = 0, lambda = 530, at = 0, gap = -1, thin = -1, heps = 1e-6, tol = 1e-8; Vec3 dir(0, 0, 1);
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
@@ -30,6 +32,8 @@ int main(int argc, char** argv) {
         else if (o == "--plane") plane = nxt(); else if (o == "--extent") extent = nxt(); else if (o == "--at") at = std::stod(nxt());
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt()); else if (o == "--csv") csv = nxt();
         else if (o == "--data") datadir = nxt();
+        else if (o == "--nf-direct") nfo.hmatrix_min_points = static_cast<std::size_t>(-1);   // direkte Summation erzwingen
+        else if (o == "--nf-hmatrix") nfo.hmatrix_min_points = 0; else if (o == "--nf-eps") nfo.eps = std::stod(nxt());
         else { std::printf("unbekannte Option %s\n", o.c_str()); return 1; }
     }
     std::vector<TriangleMesh> parts;
@@ -76,7 +80,7 @@ int main(int argc, char** argv) {
         pts.push_back(plane == "xy" ? Vec3(u, v, w) : plane == "yz" ? Vec3(w, u, v) : Vec3(u, w, v));
     }
     t0 = std::chrono::steady_clock::now();
-    auto f = exterior_near_field(outer, h, bg, om, dir, p, pts);
+    auto f = exterior_near_field(outer, h, bg, om, dir, p, pts, nfo);
     if (!cs.empty() && thin >= 0) for (std::size_t i = 0; i < pts.size(); ++i) f[i].inside = winding_number(hull, pts[i]) > 0.5;
     const double tf = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
     real emax = 0, cmin = 1e300, cmax = -1e300;

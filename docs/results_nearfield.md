@@ -1,4 +1,4 @@
-# Ergebnisse: Nahfeld im Außenraum (v0.24)
+# Ergebnisse: Nahfeld im Außenraum (v0.24, H-Matrix-Auswertung v0.25)
 
 Das Streufeld an einem Punkt x außerhalb aller Körper ist das Cauchy-Integral der Streuspur h_s = h − h_inc auf der Fläche
 zum Außenraum (`include/cbem/sources/near_field.hpp`):
@@ -69,10 +69,41 @@ das Feld ändert sich auf der Skala des Spalts; zudem liegt 580 nm am Maximum ei
 den Verfahren und mit dem Netz leicht verschiebt. Auf n = 8 ist |E|² im Spalt auf 10–20 %, C auf etwa 10 % genau; für
 quantitative Spaltwerte n ≥ 12 und Extrapolation.
 
+## Schnelle Auswertung mit H-Matrix (v0.25)
+
+Die Nahfeldmatrix (Punkte × Dreiecke) hat je Eintrag vier Komponenten K_c(x, τ) (Skalar, Vektor); das Streufeld ist
+F_s(x) = Σ_τ Σ_c K_c(x, τ) Z_{τ,c} mit Z_{τ,c} = e_c n_τ u_τ (e₀ = 1, e₁,₂,₃ Basisvektoren, Linksmultiplikation), exakt gleich
+der direkten Formel. `NearFieldOperator` komprimiert sie als rechteckige H-Matrix:
+
+- Clusterbäume über die Auswertepunkte und über die Dreiecke (`ClusterTree` für beliebige Punkte verallgemeinert, für Netze
+  unverändert).
+- Zulässig, wenn min(diam) ≤ η·dist, dist > 3 h (h größte Elementkante im Dreieckscluster; der Baum umschließt nur
+  Schwerpunkte) und |k|·diam beschränkt ist; abgestiegen wird jeweils in den größeren der beiden Cluster.
+- Ferne Blöcke: eine gemeinsame ACA auf der gestapelten Matrix |R| × 4|C| mit exakten Einträgen und Nachkompression; nahe
+  Blöcke dicht (halbanalytisch wie bei der direkten Summation).
+- `exterior_near_field` nutzt die H-Matrix ab 2 000 Punkten (`NearFieldOptions`), `nearfield --nf-direct`,
+  `--nf-hmatrix`, `--nf-eps`.
+
+Gold-Dimer (zwei Kugeln, Abstand 0,2 Radien), Gitter in der xz-Ebene, Fehler bezogen auf max |F| (nur Außenpunkte):
+
+| Fall | direkt | H-Matrix eps = 10⁻⁴ | H-Matrix eps = 10⁻⁶ |
+|---|---:|---:|---:|
+| 7 200 Punkte × 2 560 Dreiecke | 8,7 s | 4,4 s (2,0-fach), Fehler 8·10⁻⁶, Speicher 16 % | 7,9 s (1,1-fach), 9·10⁻⁸, 23 % |
+| 28 800 Punkte × 5 760 Dreiecke | 78,8 s | 17,6 s (**4,5-fach**), 1,5·10⁻⁵, 6,4 % | 32,8 s (2,4-fach), 1,3·10⁻⁷, 9,8 % |
+
+- Der Gewinn wächst mit der Größe (direkt ∼ M·N, H-Matrix ∼ (M + N)·log). Die Anwendung allein kostet 0,9–1,4 s statt 79 s;
+  bei wiederholter Auswertung mit derselben Wellenzahl (beide Helizitäten, mehrere Einfallsrichtungen) sinkt der Aufwand
+  entsprechend.
+- Voreinstellung eps = 10⁻⁴: Der Kompressionsfehler (≈ 10⁻⁵ bezogen auf max |F|) liegt weit unter dem Diskretisierungsfehler.
+  Punktweise relative Fehler können dort größer sein, wo das Feld fast verschwindet, weil ACA den Fehler je Block relativ zur
+  Blocknorm kontrolliert.
+- Dimerkarte oben (24 321 Punkte, viele davon nahe an den Oberflächen, also in dichten Blöcken): 13,2 s statt 17,2 s; die Karten
+  stimmen punktweise auf 1,3·10⁻⁵ (|E|²) bzw. 1,1·10⁻⁴ (C/C₀) bezogen auf das Maximum überein.
+
 ## Kosten und Grenzen
 
-- Direkte Summation über alle Dreiecke: 24 321 Punkte bei 2 × 2 × 1 280 Dreiecken in 17 s (ein Kern); für sehr viele Punkte
-  wäre eine H-Matrix- oder FMM-Auswertung der nächste Schritt.
+- Direkte Summation über alle Dreiecke: 24 321 Punkte bei 2 × 2 × 1 280 Dreiecken in 17 s (ein Kern); H-Matrix siehe oben.
+  Der Aufbau der H-Matrix wird von den exakten Einträgen der ACA dominiert.
 - Nur der Außenraum: Felder in Kernen und Schichten sind nicht ausgegeben (für homogene Körper wären sie über den Innenoperator
   zugänglich, im Zweitor zwischen den Schichtgrenzen nur über die Schichtbeziehung).
 - Die Dünnschicht-Näherung stellt das Außenfeld von der Referenzfläche aus dar (fortgesetzt durch die Schicht); gültig
