@@ -28,6 +28,8 @@ public:
     // Krylov-Recycling fuer folgende Loesungen (solve_rhs, solve_plane_wave) mit demselben Operator (v0.28); der Unterraum
     // haengt am Vorkonditionierer und wird bei dessen Wechsel verworfen. max_recycle: Zahl der gespeicherten Richtungen.
     void use_recycling(std::size_t max_recycle = 120);
+    // GCRO-DR (v0.29): k harmonische Ritz-Vektoren, Zykluslaenge m
+    void use_gcrodr(int k = 20, int m = 80);
     std::size_t recycled() const { return rec_ ? rec_->recycled() : 0; }
     // Innerer Operator E_1 auf B x B (blockdiagonal ueber Koerper, chiral: P+ E_{k+} + P- E_{k-}), dicht
     Matrix inner_block(const std::vector<std::size_t>& B) const;
@@ -38,7 +40,7 @@ public:
     Mat8 system_entry(std::size_t i, std::size_t j) const;
     void use_hodlr_preconditioner(HodlrParams p = {});
 private:
-    mutable std::unique_ptr<RecyclingGmres> rec_;
+    mutable std::unique_ptr<MultiRhsSolver> rec_;
     std::size_t rec_max_ = 0;
 public:
     const HodlrSolver* hodlr() const { return hodlr_.get(); }

@@ -1,4 +1,4 @@
-# Ergebnisse: Dipolanregung, Zerfallsraten und Fluoreszenzverstärkung von Emittern (v0.26–v0.28)
+# Ergebnisse: Dipolanregung, Zerfallsraten und Fluoreszenzverstärkung von Emittern (v0.26–v0.29)
 
 Fluorophore vor Nanostrukturen: Das Teilchen verändert die Zerfallsraten eines Emitters (Purcell-Effekt, Quenching) und
 damit seine Quantenausbeute. Die Formulierung bleibt unverändert; der Dipol ändert nur die rechte Seite
@@ -173,6 +173,32 @@ demselben Netz):
   Ritz-Vektoren) und aktualisierte sie laufend; das wäre der Schritt, falls sich Recycling bei resonanten Problemen mit vielen
   rechten Seiten lohnen soll.
 - Für die Anwendung `dipole` (zwei bis drei Orientierungen je Ort, Netz je Ort neu verdichtet) ist es nicht eingeschaltet.
+
+### GCRO-DR (v0.29)
+
+`GcroDr` behält statt aller rohen Krylov-Vektoren eine feste Zahl k von Richtungen, die harmonischen Ritz-Vektoren zu den
+betragskleinsten Eigenwerten des erweiterten Systems, und bestimmt sie nach jedem Zyklus neu (Parks, de Sturler, Mackey, Johnson,
+Maiti 2006). Zyklus der Länge m − k auf (I − C·Cᴴ)·B mit B·[Ũ V] = [C V₊]·Ḡ, Ḡ = [[D, E], [0, H̄]]; harmonische Ritz-Vektoren
+aus Ḡᴴ·Ḡ·z = θ·Ḡᴴ·Ŵᴴ·V̂·z, gelöst als (ḠᴴḠ)⁻¹·Ḡᴴ·Ŵᴴ·V̂·z = μ·z mit den k größten |μ| (ḠᴴḠ ist hermitesch positiv definit und
+sicher invertierbar, Ḡᴴ·Ŵᴴ·V̂ nicht unbedingt); neuer Unterraum Ḡ·P = Q·R, C = Ŵ·Q, U = V̂·P·R⁻¹. Der erste Zyklus ohne
+Unterraum ist GMRES-DR. Dafür neu: `eig_complex` (Householder-Hessenberg, verschobener QR-Algorithmus, Eigenvektoren aus der
+Schur-Form; Residuum 10⁻¹³ bei n = 80). `use_gcrodr(k, m)` in `ScatteringProblem` und Zweitor.
+
+| Fall | GMRES | einfache Variante (Richtungen) | GCRO-DR |
+|---|---|---|---|
+| Testmatrix, 8 Ausreißer | 89 je rechte Seite | 23–25 (114–161) | k = 10: **28–29**, erste Lösung 91 trotz Neustart nach 40 |
+| Gold nahe der Resonanz, spätere Orte | 82–83 | 54–60 (139), gesamt 1,19-fach | k = 20: 50–53, **1,30-fach**; k = 40: 46–53, 1,34-fach |
+| Gold nahe der Resonanz, Orientierungen 2 und 3 | 67–68 | 66 | 68–69 |
+| Gold, ε = −11 + 1,2i, n = 12 | 45–50 | gesamt 1,11-fach | k = 20: 40–51, 1,09-fach |
+
+- GCRO-DR erreicht mit einem Zehntel bis Siebtel des Speichers dasselbe oder mehr als die einfache Variante; die Lösungen
+  stimmen auf 10⁻⁹ bis 10⁻¹² mit GMRES überein.
+- Wo es langsame Eigenrichtungen gibt (Ausreißer, Plasmonresonanz), spart es bei späteren rechten Seiten bis gut 40 %. Ohne
+  solche Richtungen (Gold bei ε = −11) bleibt der Gewinn bei 10 %.
+- Die Orientierungen eines Dipols am selben Ort profitieren in keinem Fall: Ihre Anregungen teilen wenig Krylov-Raum, und die
+  herausgenommenen langsamen Moden bestimmen ihre Konvergenz kaum. Für die Anwendung `dipole` bleibt Recycling deshalb aus;
+  sinnvoll ist es für viele rechte Seiten auf demselben Netz nahe einer Resonanz (etwa Karten über viele Emitterorte).
+- Mehr gespeicherte Richtungen helfen kaum (k = 40 statt 20: 1,34- statt 1,30-fach).
 
 ## Grenzen
 

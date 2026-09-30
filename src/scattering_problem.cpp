@@ -95,6 +95,13 @@ void ScatteringProblem::use_recycling(std::size_t max_recycle) {
     rec_ = std::make_unique<RecyclingGmres>(A, &M, max_recycle);
 }
 
+void ScatteringProblem::use_gcrodr(int k, int m) {
+    LinOp A = [this](const std::vector<cplx>& x, std::vector<cplx>& y) { T_->apply(x, y); };
+    LinOp M = [this](const std::vector<cplx>& x, std::vector<cplx>& y) {
+        if (hodlr_) hodlr_->apply(x, y); else if (prec_) prec_->apply(x, y); else T_->precondition(x, y); };
+    rec_ = std::make_unique<GcroDr>(A, &M, k, m);
+}
+
 void ScatteringProblem::use_hodlr_preconditioner(HodlrParams p) {
     if (rec_) rec_->clear();                                            // Unterraum gehoert zum alten Vorkonditionierer
     prec_.reset();

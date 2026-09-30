@@ -25,5 +25,9 @@ real frobenius(const Matrix& A);
 // LU-Zerlegung mit Spaltenpivotisierung (in place), Loesen von A x = b
 void lu_factor(Matrix& A, std::vector<std::size_t>& piv);
 void lu_solve(const Matrix& LU, const std::vector<std::size_t>& piv, cplx* b);
+// Eigenwerte und Eigenvektoren einer allgemeinen komplexen n x n-Matrix (v0.29): Householder-Hessenberg, einfach verschobener
+// QR-Algorithmus (Wilkinson-Shift) zur Schur-Form A = Z T Z^H, Eigenvektoren durch Rueckwaertseinsetzen in T (Spalten von V,
+// normiert). Fuer kleine Matrizen (n bis einige Hundert); gibt false zurueck, wenn der QR-Algorithmus nicht konvergiert.
+bool eig_complex(const Matrix& A, std::vector<cplx>& lambda, Matrix& V, int max_iter_per_eig = 60);
 
 }  // namespace cbem

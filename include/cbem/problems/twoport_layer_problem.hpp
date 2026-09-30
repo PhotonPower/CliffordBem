@@ -68,6 +68,7 @@ public:
     LayeredResult solve_rhs(const std::vector<cplx>& b_outer, const SolveOptions& o = {}) const;
     // Krylov-Recycling fuer folgende Loesungen mit demselben Operator (v0.28)
     void use_recycling(std::size_t max_recycle = 120);
+    void use_gcrodr(int k = 20, int m = 80);                          // GCRO-DR (v0.29)
     std::size_t recycled() const { return rec_ ? rec_->recycled() : 0; }
     void apply(const std::vector<cplx>& x, std::vector<cplx>& y) const;
     void precondition(const std::vector<cplx>& x, std::vector<cplx>& y) const;
@@ -113,7 +114,7 @@ private:
     const BoundaryOperator* E1_ = nullptr;           // Kerne (blockdiagonal)
     const BoundaryOperator* E2op_ = nullptr;          // Aussenoperator auf der Vereinigung (chiral: P+ E_{k+} + P- E_{k-})
     mutable long inner_its_ = 0, inner_calls_ = 0;
-    mutable std::unique_ptr<RecyclingGmres> rec_;
+    mutable std::unique_ptr<MultiRhsSolver> rec_;
 };
 
 }  // namespace cbem
