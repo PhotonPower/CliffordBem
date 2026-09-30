@@ -143,8 +143,8 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
 - **ACA+ (v0.30)** als Voreinstellung der H-Matrizen: gleiche Ränge, etwa 10 % genauer, robust gegen unbemerkt zu kleinen
   Rang (`results_compression.md`).
 - **Parallelisierung (v0.31):** H-Matrix-Produkt, Nahfeld, Projektionen, Dipolraten und Zweitor mit OpenMP; mit 1, 2 und 4
-  Threads auf zwölf Stellen gleich. Gemessen: Zweitor mit 5 760 Dreiecken mit 8 Threads 4,7-fach schneller (32,4 s → 6,9 s)
-  (`results_parallel.md`).
+  Threads auf zwölf Stellen gleich. Gemessen: Zweitor mit 5 760 Dreiecken auf 6 Kernen (8 Threads) 4,7-fach schneller
+  (32,4 s → 6,9 s), etwa 79 % Effizienz je Kern, paralleler Anteil etwa 95 % (`results_parallel.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).

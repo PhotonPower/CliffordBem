@@ -56,14 +56,15 @@ Glasschale, 5 760 Dreiecke in zwei Flächen), Gesamtlaufzeit mit `Measure-Comman
 | 8 | 6,86 s | **4,72** |
 
 - Die Ergebnisse (σ, S(0), 30 Iterationen) stimmen auf alle ausgegebenen Stellen überein.
-- Aus Amdahl, 1/((1 − f) + f/8) = 4,72, folgt ein paralleler Anteil f ≈ 0,90 und eine Effizienz von knapp 60 %. Der serielle Rest
-  (etwa 3,2 s) macht bei 8 Threads fast die Hälfte der Laufzeit aus; mehr Kerne brächten ohne seine Verringerung wenig
-  (16 Kerne: etwa 6,4-fach).
-- Ob der Rechner 8 Kerne oder 4 Kerne mit Hyperthreading hat, ist offen; im zweiten Fall ist die Effizienz besser, als sie
-  aussieht.
+- Der Rechner hat 6 Kerne mit 12 logischen Prozessoren (Hyperthreading). Mit 8 Threads teilen sich auf zwei Kernen je zwei
+  Threads die Recheneinheiten; die Vergleichsgröße sind im Wesentlichen 6 Kerne. Effizienz damit etwa 79 % je Kern.
+- Aus Amdahl mit p = 6, 1/((1 − f) + f/6) = 4,72, folgt ein paralleler Anteil f ≈ 0,95 (mit einem kleinen Beitrag der
+  Hyperthreads etwa 0,93). Die Obergrenze für 6 Kerne liegt damit bei etwa 4,8; die Messung ist fast dort.
+- Weitere Verkleinerung des seriellen Rests brächte auf dieser Maschine wenig: serieller Anteil 5 % → 4,8-fach, 2 % → 5,5-fach,
+  0 % → 6,0-fach. Sie lohnt sich erst auf Rechnern mit deutlich mehr Kernen.
 - Vermutete serielle Anteile beim Zweitor: Vorkonditionierer-Blöcke (16×16-Inversion je Dreieck), Aufbau der
   Flächenoperatoren (`SurfaceFV`), Transmissionsabbildungen, Clusterbäume und Blockaufteilung, Vektoroperationen von GMRES
-  und der inneren Resolventen. Eine Zerlegung der Laufzeit in Phasen steht aus.
+  und der inneren Resolventen.
 
 ## Hinweise
 
