@@ -1,4 +1,4 @@
-# Ergebnisse: Dipolanregung und Zerfallsraten von Emittern (v0.26)
+# Ergebnisse: Dipolanregung, Zerfallsraten und Fluoreszenzverstärkung von Emittern (v0.26, v0.27)
 
 Fluorophore vor Nanostrukturen: Das Teilchen verändert die Zerfallsraten eines Emitters (Purcell-Effekt, Quenching) und
 damit seine Quantenausbeute. Die Formulierung bleibt unverändert; der Dipol ändert nur die rechte Seite
@@ -72,7 +72,7 @@ Rückprojektion. Elementgröße am Fußpunkt etwa λh, am Gegenpol h/λ, gleiche
 
 Emitter bei 650 nm (etwa Cy5) vor einer Goldkugel (Radius 20 nm, Johnson–Christy, ε = −12,95 + 1,12i) in Wasser,
 orientierungsgemittelt (γ⊥ + 2γ∥)/3, intrinsische Quantenausbeute q₀ = 1; n = 12, Netz automatisch zum Fußpunkt verdichtet
-(`dipole --sphere 12 --unit 20 --materials Au --nbg 1.33 --lambda 650 --dist d --orient average`,
+(`dipole --sphere 12 --unit 20 --materials Au --nbg 1.33 --lambda 650 --dist d`,
 `results/dipole_au20_650.csv`, `tools/plot_dipole.py`):
 
 ![Zerfallsraten vor einer Goldkugel](fig_dipole_au20.png)
@@ -90,6 +90,58 @@ orientierungsgemittelt (γ⊥ + 2γ∥)/3, intrinsische Quantenausbeute q₀ = 1
   weil die Auflösung am Fußpunkt nicht ganz reicht (bei 2 nm meldet die Anwendung, dass λ = 0,14 nötig wäre). Die Faustregel
   d/8 ist eher knapp, besonders für den tangentialen Dipol; für genaue Quantenausbeuten unter 5 nm n ≥ 16.
 - Kosten: etwa 2–5 min je Abstand (beide Orientierungen, verdichtetes Netz n = 12).
+
+## Fluoreszenzverstärkung (v0.27)
+
+Die Fluoreszenz eines Emitters nahe einem Teilchen setzt sich aus Anregung und Emission zusammen. Für einen fest, aber
+zufällig orientierten Emitter (etwa ein gebundener Farbstoff) werden beide gemeinsam gemittelt:
+
+    F/F₀ = Σ_a |E_a|² q_a / (|E₀|² q₀),   q_a = γ_rad,a / (γ_tot,a + (1 − q₀)/q₀),   a = x, y, z,
+
+mit dem lokalen Feld E der ebenen Welle bei der Anregungswellenlänge am Emitterort und den Raten bei der Emissionswellenlänge
+(`fluorescence_enhancement`; das Produkt der Mittelwerte wäre etwas anderes). Die Raten hängen nicht von q₀ ab, daher liefert
+eine Rechnung F/F₀ für beliebige q₀ (`tools/plot_fluorescence.py`). `dipole --lambda-exc … --exc-dir … --exc-pol …`; liegt der
+Emitter auf der x-Achse einer Kugel oder in der Spaltmitte eines Dimers, sind y und z gleichwertig und werden nur einmal
+gerechnet.
+
+**Einzelkugel** (Gold, Radius 20 nm, Wasser; Anregung 550 nm, Emission 570 nm, etwa Cy3; x-polarisiert entlang z; n = 12,
+verdichtet; `results/fluor_sphere_550_570.csv`):
+
+![Fluoreszenzverstärkung vor einer Goldkugel](fig_fluorescence_sphere.png)
+
+| d | Anregung \|E_x\|² BEM / Mie | F/F₀, q₀ = 1 | q₀ = 0,1 | q₀ = 0,01 |
+|---:|---:|---:|---:|---:|
+| 2 nm | 27,3 / 28,7 | 0,19 / 0,22 | 1,9 / 2,1 | 18 / 21 |
+| 5 nm | 15,5 / 15,8 | 0,78 / 0,82 | 7,5 / 7,9 | 57 / 59 |
+| 10 nm | 7,37 / 7,43 | 1,07 / 1,10 | 8,9 / 9,2 | 34 / 34 |
+| 20 nm | 2,99 / 3,01 | 1,08 / 1,10 | 5,0 / 5,1 | 7,9 / 8,0 |
+
+- Für helle Farbstoffe (q₀ = 1) hebt das Quenching die stärkere Anregung auf; F/F₀ bleibt unter 1,1. Schwache Emitter gewinnen
+  bis etwa 60-fach, mit einem Optimum bei 10 nm (q₀ = 0,1) bzw. 5 nm (q₀ = 0,01).
+- Ab 5 nm stimmt die BEM auf 1–5 % mit Mie überein; bei 2 nm liegt sie 13 % zu tief, weil das Quenching bei h ≈ d/6 am Fußpunkt
+  überschätzt wird.
+
+**Gold-Dimer** (2 × 20 nm, 4 nm Spalt zwischen den Kernen, Emitter in der Spaltmitte, 2 nm zu jeder Oberfläche; Anregung
+580 nm entlang z, x-polarisiert (entlang der Achse); Emission 600 nm; `results/fluor_dimer_580_600.csv`), verglichen mit der
+Einzelkugel bei 2 nm unter denselben Wellenlängen (`results/fluor_sphere_580_600.csv`):
+
+| | Einzelkugel, 2 nm | Dimer, Spaltmitte |
+|---|---:|---:|
+| Anregung \|E_x\|²/\|E₀\|² | 20,9 | 2 394 |
+| γ_tot (Dipol entlang x) | 1 842 | 13 551 |
+| γ_rad (Dipol entlang x) | 17,2 | 1 463 |
+| q_x (q₀ = 1) | 0,0094 | 0,108 |
+| F/F₀ (q₀ = 1) | 0,20 | ≈ 260 |
+
+- Der Dimer verstärkt nicht nur die Anregung; er ist zugleich eine gute Antenne: Die strahlende Rate des Dipols entlang der
+  Achse steigt fast 90-mal stärker als bei der Einzelkugel, die Quantenausbeute bleibt trotz des Quenchings zwölfmal höher.
+  Selbst ein heller Farbstoff wird um mehr als zwei Größenordnungen verstärkt. Senkrecht zur Achse orientierte Emitter werden
+  weder angeregt noch abgestrahlt (q ≈ 2·10⁻⁴).
+- Unsicherheit: Für den Dimer gibt es keine Referenz. Bei 2 nm erreicht die Verdichtung auf n = 12 nur etwa d/6 am Fußpunkt
+  (bei der Einzelkugel in dieser Lage 13–20 % Fehler), und das Spaltfeld verlangt feinere Netze (`results_nearfield.md`).
+  F/F₀ ≈ 260 ist als Größenordnung mit etwa ±30 % zu verstehen; eine Konvergenzprüfung mit n = 16 steht aus.
+- `test_dipole` prüft F/F₀ für die Kugel gegen Mie (d = 0,5 Radien, q₀ = 0,1: −5,1 % bei n = 8, verdichtet; der größere Teil
+  kommt aus der Anregung auf dem groben Netz, −2,9 %).
 
 ## Grenzen
 

@@ -103,4 +103,10 @@ DipoleRates dipole_rates(const TriangleMesh& outer, const std::vector<cplx>& h, 
     return R;
 }
 
+real fluorescence_enhancement(const real exc[3], const DipoleRates rates[3], real q0) {
+    real F = 0;
+    for (int a = 0; a < 3; ++a) F += exc[a] * rates[a].radiative / (rates[a].total + (1 - q0) / q0);
+    return F / q0;
+}
+
 }  // namespace cbem

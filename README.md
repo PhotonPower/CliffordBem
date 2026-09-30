@@ -5,12 +5,12 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.26.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.27.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
 beliebiger Dicke), chirale Außenmedien (Teilchen in chiraler Lösung), dispersive
-Materialien, Spektren mit Orientierungsmittelung, Nahfeldkarten (Feldverstärkung, optische Chiralität), Dipolanregung und Zerfallsraten von Emittern (Fluorophore), Phase der Vorwärtsamplitude, Block- und hierarchische
+Materialien, Spektren mit Orientierungsmittelung, Nahfeldkarten (Feldverstärkung, optische Chiralität), Dipolanregung, Zerfallsraten und Fluoreszenzverstärkung von Emittern (Fluorophore), Phase der Vorwärtsamplitude, Block- und hierarchische
 Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 
 ## Was der Kern kann
@@ -78,7 +78,7 @@ ctest --test-dir build --output-on-failure         # 22 Tests
 | `scatter_cube_dimer` | Dimer aus gradierten Würfeln | `--L 3,5 --gap 0.5` |
 | `scatter_multi` | Kugel-Dimer, auch chiral | `--n 8 --dist 3 --pol circ` |
 | `scatter_mesh` | beliebige Gmsh-Geometrie | `--mesh stab.msh --media "-11,1.2" --pol circ --precond hodlr:1e-2` |
-| `dipole` | Zerfallsraten eines Emitters (Abstandsreihe, radial / tangential / gemittelt, Quantenausbeute) | `--sphere 16 --unit 20 --materials Au --nbg 1.33 --lambda 650 --dist "2,5,10,20" --orient average --q0 0.5` |
+| `dipole` | Zerfallsraten und Fluoreszenzverstärkung eines Emitters (Kugel, Dimer, Gmsh; Abstandsreihe, Orientierungen x, y, z, Quantenausbeute, Anregung mit `--lambda-exc`) | `--sphere 16 --unit 20 --materials Au --nbg 1.33 --lambda 650 --dist "2,5,10,20" --q0 0.5` |
 | `nearfield` | Nahfeldkarte in einer Ebene (Kugel, Dimer, Gmsh, Schichten, chirales Außenmedium) | `--sphere 8 --sphere-dimer 4 --unit 20 --materials Au --nbg 1.33 --coating "1:2.25,0:0.01" --lambda 580 --pol circ --plane xz` |
 | `spectrum` | Spektren, Orientierungsmittelung, Beschichtungen (auch chiral, Dünnschicht-Näherung, Zweitor mit `--twoport`) | `--mesh x.msh --unit 25 --materials Ag --nbg 1.33 --lambda 340:520:20 [--coating "2:2.89,0[:χ]" --thin 0]` |
 | `scatter_coated` | beschichtete Kugel/Gmsh-Körper, gegen Aden–Kerker, neutrale Referenz, Dünnschicht-Näherung | `--n 4,8 --omega 0.5 --core -11,1.2 --coat 0.02,2.25,0 --neutral` bzw. `--thin --bare` (`--thin-model jump\|dirac1\|dirac2\|dirac2fit`, auch mit `--mesh`) |
@@ -89,7 +89,7 @@ Geometrien: `python3 tools/make_geometries.py sphere|rod|bornkuhn|roundcube h ou
 Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compression.py`, `mie_spectrum.py`,
 `mie_coated.py` (Aden–Kerker, Mehrfachschichten), `mie_chiral_layered.py` (geschichtete Kugeln mit chiralen Schichten),
 `analyze_coated.py`, `analyze_thin.py`, `analyze_chiral_thin.py`, `analyze_twoport.py`, `plot_coated.py`,
-`mie_nearfield.py` (Nahfeld nach Mie), `plot_nearfield.py`, `mie_dipole.py` (Zerfallsraten vor der Kugel).
+`mie_nearfield.py` (Nahfeld nach Mie), `plot_nearfield.py`, `mie_dipole.py` (Zerfallsraten vor der Kugel), `plot_fluorescence.py`.
 
 ## Ergebnisse
 
@@ -134,7 +134,9 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
   verlangt feinere Netze als die Spektren. Seit v0.25 mit H-Matrix-Auswertung: 4,5-fach schneller bei 28 800 Punkten,
   Kompressionsfehler 10⁻⁵ (`results_nearfield.md`).
 - **Dipolanregung (v0.26):** Zerfallsraten und Quantenausbeute von Fluorophoren vor Nanostrukturen; das Quenching verlangt
-  am Fußpunkt Elemente von etwa d/8, dafür ein konform verdichtetes Kugelnetz (`results_dipole.md`).
+  am Fußpunkt Elemente von etwa d/8, dafür ein konform verdichtetes Kugelnetz. Seit v0.27 die Fluoreszenzverstärkung aus
+  Anregung und Emission: vor einer Goldkugel bis etwa 60-fach für schwache Emitter, in der Spaltmitte eines Gold-Dimers etwa
+  260-fach selbst für helle (`results_dipole.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).

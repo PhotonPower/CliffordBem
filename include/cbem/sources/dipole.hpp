@@ -35,4 +35,10 @@ struct DipoleRates {
 DipoleRates dipole_rates(const TriangleMesh& outer, const std::vector<cplx>& h, const std::vector<cplx>& b, const Medium& m,
                          real omega, const Vec3& r0, const CVec3& p, int ntheta = 40);
 
+// Fluoreszenzverstaerkung eines fest, aber zufaellig orientierten Emitters (v0.27): Anregung exc[a] = |E_a|^2/|E0|^2 bei der
+// Anregungswellenlaenge, Raten rates[a] bei der Emission, jeweils fuer die Richtungen a = x, y, z; q0 intrinsische Quantenausbeute:
+//   F/F0 = sum_a exc[a] q_a / q0,   q_a = gamma_rad,a / (gamma_tot,a + (1 - q0)/q0).
+// Anregung und Quantenausbeute werden gemeinsam gemittelt (nicht das Produkt der Mittelwerte).
+real fluorescence_enhancement(const real exc[3], const DipoleRates rates[3], real q0);
+
 }  // namespace cbem
