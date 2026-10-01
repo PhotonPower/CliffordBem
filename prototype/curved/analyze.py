@@ -43,10 +43,14 @@ def main(files):
         for r in rows:
             groups.setdefault((r.get("geometry", "curved"), r.get("space", "pc"), r["n"]), []).append(r)
         ns = sorted({k[2] for k in groups})
-        print(f"{'N':>6} | {'eben/konst (heute)':>20} | {'gekruemmt/konst':>22} | {'eben/linear':>22} | {'gekruemmt/linear':>22}")
+        cols = [("flat", "pc"), ("curved", "pc"), ("flat", "p1"), ("curved", "p1")]
+        heads = ["eben/konst (heute)", "gekruemmt/konst", "eben/linear", "gekruemmt/linear"]
+        if any(k[0] == "quadratic" for k in groups):                      # Stufe 1b
+            cols.append(("quadratic", "p1")); heads.append("quadratisch/linear")
+        print(f"{'N':>6} | " + " | ".join(f"{h:>22}" for h in heads))
         for n in ns:
             cells = []
-            for g, s in (("flat", "pc"), ("curved", "pc"), ("flat", "p1"), ("curved", "p1")):
+            for g, s in cols:
                 rs = sorted(groups.get((g, s, n), []), key=lambda r: r["m"])
                 if g == "flat" and s == "pc":
                     rs = sorted(groups.get(("curved", "pc", n), []), key=lambda r: r["m"])[:1]   # m = 1: heutige Rechnung
@@ -63,7 +67,7 @@ def main(files):
                 txt += f" +- {du / q0:.1e}" if du is not None else " (2 Pkt.)"
                 cells.append(txt + f" [m<={rs[-1]['m']}]")
             N = 20 * n * n
-            print(f"{N:6d} | {cells[0]:>20} | {cells[1]:>22} | {cells[2]:>22} | {cells[3]:>22}")
+            print(f"{N:6d} | " + " | ".join(f"{c:>22}" for c in cells))
         print("  Rohwerte (Fehler gegen Mie je m):")
         for (g, s, n), rs in sorted(groups.items()):
             rs = sorted(rs, key=lambda r: r["m"])

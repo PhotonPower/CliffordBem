@@ -7,7 +7,7 @@ Referenzimplementierungen aus der Ausarbeitung der Arbeitspakete (NumPy/SciPy/Sy
 - `ap2/`: 3D-Galerkin-Prototyp (Kugel, Würfel, Symmetriesektoren, Vorkonditionierung) und
   H-Matrix-Prototyp (`hmat.py`, AP 3).
 
-- `curved/`: gekrümmte Elemente, Stufe 1 (v0.44): Messung über Galerkin-Projektion auf feinen Unterteilungen mit der
+- `curved/`: gekrümmte Elemente, Stufe 1 (v0.44) und 1b (v0.46, `--geometry quadratic`): Messung über Galerkin-Projektion auf feinen Unterteilungen mit der
   Python-Anbindung (`PYTHONPATH=build/python`, aus dem Wurzelverzeichnis starten); Ergebnisse in `docs/results_curved.md`.
 
 Die Skripte in `ap1/` und `ap2/` erwarten, aus ihrem eigenen Verzeichnis gestartet zu werden.

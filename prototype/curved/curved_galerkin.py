@@ -16,6 +16,10 @@ Polyeder faellt wie 1/m^2 und wird extrapoliert. m = 1 ist die heutige Rechnung 
 Erweiterung (Frage nach Stufe 2: lohnen gekruemmte Elemente erst mit Dichten hoeherer Ordnung?):
   --geometry flat   die feinen Punkte werden zentral auf die Ebene ihres groben Dreiecks projiziert (Grosskreise -> Geraden,
                     die Unterteilung bleibt konform): ebene Elemente, gleich fein integriert
+  --geometry quadratic  (Stufe 1b, v0.46) quadratisch interpolierte Elemente wie Gmsh ElementOrder 2: Ecken V_k und
+                    Kantenmitten M_ab = (V_a + V_b)/|V_a + V_b| auf der Kugel, X(l) = sum l_k (2 l_k - 1) V_k + sum 4 l_a l_b M_ab
+                    mit denselben Parametern l (Kegelkoordinaten ueber dem groben Element) wie die exakte Geometrie
+                    X(l) = sum l_k V_k / |sum l_k V_k|; Unterteilung, Dichtebasis und Extrapolation bleiben gleich
   --space p1        unstetig lineare Dichten je grobem Element (3 Funktionen je Blade, baryzentrische Koordinaten der
                     Parametrisierung), auf dem feinen Netz als Mittelwerte je feinem Dreieck dargestellt (Mittelwert einer
                     linearen Funktion = Wert im Schwerpunkt), je Element orthonormiert. Die Darstellung naehert die echten
@@ -68,6 +72,24 @@ def coarse_map(fine, coarse):
     return owner, counts, bary
 
 
+def quadratic(fine, coarse, owner):
+    """Feine Punkte auf das quadratische Interpolationselement ihres groben Elements legen (gleiche Parameter wie exakt)."""
+    P = fine.points.copy()
+    T = fine.triangles
+    V = coarse.points[coarse.triangles[owner]]                            # (Nf, 3 Ecken, 3)
+    M = np.stack([V[:, 0] + V[:, 1], V[:, 1] + V[:, 2], V[:, 2] + V[:, 0]], axis=1)
+    M /= np.linalg.norm(M, axis=2, keepdims=True)                         # Kantenmitten auf der Kugel (M01, M12, M20)
+    for c in range(3):
+        u = fine.points[T[:, c]]
+        lam = np.linalg.solve(np.transpose(V, (0, 2, 1)), u[:, :, None])[:, :, 0]
+        lam /= lam.sum(axis=1, keepdims=True)                             # Kegelkoordinaten der Kugelpunkte
+        l0, l1, l2 = lam[:, 0:1], lam[:, 1:2], lam[:, 2:3]
+        X = (l0 * (2 * l0 - 1) * V[:, 0] + l1 * (2 * l1 - 1) * V[:, 1] + l2 * (2 * l2 - 1) * V[:, 2]
+             + 4 * l0 * l1 * M[:, 0] + 4 * l1 * l2 * M[:, 1] + 4 * l2 * l0 * M[:, 2])
+        P[T[:, c]] = X
+    return cb.TriangleMesh(P, T)
+
+
 def flatten(fine, coarse, owner):
     """Feine Punkte zentral auf die Ebene ihres groben Dreiecks projizieren (ebene Elemente, konforme Unterteilung)."""
     P = fine.points.copy()
@@ -117,7 +139,7 @@ def main():
     ap.add_argument("--coarse", default="4,5,6,8", help="grobe Ikosaederkugeln n")
     ap.add_argument("--max-fine", type=int, default=20, help="feinstes Gitter n m (20: 8000 Dreiecke)")
     ap.add_argument("--tol", type=float, default=1e-8)
-    ap.add_argument("--geometry", choices=["curved", "flat"], default="curved")
+    ap.add_argument("--geometry", choices=["curved", "flat", "quadratic"], default="curved")
     ap.add_argument("--space", choices=["pc", "p1"], default="pc")
     ap.add_argument("--min-m", type=int, default=1)
     ap.add_argument("--out", required=True)
@@ -133,14 +155,19 @@ def main():
     print(f"{a.material}: eps = {eps}, omega a = {om}, Mie Q_ext = {q_mie:.6f}; feine Netze {fine_n}", flush=True)
     for nf in fine_n:
         todo = [n for n in coarse_n if nf % n == 0 and (n, nf // n) not in done and nf // n >= a.min_m]
-        if a.geometry == "flat":                                          # ein feines Netz je grobem Netz
+        if a.geometry in ("flat", "quadratic"):                           # ein feines Netz je grobem Netz
             groups = [(n, [n]) for n in todo]
         else:
             groups = [(None, todo)] if todo else []
         sphere = cb.make_icosphere(nf)
         for flat_of, members in groups:
             maps = {n: coarse_map(sphere, coarse_mesh[n]) for n in members}
-            fine = sphere if flat_of is None else flatten(sphere, coarse_mesh[flat_of], maps[flat_of][0])
+            if flat_of is None:
+                fine = sphere
+            elif a.geometry == "flat":
+                fine = flatten(sphere, coarse_mesh[flat_of], maps[flat_of][0])
+            else:
+                fine = quadratic(sphere, coarse_mesh[flat_of], maps[flat_of][0])
             run_fine(fine, nf, members, maps, coarse_mesh, a, eps, om, q_mie, rows)   # gibt das feine Problem wieder frei
 
 

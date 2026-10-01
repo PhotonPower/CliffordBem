@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44) und lineare Dichten (Stufe 2a, v0.45)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -184,6 +184,56 @@ beliebige rechte Seiten, Extinktion und Vorwärtsamplitude, jeweils auch in Pyth
 Außenmedium (Fernfeld je Helizität), Nahfeld und Kräfte, Block- und HODLR-Vorkonditionierung sowie die geschichteten
 Probleme.
 
-**Nächste Schritte.** Stufe 1b misst mit demselben Verfahren wie Stufe 1, ob quadratische Geometrie statt exakter die
-Ordnung h⁴ erhält. Stufe 2b bringt gekrümmte Elemente im Kern: Parametrisierung, Jacobi-Determinante und die Normale im
-Integral. Das Prüfziel ist gekrümmt/linear aus Stufe 1, also ≤ 0,02 % (Glas) und ≤ 0,12 % (Gold) bei 320 Elementen.
+**Nächster Schritt.** Stufe 2b bringt gekrümmte Elemente im Kern. Nach Stufe 1b (unten) genügen dafür quadratische
+Elemente. Dazu gehören Parametrisierung, Jacobi-Determinante und die Normale im Integral. Prüfziel ist
+quadratisch/linear aus Stufe 1b: −0,020 % (Glas) und −0,12 % (Gold) bei 320 Elementen.
+
+## Stufe 1b: quadratische statt exakter Geometrie (v0.46)
+
+**Frage.** Erhält eine quadratisch interpolierte Geometrie die schnelle Konvergenz der exakten Kugel? Diese Geometrie bekäme
+der Kern später aus Gmsh (`Mesh.ElementOrder 2`).
+
+**Verfahren.** Das Verfahren von Stufe 1 bleibt, nur die Geometrieabbildung wird getauscht (`--geometry quadratic`):
+
+- Parameter sind wie zuvor die Kegelkoordinaten λ über dem groben Element.
+- Exakte Geometrie: X(λ) = Σλ_k V_k / |Σλ_k V_k|.
+- Quadratische Geometrie (6-Knoten-Element): X(λ) = Σ λ_k(2λ_k − 1) V_k + Σ 4λ_aλ_b M_ab. Die Ecken V_k liegen auf der
+  Kugel, die Kantenmitten M_ab = (V_a + V_b)/|V_a + V_b| ebenfalls, wie bei Gmsh.
+- Dichtebasis, feine Unterteilung und Extrapolation sind unverändert. Der Vergleich trennt damit allein die Wirkung der
+  Geometrienäherung ab.
+
+**Gegenproben.**
+
+| Prüfung | Ergebnis |
+|---|---|
+| Konformität: Punkte auf groben Kanten, von beiden Nachbarn berechnet | 10⁻¹⁵ |
+| m = 1 (nur Ecken) gleich der heutigen Rechnung | 0,202879 wie zuvor |
+| radialer Abstand der quadratischen Fläche von der Kugel (m = 4) | 1,07·10⁻⁴ (320 El.) → 6,9·10⁻⁶ (1 280 El.), Faktor 15,6 |
+| Volumenfehler der quadratischen Fläche (in m extrapoliert, da das feine Polyeder selbst facettiert ist) | −2,2·10⁻³ (80) → −1,46·10⁻⁴ (320) → −9,5·10⁻⁶ (1 280): O(h⁴); eben: O(h²) |
+
+Der Volumenfehler fällt wie O(h⁴), wie von der Theorie für Interpolation vom Grad k erwartet (O(h^{2k})).
+
+**Ergebnisse** (Fehler von Q_ext gegen Mie, nach m → ∞ extrapoliert; Spanne über acht Fehlermodelle wie in Stufe 1):
+
+| Fall | heute (eben, konstant) | exakt, linear | quadratisch, linear |
+|---|---:|---:|---:|
+| Glas, 320 Elemente | −5,681 % | +0,013 % (+0,007 … +0,022) | **−0,020 %** (−0,027 … −0,012) |
+| Glas, 500 Elemente | −3,680 % | +0,005 % (+0,003 … +0,008) | **−0,003 %** (−0,006 … +0,005) |
+| Glas, 720 Elemente | −2,573 % | +0,001 % (2 P.) | −0,003 % (2 P.) |
+| Gold, 320 Elemente | +7,306 % | −0,073 % (−0,120 … −0,047) | **−0,118 %** (−0,182 … −0,080) |
+| Gold, 500 Elemente | +4,684 % | −0,023 % (−0,037 … −0,017) | **−0,039 %** (−0,065 … −0,028) |
+| Gold, 720 Elemente | +3,246 % | −0,007 % (2 P.) | −0,012 % (2 P.) |
+
+**Deutung.**
+- **Quadratische Elemente genügen.** Bei Gold fällt der Fehler von 320 über 500 auf 720 Elemente um die Faktoren 3,0 und
+  3,2. O(h⁴) entspräche bei diesen Netzschritten den Faktoren 2,4 und 2,1; gemessen ist sogar etwas mehr, wie bei
+  exakter Geometrie (3,2). Gegenüber heute ist der Fehler bei 320 Elementen 60-mal (Gold) bzw. fast 300-mal (Glas) kleiner.
+- **Der Preis der Näherung** ist ein Fehler, der bei Gold etwa 1,6-mal so groß ist wie mit exakter Geometrie; bei Glas
+  liegt er in derselben Größenordnung mit anderem Vorzeichen. Die Differenz zur exakten Geometrie passt zum Volumenfehler:
+  Bei Glas mit 320 Elementen sagt σ ∝ V² für den Volumenfehler −1,46·10⁻⁴ etwa −0,03 % voraus, gemessen sind −0,033 %.
+- **Höhere Geometrieordnung** (kubische Elemente) würde bei festem Netz höchstens diesen Faktor 1,6 bringen. Sie lohnt den
+  Aufwand nicht; für Stufe 2b genügen quadratische Elemente.
+
+**Grenzen.** Wie in Stufe 1: nur die Kugel, je eine Frequenz, nur die Extinktion; Extrapolation mit höchstens fünf Punkten.
+Die Kantenmitten liegen hier exakt auf der Kugel. Bei Gmsh liegen sie auf der CAD-Fläche, bei Netzen ohne CAD-Beschreibung
+muss die Fläche anders rekonstruiert werden.

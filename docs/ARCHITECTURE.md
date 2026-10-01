@@ -1,4 +1,4 @@
-# Architektur und Ausbauplan (Stand 0.45)
+# Architektur und Ausbauplan (Stand 0.46)
 
 ## Leitlinien
 
@@ -25,7 +25,7 @@
 |---|---|---|
 | core | Grundtypen, Materialmodelle (konstant, n/k-Tabellen) | Drude-Lorentz-Fits, Größenkorrektur der Dämpfung |
 | clifford | Multivektoren, geometrisches Produkt, Inverse (Nullteiler-Erkennung), Linksmultiplikation | spezialisierte Grad-Darstellungen |
-| geometry | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörpernetze, Parallelflächen (`offset_surface`, auf Gehrung, Prüfung auf Faltung/Durchdringung), Abstand Punkt–Fläche mit Gittersuche, Windungszahl, konform verdichtete Ikosaederkugel, Prüfung auf sich berührende oder durchdringende Körper, Gmsh-Import (2.2/4.1), Dunavant, Sauter-Schwab | gekrümmte Elemente – nach Messung (`results_curved.md`) nur zusammen mit unstetig linearen Dichten lohnend (Kugel: Fehler bei 320 Elementen 5,7 % → ≤ 0,02 % Glas, 7,3 % → ≤ 0,12 % Gold; allein gekrümmt: halbiert bzw. verdoppelt); lineare Dichten auf ebenen Elementen umgesetzt (Stufe 2a, v0.45); als Nächstes Stufe 1b (quadratische statt exakter Geometrie) und Stufe 2b (gekrümmte Elemente im Kern) –, nichtkonforme Kantennetze, Selbstdurchdringung einzelner Gmsh-Netze |
+| geometry | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörpernetze, Parallelflächen (`offset_surface`, auf Gehrung, Prüfung auf Faltung/Durchdringung), Abstand Punkt–Fläche mit Gittersuche, Windungszahl, konform verdichtete Ikosaederkugel, Prüfung auf sich berührende oder durchdringende Körper, Gmsh-Import (2.2/4.1), Dunavant, Sauter-Schwab | gekrümmte Elemente – nach Messung (`results_curved.md`) nur zusammen mit unstetig linearen Dichten lohnend (Kugel: Fehler bei 320 Elementen 5,7 % → ≤ 0,02 % Glas, 7,3 % → ≤ 0,12 % Gold; allein gekrümmt: halbiert bzw. verdoppelt); lineare Dichten auf ebenen Elementen umgesetzt (Stufe 2a, v0.45); Stufe 1b (v0.46): quadratische Elemente erhalten die Konvergenz (Kugel, 320 Elemente: −0,02 % Glas, −0,12 % Gold); als Nächstes Stufe 2b (quadratische Elemente im Kern) –, nichtkonforme Kantennetze, Selbstdurchdringung einzelner Gmsh-Netze |
 | kernel | Dirac-Kern, Wilton-Integrale (asinh-Form) | analytisch fortgesetzter Kern für komplexe Punkte (Streckung um Spitzen) |
 | assembly | Fernfeld (Gauß 7×7); benachbarte Paare: Sauter-Schwab (gleichseitig) bzw. halbanalytisch gradiert (gestreckt); nahe Paare: adaptive Außenregel, optional mit Randabstand (parallele Flächen); Nahfeld-Cache; unstetig lineare Dichten (`LinearKernelEntries`, v0.45): 3×3 Formfunktionen je Elementpaar, analytische Innenintegrale für λ_b, antisymmetrisierter Selbstterm | nichtkonforme Nachbarschaften, schnellere Nahpaare auf gestreckten Elementen |
 | hmatrix | Clusterbaum (Netze und beliebige Punkte), ACA (gemeinsam, komponentenweise, Multivektor-Pivots), ACA+ (Voreinstellung), Nachkompression, ACA mit exakten Einträgen | complex64-Speicher |
