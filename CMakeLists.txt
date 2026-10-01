@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(CliffordBem VERSION 0.32.0 LANGUAGES CXX)
+project(CliffordBem VERSION 0.33.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -41,7 +41,8 @@ add_library(cbem
   src/chiral_incidence.cpp
   src/near_field.cpp
   src/dipole.cpp
-  src/recycling_gmres.cpp)
+  src/recycling_gmres.cpp
+  src/optical_force.cpp)
 target_include_directories(cbem PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(cbem PRIVATE -Wall -Wextra)
 if(CBEM_NATIVE)
@@ -82,7 +83,7 @@ endif()
 
 if(CBEM_BUILD_TESTS)
   enable_testing()
-  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh test_materials test_hodlr test_layered test_thin_layer test_twoport test_chiral_host test_near_field test_dipole test_recycling)
+  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh test_materials test_hodlr test_layered test_thin_layer test_twoport test_chiral_host test_near_field test_dipole test_recycling test_optical_force)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE cbem)
     add_test(NAME ${t} COMMAND ${t})

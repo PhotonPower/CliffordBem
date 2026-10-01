@@ -16,6 +16,7 @@
 | `results_aca_multivector.md` | ACA mit Multivektor-Pivots (H3) |
 | `results_resonance_window.md` | Resonanzfenster an Ecken (2D-Lösung, 3D-Hindernisse) |
 | `results_roundcube.md` | abgerundete Würfel im Fenster, Silberwürfel-Spektren |
+| `results_force.md` | Optische Kräfte über den Spannungstensor: Strahlungsdruck, optische Bindung am Dimer |
 | `results_parallel.md` | Parallelisierung mit OpenMP: was parallel läuft, Korrektheit unter mehreren Threads, Anteil paralleler Rechenzeit |
 | `results_dipole.md` | Dipolanregung, Zerfallsraten und Quantenausbeute von Emittern, Netzanforderungen |
 | `results_nearfield.md` | Nahfeld: Validierung gegen Mie, Spaltfeld und optische Chiralität des Gold-Dimers |

@@ -291,7 +291,7 @@ Konvergenz bei Gold lag also an der Nahfeldquadratur, nicht an Formulierung oder
 Damit ist H3 (zweiter Teil) im Bereich bis etwa 160\,000 Unbekannte und $kD\lesssim16$ numerisch
 gestützt: Der Aufwand ist $\mathcal{O}(N\log^\alpha N)$ mit $\alpha\approx2$ für den Speicher.
 
-\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.32)}\label{sec:cpp2}
+\section{Weiterentwicklung des C++-Kerns (v0.4 bis v0.33)}\label{sec:cpp2}
 Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
 \begin{itemize}[leftmargin=*]
   \item \emph{Nahfeld.} Sauter-Schwab-Quadratur für benachbarte Paare: Die bisherige Regel hatte an gemeinsamen
@@ -374,7 +374,9 @@ Kurzfassung; Einzelheiten in den Berichten unter \texttt{docs/} im Repository.
     4 Kernen höchstens 3,5--3,8-fach; auf 6 Kernen gemessen 4,7-fach.
   \item \emph{Chirale Emitter} (v0.32): magnetischer Übergangsdipol über die Dualität, zirkular polarisierte Lumineszenz aus der
     Zerlegung des Fernfelds nach Helizität (in der Clifford-Form die Projektoren $P_\pm$). Achirale Goldstrukturen verdünnen
-    $g_{\mathrm{lum}}$ im Orientierungsmittel, verstärken ihn aber für tangential orientierte Emitter. Die $\mathcal{H}$-Matrizen der Schichtgebiete
+    $g_{\mathrm{lum}}$ im Orientierungsmittel, verstärken ihn aber für tangential orientierte Emitter.
+  \item \emph{Optische Kräfte} (v0.33) über den Maxwellschen Spannungstensor auf Körperflächen, Kugeln oder Parallelflächen:
+    Strahlungsdruck wie Mie im Rahmen der Diskretisierung, optische Bindung am Gold-Dimer. Die $\mathcal{H}$-Matrizen der Schichtgebiete
     enthalten mehr unzulässige Blöcke, weil sich die Cluster beider Flächen überlappen; Speicher und Nahpaare etwa
     verdoppeln sich je Schicht.
 \end{itemize}
