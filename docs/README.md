@@ -21,6 +21,7 @@
 | `results_parallel.md` | Parallelisierung mit OpenMP: was parallel läuft, Korrektheit unter mehreren Threads, Anteil paralleler Rechenzeit |
 | `results_dipole.md` | Dipolanregung, Zerfallsraten und Quantenausbeute von Emittern, Netzanforderungen |
 | `results_nearfield.md` | Nahfeld: Validierung gegen Mie, Spaltfeld und optische Chiralität des Gold-Dimers |
+| `results_curved.md` | gekrümmte Elemente, Stufe 1: Messung an der Kugel (Geometrie eben/gekrümmt × Dichte konstant/linear) |
 | `results_coated.md` | beschichtete Grenzflächen: Aden–Kerker, dünne Schichten, Silberteilchen mit Oxid, Dünnschicht-Näherung erster und zweiter Ordnung, chirale Schichten, Zweitor |
 
 ## Python-Anbindung

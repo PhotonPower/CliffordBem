@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.43.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.44.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -204,8 +204,8 @@ bindings/python/         pybind11-Modul cliffordbem._cbem, Paket cliffordbem, Te
 ## Offene Punkte
 
 Siehe `docs/ARCHITECTURE.md`. Wichtigste: reflexionsfreier Abschluss an 3D-Kanten im Resonanzfenster,
-Streckung um Spitzen im C++-Kern, Krylov-Recycling für viele rechte Seiten, Substrate, gekrümmte Elemente,
-Ansätze höherer Ordnung, parallele Tests auf Mehrkernrechnern, Typ-Stubs für die Python-Anbindung; für beschichtete Körper:
+Streckung um Spitzen im C++-Kern, Krylov-Recycling für viele rechte Seiten, Substrate, gekrümmte Elemente
+zusammen mit Ansätzen höherer Ordnung (einzeln lohnen beide nicht, `docs/results_curved.md`), parallele Tests auf Mehrkernrechnern, Typ-Stubs für die Python-Anbindung; für beschichtete Körper:
 Block-/HODLR-Vorkonditionierung, ein Eindeutigkeitsbeweis für verschachtelte Gebiete; für die Dünnschicht-Näherung
 Stabilität für d ≳ h (nichtlokale Formulierung) und Krümmungssprünge (Übergang von ebenen Seiten zu Rundungen).
 
