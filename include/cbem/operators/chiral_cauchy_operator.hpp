@@ -11,13 +11,14 @@ Mat8 helicity_projector(int sign);   // P_pm als 8x8-Matrix (Links- = Rechtsmult
 
 class ChiralCauchyOperator : public BoundaryOperator {
 public:
-    ChiralCauchyOperator(const CauchyOperator& E_plus, const CauchyOperator& E_minus) : Ep_(E_plus), Em_(E_minus),
+    // beliebige Randoperatoren mit 8 Komponenten je Basisfunktion (konstante oder lineare Dichten; v0.45)
+    ChiralCauchyOperator(const BoundaryOperator& E_plus, const BoundaryOperator& E_minus) : Ep_(E_plus), Em_(E_minus),
         Pp_(helicity_projector(+1)), Pm_(helicity_projector(-1)) {}
     void apply(const std::vector<cplx>& x, std::vector<cplx>& y) const override;
     std::size_t size() const override { return Ep_.size(); }
 private:
-    const CauchyOperator& Ep_;
-    const CauchyOperator& Em_;
+    const BoundaryOperator& Ep_;
+    const BoundaryOperator& Em_;
     Mat8 Pp_, Pm_;
 };
 

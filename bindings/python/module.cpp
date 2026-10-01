@@ -35,4 +35,5 @@ PYBIND11_MODULE(_cbem, m) {
     init_operators(m);
     init_problems(m);
     init_sources(m);
+    init_linear(m);
 }

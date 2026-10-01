@@ -6,6 +6,7 @@
 // Anwendung: Y_i += sum_c sum_j K_c(i,j) Z_{j,c}  mit Z: (N x 4 x 8) -> Y: (N x 8).
 #include <vector>
 #include "cbem/assembly/kernel_entries.hpp"
+#include "cbem/assembly/linear_entries.hpp"
 #include "cbem/hmatrix/aca.hpp"
 #include "cbem/hmatrix/cluster_tree.hpp"
 #include "cbem/clifford/multivector.hpp"
@@ -42,6 +43,9 @@ struct HStats {
 class KernelHMatrix {
 public:
     KernelHMatrix(const KernelEntries& entries, HMatrixParams prm = {});
+    // unstetig lineare Dichten (v0.45): Indizes I = 3 t + a (psi-Basis), Clusterbaum ueber Elementen mit je drei
+    // zusammenhaengenden Indizes; dichte Bloecke und ACA-Zeilen/-Spalten je Elementpaar einmal ausgewertet; nur AcaMode::Joint
+    KernelHMatrix(const LinearKernelEntries& entries, HMatrixParams prm = {});
     void apply(const std::vector<cplx>& Z, std::vector<cplx>& Y) const;   // Z: N*4*8, Y: N*8 (wird addiert)
     const HStats& stats() const { return st_; }
     std::size_t size() const { return N_; }
@@ -50,6 +54,7 @@ private:
     struct LR { std::vector<std::size_t> R, C; std::vector<LowRank> f;       // Joint: f.size()==1 (V: 4C x r)
                 std::vector<Multivector> mu, mw; std::size_t mrank = 0; };     // Multivector: u (|R| x r), w (|C| x r), spaltenweise
     void partition(int t, int s, std::vector<std::pair<int, int>>& adm, std::vector<std::pair<int, int>>& inadm) const;
+    template <class E> void build(const E& entries);
     std::size_t N_;
     HMatrixParams prm_;
     ClusterTree tree_;

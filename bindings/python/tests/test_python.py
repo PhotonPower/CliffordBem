@@ -501,6 +501,43 @@ def test_custom_field_errors():
     assert np.all(np.isfinite(cb.force_on_sphere(cb.near_field_evaluator(m, r.h, b, WATER, om, pw), WATER, (0, 0, 0), 1.5)))
 
 
+# --- lineare Dichten (v0.45) -----------------------------------------------------------------------------------------------
+def test_linear_densities():
+    """Unstetig lineare Dichten: Summenidentitaet der Eintraege, Projektion, Streuung wie test_linear (C++) und wie die
+    Vorhersage aus Stufe 1 (eben/linear, Glas, 320 Elemente: -6,163 %), Fehlerbehandlung, Lebensdauer."""
+    m = cb.make_icosphere(4)
+    E, K = cb.LinearKernelEntries(m, 1.3 + 0.05j), cb.KernelEntries(m, 1.3 + 0.05j)
+    for i, j in [(0, 0), (0, 1), (0, 50), (3, 200)]:
+        assert np.abs(E.lambda_block(i, j).sum(axis=(0, 1)) - K.exact(i, j)).max() < 1e-14 * np.abs(K.exact(i, j)).max()
+        assert np.allclose(E.block(i, j).sum(axis=(0, 1)) / 3, K.exact(i, j) / np.sqrt(m.areas[i] * m.areas[j]), rtol=1e-12)
+    S = E.S(5)
+    lam_gram = m.areas[5] / 12 * (np.eye(3) + 1)
+    assert np.allclose(S @ lam_gram @ S.T, np.eye(3))                  # psi orthonormal
+    b = cb.plane_wave_trace_linear(m, cb.Medium(), 1.0, Z, X)
+    assert np.abs(cb.linear_to_constant(m, b) - cb.plane_wave_trace(m, cb.Medium(), 1.0, Z, X)).max() < 1e-14
+    P = cb.LinearScatteringProblem(m, cb.Medium(eps=2.25), 1.0)
+    r = P.solve_plane_wave(Z, X, cb.SolveOptions(tol=1e-8))
+    err = r.sigma_ext / np.pi / 0.2150978 - 1
+    assert P.unknowns == 24 * len(m) == len(r.h) and abs(err - (-0.06163)) < 1e-4, err
+    hs = r.h - b
+    assert np.isclose(cb.extinction_cross_section_linear(m, hs, 1.0, 1.0, Z, X), r.sigma_ext)
+    assert np.isclose(r.sigma_ext, 4 * np.pi * r.forward.real)
+    r2 = P.solve_rhs(b, cb.SolveOptions(tol=1e-8))
+    assert np.allclose(r2.h, r.h)
+    v = cb.linear_trace_value(m, r.h, 7, m.centroids[7])                # Dichte im Schwerpunkt = Mittelwert
+    assert np.allclose(v.c, cb.linear_to_constant(m, r.h)[56:64] / np.sqrt(m.areas[7]))
+    assert raises(ValueError, P.solve_rhs, np.zeros(8 * len(m)))
+    assert raises(ValueError, cb.plane_wave_trace_linear, m, cb.Medium(eps=2.0, chi=0.1), 1.0, Z, cb.circular_polarization(Z, 1))
+    H = cb.linear_hmatrix(cb.LinearKernelEntries(m, 1.0))                # Eintraege und Netz bleiben am Leben
+    C = cb.LinearCauchyOperator(m, H)
+    del H
+    # Plemelj E b = b (ebene Welle = innere Loesung): k = 1, 320 Elemente: linear 1,1e-3, konstant 7,3e-3
+    Cc = cb.CauchyOperator(m, cb.KernelHMatrix(cb.KernelEntries(m, 1.0)))
+    bc = cb.plane_wave_trace(m, cb.Medium(), 1.0, Z, X)
+    e_lin, e_con = (np.linalg.norm(C.apply(b) - b) / np.linalg.norm(b), np.linalg.norm(Cc.apply(bc) - bc) / np.linalg.norm(bc))
+    assert C.apply(b).shape == b.shape and e_lin < 2e-3 and e_lin < 0.25 * e_con, (e_lin, e_con)
+
+
 def main():
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = 0

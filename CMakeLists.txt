@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(CliffordBem VERSION 0.44.0 LANGUAGES CXX)
+project(CliffordBem VERSION 0.45.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,6 +21,9 @@ add_library(cbem
   src/sauter_schwab.cpp
   src/triangle_integrals.cpp
   src/kernel_entries.cpp
+  src/linear_entries.cpp
+  src/linear_cauchy_operator.cpp
+  src/linear_problem.cpp
   src/dense.cpp
   src/cluster_tree.cpp
   src/aca.cpp
@@ -90,7 +93,7 @@ endif()
 
 if(CBEM_BUILD_TESTS)
   enable_testing()
-  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh test_materials test_hodlr test_layered test_thin_layer test_twoport test_chiral_host test_near_field test_dipole test_recycling test_optical_force test_beams)
+  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh test_materials test_hodlr test_layered test_thin_layer test_twoport test_chiral_host test_near_field test_dipole test_recycling test_optical_force test_beams test_linear)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE cbem)
     add_test(NAME ${t} COMMAND ${t})
@@ -122,7 +125,8 @@ if(CBEM_BUILD_PYTHON)
     bindings/python/bind_geometry.cpp
     bindings/python/bind_operators.cpp
     bindings/python/bind_problems.cpp
-    bindings/python/bind_sources.cpp)
+    bindings/python/bind_sources.cpp
+    bindings/python/bind_linear.cpp)
   target_link_libraries(_cbem PRIVATE cbem)
   target_compile_options(_cbem PRIVATE -Wall -Wextra)
   target_compile_definitions(_cbem PRIVATE CBEM_VERSION="${PROJECT_VERSION}"

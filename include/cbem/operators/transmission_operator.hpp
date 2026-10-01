@@ -30,13 +30,17 @@ public:
     // mehrere Koerper: Innenmedium je Dreieck
     TransmissionOperator(const TriangleMesh& m, const BoundaryOperator& E_inner, const BoundaryOperator& E_outer,
                          const std::vector<Medium>& inner_per_triangle, const Medium& outer);
+    // Normale je Basisfunktion (lineare Dichten: dreimal je Element; v0.45). Auf ebenen Elementen ist J konstant, die Basis je
+    // Element orthonormal: die Galerkin-Matrix von J ist dann J auf jedem 8er-Block.
+    TransmissionOperator(const std::vector<Vec3>& normals, const BoundaryOperator& E_inner, const BoundaryOperator& E_outer,
+                         const std::vector<Medium>& inner_per_index, const Medium& outer);
     void apply(const std::vector<cplx>& x, std::vector<cplx>& y) const;
     // punktweise Vorkonditionierung P = 2 (1 + J)^{-1}
     void precondition(const std::vector<cplx>& x, std::vector<cplx>& y) const;
     std::size_t size() const { return 8 * N_; }
     const std::vector<Mat8>& J() const { return J_; }
 private:
-    void setup(const TriangleMesh& m, const std::vector<Medium>& in, const Medium& out);
+    void setup(const std::vector<Vec3>& normals, const std::vector<Medium>& in, const Medium& out);
     std::size_t N_;
     const BoundaryOperator& E1_;
     const BoundaryOperator& E2_;

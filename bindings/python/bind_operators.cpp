@@ -85,7 +85,7 @@ Eintragsauswertung des Cauchy-Operators E_k: Kernkomponenten K(i, j) = int_tau_i
     py::class_<CauchyOperator, BoundaryOperator>(m, "CauchyOperator", "Cauchy-Randoperator E_k (Involution: E E = 1)")
         .def(py::init<const TriangleMesh&, const KernelHMatrix&>(), "mesh"_a, "H"_a, py::keep_alive<1, 2>(), py::keep_alive<1, 3>());
     py::class_<ChiralCauchyOperator, BoundaryOperator>(m, "ChiralCauchyOperator", "chiraler Innenoperator P+ E_(k+) + P- E_(k-)")
-        .def(py::init<const CauchyOperator&, const CauchyOperator&>(), "E_plus"_a, "E_minus"_a, py::keep_alive<1, 2>(), py::keep_alive<1, 3>());
+        .def(py::init<const BoundaryOperator&, const BoundaryOperator&>(), "E_plus"_a, "E_minus"_a, py::keep_alive<1, 2>(), py::keep_alive<1, 3>());
 
     py::class_<TransmissionOperator>(m, "TransmissionOperator", "T_1 = 1/2 (1 + E_2) + 1/2 (1 - E_1) J")
         .def(py::init<const TriangleMesh&, const BoundaryOperator&, const BoundaryOperator&, const Medium&, const Medium&>(), "mesh"_a,

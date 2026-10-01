@@ -192,5 +192,6 @@ void init_geometry(py::module_& m);
 void init_operators(py::module_& m);
 void init_problems(py::module_& m);
 void init_sources(py::module_& m);
+void init_linear(py::module_& m);
 
 }  // namespace cbem::py_bind

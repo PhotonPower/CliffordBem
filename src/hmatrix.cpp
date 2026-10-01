@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <stdexcept>
+#include <type_traits>
 #ifdef CBEM_USE_OPENMP
 #include <omp.h>
 #endif
@@ -10,6 +12,23 @@ namespace cbem {
 
 KernelHMatrix::KernelHMatrix(const KernelEntries& E, HMatrixParams prm)
     : N_(E.mesh().size()), prm_(prm), tree_(E.mesh(), prm.leaf), k_(E.wavenumber()) {
+    build(E);
+}
+
+KernelHMatrix::KernelHMatrix(const LinearKernelEntries& E, HMatrixParams prm)
+    : N_(E.size()), prm_(prm), tree_(E.mesh(), std::max<std::size_t>(1, prm.leaf / 3)), k_(E.wavenumber()) {
+    if (prm_.mode != AcaMode::Joint) throw std::invalid_argument("KernelHMatrix (lineare Dichten): nur AcaMode::Joint");
+    // Baum ueber Elementen -> je Element drei zusammenhaengende Indizes 3 t, 3 t + 1, 3 t + 2
+    std::vector<std::size_t> perm; perm.reserve(3 * tree_.perm.size());
+    for (std::size_t t : tree_.perm) for (std::size_t a = 0; a < 3; ++a) perm.push_back(3 * t + a);
+    tree_.perm = std::move(perm);
+    for (auto& nd : tree_.nodes) { nd.begin *= 3; nd.end *= 3; }
+    build(E);
+}
+
+template <class EntriesT>
+void KernelHMatrix::build(const EntriesT& E) {
+    constexpr bool LIN = std::is_same<EntriesT, LinearKernelEntries>::value;
     auto t0 = std::chrono::steady_clock::now();
     std::vector<std::pair<int, int>> adm, inadm;
     partition(0, 0, adm, inadm);
@@ -21,8 +40,17 @@ KernelHMatrix::KernelHMatrix(const KernelEntries& E, HMatrixParams prm)
         Dense& D = dense_[b];
         D.R = tree_.indices(tree_.nodes[inadm[b].first]); D.C = tree_.indices(tree_.nodes[inadm[b].second]);
         D.K.resize(D.R.size() * D.C.size());
-        for (std::size_t a = 0; a < D.R.size(); ++a)
-            for (std::size_t c = 0; c < D.C.size(); ++c) D.K[a * D.C.size() + c] = E.exact(D.R[a], D.C[c]);
+        if constexpr (LIN) {                                              // je Elementpaar ein Block (9 Eintraege)
+            const std::size_t nc = D.C.size();
+            for (std::size_t a = 0; a < D.R.size(); a += 3)
+                for (std::size_t c = 0; c < nc; c += 3) {
+                    const LinearBlock Bk = E.block(D.R[a] / 3, D.C[c] / 3);
+                    for (int p = 0; p < 3; ++p) for (int q = 0; q < 3; ++q) D.K[(a + p) * nc + c + q] = Bk[p * 3 + q];
+                }
+        } else {
+            for (std::size_t a = 0; a < D.R.size(); ++a)
+                for (std::size_t c = 0; c < D.C.size(); ++c) D.K[a * D.C.size() + c] = E.exact(D.R[a], D.C[c]);
+        }
     }
 #ifdef CBEM_USE_OPENMP
 #pragma omp parallel for schedule(dynamic)
@@ -33,7 +61,39 @@ KernelHMatrix::KernelHMatrix(const KernelEntries& E, HMatrixParams prm)
         const std::size_t m = B.R.size(), n = B.C.size();
         const bool ex = prm_.exact_in_lowrank;
         auto ent = [&](std::size_t i, std::size_t j) { return ex ? E.exact(i, j) : E.far(i, j); };
-        if (prm_.mode == AcaMode::Multivector) {
+        if constexpr (LIN) {
+            // Joint-ACA wie unten, Zeilen und Spalten je Element zwischengespeichert (ein Block liefert drei Zeilen bzw.
+            // drei Spalten je Komponente)
+            auto blk = [&](std::size_t ti, std::size_t tj) { return ex ? E.block(ti, tj) : E.block_far(ti, tj); };
+            std::vector<std::vector<cplx>> rowc(m / 3), colc(n / 3);    // rowc[ia]: 3 Zeilen der Laenge 4n; colc[jb]: 12 Spalten der Laenge m
+            RowFn row = [&](std::size_t i, cplx* out) {
+                std::vector<cplx>& rc = rowc[i / 3];
+                if (rc.empty()) {
+                    rc.assign(3 * 4 * n, cplx(0));
+                    for (std::size_t j = 0; j < n; j += 3) {
+                        const LinearBlock Bk = blk(B.R[i] / 3, B.C[j] / 3);
+                        for (int p = 0; p < 3; ++p) for (int q = 0; q < 3; ++q) for (int c = 0; c < 4; ++c)
+                            rc[p * 4 * n + c * n + j + q] = Bk[p * 3 + q][c];
+                    }
+                }
+                std::copy(rc.begin() + (i % 3) * 4 * n, rc.begin() + (i % 3 + 1) * 4 * n, out);
+            };
+            ColFn col = [&](std::size_t J, cplx* out) {
+                const std::size_t c = J / n, j = J % n;
+                std::vector<cplx>& cc = colc[j / 3];
+                if (cc.empty()) {
+                    cc.assign(12 * m, cplx(0));
+                    for (std::size_t i = 0; i < m; i += 3) {
+                        const LinearBlock Bk = blk(B.R[i] / 3, B.C[j] / 3);
+                        for (int p = 0; p < 3; ++p) for (int q = 0; q < 3; ++q) for (int cc4 = 0; cc4 < 4; ++cc4)
+                            cc[(q * 4 + cc4) * m + i + p] = Bk[p * 3 + q][cc4];
+                    }
+                }
+                std::copy(cc.begin() + ((j % 3) * 4 + c) * m, cc.begin() + ((j % 3) * 4 + c + 1) * m, out);
+            };
+            LowRank f = aca_select(prm_.aca_plus, row, col, m, 4 * n, prm_.eps); recompress(f, prm_.eps);
+            B.f.push_back(std::move(f));
+        } else if (prm_.mode == AcaMode::Multivector) {
             // Kreuzapproximation ueber Cl3(C): Eintrag = Paravektor s + v
             auto entry = [&](std::size_t a, std::size_t b) { KernelComp K = ent(B.R[a], B.C[b]); Multivector M; M.c[0] = K[0]; M.c[1] = K[1]; M.c[2] = K[2]; M.c[4] = K[3]; return M; };
             std::vector<Multivector>& U = B.mu; std::vector<Multivector>& W = B.mw;   // Spalte k: U[k*m + a], W[k*n + b]

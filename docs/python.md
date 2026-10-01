@@ -80,6 +80,7 @@ Medien und Multivektoren lassen sich kopieren und mit `pickle` speichern.
 | Kräfte | `force_from_traces`, `force_on_sphere`, `force_on_offset`, `force_from_far_field`, `emitter_force`, `radiated_momentum`, `stress_dot_normal`, `fields_with_gradients` → `FieldGradient`, `DipolePolarizability`, `polarizability_from_mie`, `dipole_particle_force` |
 | Bausteine | `KernelEntries`, `KernelHMatrix` (`stats` → `HStats`), `CauchyOperator`, `ChiralCauchyOperator`, `TransmissionOperator`, `gmres` (C++-Operator oder Python-Funktion, Vorkonditionierer als Python-Funktion), `group_by_clusters`, `group_by_features`, `FeatureSet` |
 | eigene Felder (v0.43) | `CustomField` (Methode `fields(x)`), `SuperposedField` (auch `+`, `-`, `*` mit Kernfeldern), `PythonPlaneWave`, `AngularSpectrumField` (`bessel`), `as_field_function`, `maxwell_residual`; angenommen von `exterior_near_field`, `near_field_evaluator` (und damit allen Kraft- und Gradientenfunktionen) |
+| lineare Dichten (v0.45) | `LinearScatteringProblem` (24 Unbekannte je Dreieck, Spur `reshape(-1, 3, 8)`), `LinearKernelEntries` (`block`, `lambda_block`, `S`), `linear_hmatrix`, `LinearCauchyOperator`, `plane_wave_trace_linear`, `project_plane_wave_linear`, `far_field_linear`, `extinction_cross_section_linear`, `forward_amplitude_linear`, `linear_to_constant`, `linear_trace_value` |
 | Komfort | `spectrum` (wie die App, homogene Körper), `omega_from_wavelength`, `wavelength_from_omega`, `polarization_basis`, `trace_blocks`, `set_num_threads`, `omp_threads` |
 
 Die Docstrings (`help(cb.ScatteringProblem)`) beschreiben Argumente und Rückgaben; die Bedeutung der Größen ist in den
@@ -197,9 +198,10 @@ Die von Hand zusammengesetzte T₁ stimmt mit dem Operator des Kerns auf allen S
 | `test_superposition` | Linearität (Kern- und Python-Felder gemischt), Stehwelle: F_z = 0 im Bauch, F_z(s) = −F_z(−s) |
 | `test_maxwell_residual_and_beams` | Residuum erkennt falsches H und falsches k, chiraler Gaußstrahl, Bessel- und Wirbelstrahlen |
 | `test_custom_field_errors` | falsche Formen, fehlende Methode, Ausnahmen aus `fields` durch den Lauf ohne GIL |
+| `test_linear_densities` | lineare Dichten: Summenidentität, Orthonormalität der Basis, Projektion, Streuung wie die Vorhersage aus Stufe 1, Plemelj genauer als konstant, Fehler, Lebensdauer |
 | `test_threads_release_gil` | zwei Lösungen parallel in Python-Threads, gleiche Ergebnisse, GIL frei während der Rechnung |
 
-18 Tests, Laufzeit etwa 55 s auf einem Kern.
+19 Tests, Laufzeit etwa 60 s auf einem Kern.
 
 ## Grenzen
 

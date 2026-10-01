@@ -1,4 +1,4 @@
-# Gekrümmte Elemente, Stufe 1: Messung an der Kugel (v0.44)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44) und lineare Dichten (Stufe 2a, v0.45)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -131,3 +131,59 @@ Gekrümmte Elemente lohnen sich **nur zusammen mit unstetig linearen Dichten**. 
 
 Vor dem Umbau empfiehlt sich Stufe 1b (quadratische statt exakter Geometrie), weil sie entscheidet, ob quadratische Elemente
 genügen.
+
+## Stufe 2a: unstetig lineare Dichten im Kern (v0.45)
+
+Der Kern kann jetzt mit unstetig linearen Dichten auf ebenen Dreiecken rechnen (`LinearScatteringProblem`, 24 Unbekannte je
+Dreieck). Das ist die Hälfte der Kombination, die sich in Stufe 1 als lohnend erwiesen hat; die gekrümmte Geometrie folgt
+in Stufe 2b. Auf ebenen Elementen allein bringt das an der Kugel erwartungsgemäß keinen Gewinn. Der Wert dieses Schritts
+liegt darin, dass er sich unabhängig prüfen lässt.
+
+**Aufbau.**
+- Je Element wird eine orthonormierte Basis ψ_a = Σ_k S_ak λ_k verwendet, S = G^{−1/2}, analytisch:
+  √(12/A)·1 + (√(3/A) − √(12/A))·𝟙𝟙ᵀ/3. Die Massenmatrix ist damit die Identität, und T₁ = ½(1+E₂) + ½(1−E₁)J
+  behält seine Form; J wirkt auf ebenen Elementen blockweise.
+- Die Einträge K^{ab}_c(i,j) haben 3×3 Formfunktionen × 4 Kernkomponenten je Elementpaar. Fern-, Nah-, Sauter-Schwab- und
+  halbanalytische Zweige sind dieselben wie für konstante Dichten.
+- Neu sind die analytischen Innenintegrale ∫λ_b/r und ∫λ_b(x−y)/r³ (`triangle_integrals_linear`). Sie werden über den Satz
+  von Gauß in der Ebene auf Kantenintegrale von R, 1/R und ρ/R zurückgeführt.
+- Im Selbstterm verschwindet der singuläre Anteil Φ₀ für lineare Dichten nicht. Er wird antisymmetrisiert integriert,
+  ½[λ_a(x)λ_b(y) − λ_a(y)λ_b(x)], und ist so absolut integrierbar.
+- H-Matrix: Der Clusterbaum läuft über die Elemente, mit je drei zusammenhängenden Indizes. Dichte Blöcke und ACA-Zeilen bzw.
+  -Spalten werden je Elementpaar einmal ausgewertet. Der Pfad für konstante Dichten ist unverändert.
+
+**Prüfungen** (`tests/test_linear.cpp`, Python `test_linear_densities`):
+
+| Prüfung | Ergebnis |
+|---|---|
+| Innenintegrale gegen Brute-Force-Quadratur (28 672 Punkte; nahe Punkte: die Referenz konvergiert gegen die Formel) | 4,6·10⁻¹⁰ |
+| Σ_ab K^{ab} = Einträge der konstanten Dichten (Summe der λ = 1), Kugel: fern, nah, Ecke, Kante, Selbstterm | ≤ 6·10⁻¹⁵ |
+| dasselbe am gradierten Würfel; gestreckte Selbstterme halbanalytisch (Sauter-Schwab stagniert dort bei 3·10⁻⁵) | ≤ 4·10⁻¹⁵, Selbstterm 1,4·10⁻⁵ (fällt mit `sa_order`: 3,6·10⁻⁶ bei 20, 9,7·10⁻⁷ bei 28) |
+| Mittelwert der linearen Projektion = konstante Projektion | 2,6·10⁻¹⁶ |
+| Plemelj E b = b (ebene Welle, 320 Elemente, k = 0,665) | linear 4,9·10⁻⁴, konstant 4,6·10⁻³ |
+| chirale Kugel: χ → 0 wie achiral; σ_s(χ) = σ_−s(−χ) | 10⁻⁹; 10⁻⁸ (ACA ε = 10⁻⁶; die Kompression erhält die Symmetrie nicht: 4·10⁻⁶ bei ε = 10⁻⁴) |
+
+**Gegen die Vorhersage aus Stufe 1.** Stufe 1 hat eben/linear mit einem völlig anderen Verfahren berechnet: als
+Galerkin-Projektion auf feinen Unterteilungen mit konstanten Dichten, extrapoliert in m. Beide Rechnungen stimmen bei
+Fehlern von 4–6 % auf 0,002–0,02 Prozentpunkte überein:
+
+| Fall | Stufe 1 (extrapoliert) | Stufe 2a (direkt) |
+|---|---:|---:|
+| Glas, 320 Elemente | −6,163 % (±0,001) | −6,165 % |
+| Glas, 500 Elemente | −4,000 % | −4,001 % |
+| Gold, 320 Elemente | −5,79 % (±0,014) | −5,81 % |
+| Gold, 500 Elemente | −3,87 % (±0,012) | −3,88 % |
+
+**Kosten** (Gold, voreingestellte Parameter): Die Zahl der Unbekannten verdreifacht sich. Die H-Matrizen werden bei 320
+Dreiecken 7,2-mal und bei 1 280 Dreiecken 4,9-mal so groß (89,7 statt 12,5 MB bzw. 540 statt 110 MB). Das Verhältnis
+nähert sich mit wachsendem Netz dem Faktor 3 der Niedrigrangteile, weil der Nahfeldanteil (Faktor 9) relativ abnimmt.
+GMRES braucht etwa gleich viele Iterationen (26 gegen 28–29).
+
+**Umfang von 2a.** Unterstützt sind ein oder mehrere Körper (auch chiral), ein achirales Außenmedium, ebene Wellen und
+beliebige rechte Seiten, Extinktion und Vorwärtsamplitude, jeweils auch in Python. Noch nicht unterstützt sind das chirale
+Außenmedium (Fernfeld je Helizität), Nahfeld und Kräfte, Block- und HODLR-Vorkonditionierung sowie die geschichteten
+Probleme.
+
+**Nächste Schritte.** Stufe 1b misst mit demselben Verfahren wie Stufe 1, ob quadratische Geometrie statt exakter die
+Ordnung h⁴ erhält. Stufe 2b bringt gekrümmte Elemente im Kern: Parametrisierung, Jacobi-Determinante und die Normale im
+Integral. Das Prüfziel ist gekrümmt/linear aus Stufe 1, also ≤ 0,02 % (Glas) und ≤ 0,12 % (Gold) bei 320 Elementen.

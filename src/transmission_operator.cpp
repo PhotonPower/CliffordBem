@@ -1,5 +1,6 @@
 #include "cbem/operators/transmission_operator.hpp"
 #include <cmath>
+#include <stdexcept>
 
 namespace cbem {
 
@@ -42,16 +43,23 @@ Mat8 transmission_map(const Vec3& n, const Medium& in, const Medium& out) {
 
 TransmissionOperator::TransmissionOperator(const TriangleMesh& m, const BoundaryOperator& E1, const BoundaryOperator& E2,
                                            const Medium& in, const Medium& out)
-    : N_(m.size()), E1_(E1), E2_(E2) { setup(m, std::vector<Medium>(m.size(), in), out); }
+    : N_(m.size()), E1_(E1), E2_(E2) { setup(m.normal, std::vector<Medium>(m.size(), in), out); }
 
 TransmissionOperator::TransmissionOperator(const TriangleMesh& m, const BoundaryOperator& E1, const BoundaryOperator& E2,
                                            const std::vector<Medium>& in, const Medium& out)
-    : N_(m.size()), E1_(E1), E2_(E2) { setup(m, in, out); }
+    : N_(m.size()), E1_(E1), E2_(E2) { setup(m.normal, in, out); }
 
-void TransmissionOperator::setup(const TriangleMesh& m, const std::vector<Medium>& in, const Medium& out) {
+TransmissionOperator::TransmissionOperator(const std::vector<Vec3>& normals, const BoundaryOperator& E1, const BoundaryOperator& E2,
+                                           const std::vector<Medium>& in, const Medium& out)
+    : N_(normals.size()), E1_(E1), E2_(E2) {
+    if (in.size() != N_) throw std::invalid_argument("TransmissionOperator: je Basisfunktion ein Innenmedium");
+    setup(normals, in, out);
+}
+
+void TransmissionOperator::setup(const std::vector<Vec3>& normals, const std::vector<Medium>& in, const Medium& out) {
     J_.resize(N_); P_.resize(N_);
     for (std::size_t t = 0; t < N_; ++t) {
-        J_[t] = transmission_map(m.normal[t], in[t], out);
+        J_[t] = transmission_map(normals[t], in[t], out);
         Mat8 A = J_[t]; for (int i = 0; i < 8; ++i) A[i * 8 + i] += 1.0;
         P_[t] = inverse8(A); for (auto& v : P_[t]) v *= 2.0;
     }
