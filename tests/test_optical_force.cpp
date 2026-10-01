@@ -69,5 +69,27 @@ int main() {
         std::printf("  chirale Kraft gegen -sqrt(eps) Re(A_c) grad Im(E*.H): |dD - Modell|/|dD| %.1e\n", norm(dD - gC) / norm(dD));
         CHECK(norm(dD - gC) < 0.05 * norm(dD), "chirale Kraft folgt nicht dem Gradienten der optischen Chiralitaet");
     }
+    // v0.36: chirales Aussenmedium (Minkowski-Tensor mit D = eps E + i chi H, B = mu H - i chi E)
+    {
+        const Medium host{1.7689, 1.0, 0.05}, hostm{1.7689, 1.0, -0.05};
+        auto run = [&](const Medium& core, const Medium& out, int s, Vec3& Fs, Vec3& Fo, Vec3& Ff) {
+            ScatteringProblem P({make_icosphere(6)}, {core}, 0.5, out, hp); const CVec3 p = circular_polarization(d, s);
+            const auto r = P.solve_plane_wave(d, p, so);
+            Fs = force_on_sphere(P.mesh(), r.h, out, 0.5, d, p, Vec3(0, 0, 0), 1.5);
+            Fo = force_on_offset(P.mesh(), r.h, out, 0.5, d, p, P.mesh(), 0.2);
+            Ff = force_from_far_field(P.mesh(), r.h, out, 0.5, d, p, r.sigma_ext); };
+        Vec3 a1, b1, c1, a2, b2, c2, a3, b3, c3;
+        run(host, host, +1, a1, b1, c1);                                         // unsichtbar
+        std::printf("  chirales Aussenmedium, unsichtbare Kugel: |F| = %.1e\n", norm(a1) + norm(b1) + norm(c1));
+        CHECK(norm(a1) + norm(b1) + norm(c1) < 1e-10, "Kraft auf eine Kugel aus dem Aussenmedium");
+        run(gold, host, +1, a2, b2, c2); run(gold, host, -1, a3, b3, c3);
+        std::printf("  Gold in chiralem Wasser (chi 0,05): s=+1 Kugel %.4f, Parallelflaeche %.4f, Fernfeld %.4f; s=-1 %.4f, %.4f, %.4f\n", a2.z, b2.z, c2.z, a3.z, b3.z, c3.z);
+        CHECK(std::abs(a2.z / c2.z - 1) < 0.005 && std::abs(b2.z / c2.z - 1) < 0.005, "Spannungstensor im chiralen Medium weicht von der Impulsbilanz ab (s = +1)");
+        CHECK(std::abs(a3.z / c3.z - 1) < 0.005 && std::abs(b3.z / c3.z - 1) < 0.005, "Spannungstensor im chiralen Medium weicht von der Impulsbilanz ab (s = -1)");
+        CHECK(a3.z > a2.z, "Helizitaetsabhaengigkeit des Strahlungsdrucks fehlt");
+        Vec3 a4, b4, c4; run(gold, hostm, -1, a4, b4, c4);                      // Spiegelsymmetrie F_+(chi) = F_-(-chi)
+        std::printf("  Spiegelsymmetrie: F_+(chi) %.8f, F_-(-chi) %.8f\n", a2.z, a4.z);
+        CHECK(std::abs(a2.z - a4.z) < 1e-6 * a2.z, "Spiegelsymmetrie verletzt");
+    }
     REPORT();
 }

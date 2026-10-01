@@ -1,7 +1,8 @@
 #pragma once
 // Optische Kraefte ueber den Maxwellschen Spannungstensor (v0.33).
 //
-// Zeitgemittelt, eps0 = mu0 = 1, achirales Aussenmedium (eps, mu):
+// Zeitgemittelt, eps0 = mu0 = 1, Aussenmedium (eps, mu; seit v0.36 auch chiral, D = eps E + i chi H, B = mu H - i chi E,
+// Minkowski-Tensor 1/2 Re[E (x) D* + H (x) B* - 1/2 (E.D* + H.B*) I]); achiral:
 //   <T> = 1/2 Re[ eps E (x) E* + mu H (x) H* - 1/2 (eps |E|^2 + mu |H|^2) I ],   F = int_S <T>.n dS  (n nach aussen)
 // ueber eine geschlossene Flaeche S im Aussenraum, die genau den betrachteten Koerper umschliesst. Zwei Wege:
 //   - Randspuren (force_from_traces): S = die Flaeche des Koerpers selbst, Felder aus den stueckweise konstanten Spuren
@@ -23,6 +24,12 @@ Vec3 stress_dot_normal(const CVec3& E, const CVec3& H, const Vec3& n, const Medi
 // zuletzt die Gesamtzahl)
 std::vector<Vec3> force_from_traces(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m,
                                     const std::vector<std::size_t>& body_begin);
+
+// Kraft aus der Impulsbilanz im Fernfeld (v0.36), unabhaengig vom Spannungstensor: Der Impulsstrom einer Helizitaetswelle ist
+// (k_s/omega) mal ihr Energiestrom 1/2 sqrt(eps/mu) |E|^2; F = c [k_inc |p|^2 sigma_ext d - sum_s' k_s' int |E_inf,s'|^2 x dOmega],
+// c = 1/2 sqrt(eps/mu)/omega (achiral ein Kanal). Kraft auf alle Koerper zusammen; sigma_ext aus der Loesung.
+Vec3 force_from_far_field(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega, const Vec3& d, const CVec3& p,
+                          real sigma_ext, int ntheta = 32);
 
 // Kraft auf alles innerhalb der Kugel (Mittelpunkt c, Radius R), Gauss-Legendre in cos theta x gleichmaessig in phi, Felder aus
 // dem Nahfeld der ebenen Welle (d, p)

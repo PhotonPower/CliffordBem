@@ -27,7 +27,22 @@ Vec3 integrate(const std::vector<NearFieldPoint>& f, const std::vector<Vec3>& n,
 }  // namespace
 
 Vec3 stress_dot_normal(const CVec3& E, const CVec3& H, const Vec3& n, const Medium& m) {
-    if (std::abs(m.chi) > 0) throw std::invalid_argument("Spannungstensor: chirales Medium nicht unterstuetzt");
+    if (std::abs(m.chi) > 0) {
+        // Pasteur-Medium (v0.36): D = eps E + i chi H, B = mu H - i chi E, Minkowski-Tensor 1/2 Re[E (x) D* + H (x) B* - 1/2 (E.D* + H.B*) I].
+        // Fuer reelles chi ist die Anordnung gleichgueltig (E (x) D* + H (x) B* und D (x) E* + B (x) H* haben denselben Realteil);
+        // geprueft: unabhaengig von der umschliessenden Flaeche, Null fuer einen unsichtbaren Koerper, gleich der Impulsbilanz im Fernfeld.
+        const cplx I(0, 1); CVec3 D, B;
+        for (int a = 0; a < 3; ++a) { D[a] = m.eps * E[a] + I * m.chi * H[a]; B[a] = m.mu * H[a] - I * m.chi * E[a]; }
+        const real nn[3] = {n.x, n.y, n.z};
+        cplx Dn = 0, Bn = 0, u = 0;
+        for (int a = 0; a < 3; ++a) { Dn += D[a] * nn[a]; Bn += B[a] * nn[a]; u += E[a] * std::conj(D[a]) + H[a] * std::conj(B[a]); }
+        real t[3];
+        for (int a = 0; a < 3; ++a) {
+            const cplx x = E[a] * std::conj(Dn) + H[a] * std::conj(Bn);
+            t[a] = 0.5 * (std::real(x) - 0.5 * std::real(u) * nn[a]);
+        }
+        return Vec3(t[0], t[1], t[2]);
+    }
     const cplx En = E[0] * n.x + E[1] * n.y + E[2] * n.z, Hn = H[0] * n.x + H[1] * n.y + H[2] * n.z;
     real e2 = 0, h2 = 0; for (int a = 0; a < 3; ++a) { e2 += std::norm(E[a]); h2 += std::norm(H[a]); }
     const real eps = std::real(m.eps), mu = std::real(m.mu), u = 0.5 * (eps * e2 + mu * h2);
@@ -47,6 +62,31 @@ std::vector<Vec3> force_from_traces(const TriangleMesh& outer, const std::vector
             F[b] = F[b] + stress_dot_normal(E, H, outer.normal[t], m) * outer.area[t];
         }
     return F;
+}
+
+Vec3 force_from_far_field(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega, const Vec3& d0, const CVec3& p,
+                          real sigma_ext, int ntheta) {
+    const Vec3 d = d0 / norm(d0);
+    const PlaneWaveIncidence inc = plane_wave_incidence(m, omega, d, p);
+    const auto b = project_plane_wave(outer, inc.k, m.eps, d, p);
+    std::vector<cplx> hs(h.size()); for (std::size_t i = 0; i < h.size(); ++i) hs[i] = h[i] - b[i];
+    std::vector<real> ct, wt; gauss_legendre(ntheta, ct, wt); const int nphi = 2 * ntheta;
+    Vec3 S(0, 0, 0);
+    const bool chiral = std::abs(m.chi) > 0;
+    for (int s : (chiral ? std::vector<int>{+1, -1} : std::vector<int>{0})) {   // je Helizitaetskanal mit eigener Wellenzahl
+        const std::vector<cplx> part = s == 0 ? hs : helicity_part(hs, s); const cplx k = s == 0 ? m.k(omega) : m.k(omega, s);
+        for (int i = 0; i < ntheta; ++i) {
+            const real st = std::sqrt(std::max(0.0, 1 - ct[i] * ct[i]));
+            for (int j = 0; j < nphi; ++j) {
+                const real ph = 2 * pi * (j + 0.5) / nphi; const Vec3 xh(st * std::cos(ph), st * std::sin(ph), ct[i]);
+                const Multivector F = far_field(outer, part, k, xh);
+                const real e2 = (std::norm(F.c[1]) + std::norm(F.c[2]) + std::norm(F.c[4])) / std::real(m.eps);
+                S = S + xh * (wt[i] * 2 * pi / nphi * std::real(k) * e2);
+            }
+        }
+    }
+    const real p2 = std::norm(p[0]) + std::norm(p[1]) + std::norm(p[2]), c = 0.5 * std::sqrt(std::real(m.eps / m.mu)) / omega;
+    return d * (std::real(inc.k) * p2 * sigma_ext * c) - S * c;
 }
 
 Vec3 force_on_sphere(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega, const Vec3& d, const CVec3& p,

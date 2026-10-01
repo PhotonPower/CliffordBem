@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.35.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.36.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -151,7 +151,9 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
 - **Optische Kräfte (v0.33):** Maxwellscher Spannungstensor auf Körperflächen, Kugeln oder Parallelflächen; Strahlungsdruck auf
   eine Goldkugel wie Mie, optische Bindung am Dimer. Seit v0.34 die Kraft auf kleine, auch chirale Teilchen in Dipolnäherung
   einschließlich der enantioselektiven Kraft, gegen die volle BEM-Rechnung auf 1–2 %. Seit v0.35 Kraftkarten im Spaltfeld:
-  Die chirale Kraft folgt dem Gradienten der optischen Chiralität mit dem aus der Theorie erwarteten Faktor (`results_force.md`).
+  Die chirale Kraft folgt dem Gradienten der optischen Chiralität mit dem aus der Theorie erwarteten Faktor. Seit v0.36 Kräfte in
+  chiralen Medien: Spannungstensor und unabhängige Impulsbilanz im Fernfeld; helizitätsabhängiger Strahlungsdruck einer Goldkugel
+  in chiraler Lösung (`results_force.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).

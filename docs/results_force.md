@@ -1,4 +1,4 @@
-# Ergebnisse: Optische Kräfte (v0.33, Dipolnäherung v0.34, Kraftkarten v0.35)
+# Ergebnisse: Optische Kräfte (v0.33, Dipolnäherung v0.34, Kraftkarten v0.35, chirale Medien v0.36)
 
 Kräfte auf die BEM-Körper über den Maxwellschen Spannungstensor (`include/cbem/sources/optical_force.hpp`), zeitgemittelt,
 ε₀ = μ₀ = 1, achirales Außenmedium:
@@ -107,7 +107,63 @@ A_c = 3,612·10⁻⁵ (Einheiten des Netzes, Länge 20 nm); n = 8 (`results/forc
   linear mit der Chiralität des Teilchens und der Chiralität des Feldes.
 - Kosten: 24 321 Punkte (14 263 gültig, sieben Feldauswertungen je Punkt) in 42 s nach einer Lösung von 60 s.
 
+## Kräfte in chiralen Medien (v0.36)
+
+Im Pasteur-Medium (D = εE + iχH, B = μH − iχE) wird der Minkowski-Tensor
+
+    ⟨T⟩ = ½ Re[E ⊗ D* + H ⊗ B* − ½(E·D* + H·B*) I]
+
+verwendet. Für reelles χ (verlustfreies Medium) ist die Anordnung gleichgültig: E ⊗ D* + H ⊗ B* und D ⊗ E* + B ⊗ H* haben denselben
+Realteil (die chiralen Terme sind in beiden −iχ E(H*·n) + iχ H(E*·n)). Unabhängiger Weg: **Impulsbilanz im Fernfeld**
+(`force_from_far_field`). Der Impulsstrom einer Helizitätswelle ist (k_σ/ω) mal ihr Energiestrom ½√(ε/μ)|E|²; die Kraft ist der
+entfernte einfallende Impuls minus der in beiden Kanälen gestreute, jeder mit seiner Wellenzahl k_σ'.
+
+**Prüfungen** (Goldkugel, ε = −11 + 1,2i, in chiralem Wasser, ωa = 0,5):
+
+| | Kugel R = 1,5 | Kugel R = 3 | Parallelfläche | Streuung | Impulsbilanz Fernfeld |
+|---|---:|---:|---:|---:|---:|
+| n = 8, χ₂ = 0 | 20,936 | 20,966 | 20,931 | 0,16 % | 20,960 |
+| n = 8, χ₂ = 0,2, s = +1 | 18,214 | 18,255 | 18,206 | 0,27 % | 18,234 |
+| n = 8, χ₂ = 0,2, s = −1 | 19,876 | 19,891 | 19,874 | 0,09 % | 19,901 |
+| n = 6, χ₂ = 0,05, s = +1 / −1 (`test_optical_force`) | 20,354 / 20,792 | | 20,344 / 20,785 | | 20,395 / 20,835 |
+
+- Die Streuung zwischen den Flächen wächst mit χ nicht systematisch; sie ist Diskretisierung. Der Tensor ist damit im
+  chiralen Medium divergenzfrei, und die unabhängige Fernfeldbilanz trifft ihn auf 0,1–0,3 %.
+- Eine Kugel aus dem Außenmedium erfährt keine Kraft (10⁻¹⁵); F₊(χ) = F₋(−χ) gilt auf 3·10⁻⁷.
+
+**Anwendung: Strahlungsdruck einer Goldkugel in chiraler Lösung.** Kraft-Dissymmetriefaktor g_F = 2(F₊ − F₋)/(F₊ + F₋), dazu der
+CD der Extinktion g_CD = 2(σ₊ − σ₋)/(σ₊ + σ₋); Goldkugel 20 nm (Johnson–Christy), Wasser mit χ = 0,01, n = 8
+(`results/force_cd_au20.csv`):
+
+| λ (nm) | F₊ | F₋ | g_F | g_CD | g_F − g_CD |
+|---:|---:|---:|---:|---:|---:|
+| 450 | 8,327 | 8,147 | 0,0219 | 0,0079 | 0,0140 |
+| 470 | 8,250 | 8,069 | 0,0222 | 0,0081 | 0,0141 |
+| 490 | 9,435 | 9,226 | 0,0224 | 0,0082 | 0,0141 |
+| 510 | 13,005 | 12,720 | 0,0222 | 0,0083 | 0,0139 |
+| 530 | 16,113 | 15,769 | 0,0216 | 0,0082 | 0,0133 |
+| 550 | 10,784 | 10,561 | 0,0209 | 0,0082 | 0,0127 |
+| 570 | 5,610 | 5,498 | 0,0201 | 0,0081 | 0,0120 |
+| 590 | 2,889 | 2,835 | 0,0191 | 0,0079 | 0,0112 |
+| 610 | 1,637 | 1,608 | 0,0180 | 0,0076 | 0,0104 |
+| 630 | 1,026 | 1,009 | 0,0169 | 0,0073 | 0,0096 |
+| 650 | 0,680 | 0,670 | 0,0157 | 0,0069 | 0,0087 |
+
+(F in Einheiten von ½ε|E₀|²·(20 nm)², zirkular mit |p|² = 2; 2χ/n = 0,0150.)
+
+- Eine achirale Goldkugel erfährt in chiraler Lösung je nach Helizität einen anderen Strahlungsdruck: g_F ≈ 0,02 bei χ = 0,01.
+- Er ist fast dreimal größer als der CD der Extinktion. Im chiralen Medium tragen die beiden Helizitäten verschiedene
+  Photonenimpulse k± = ω(n ∓ χ); schon der einfallende Impulsstrom unterscheidet sich um 2χ/n ≈ 0,015, dazu kommt der CD der
+  Extinktion. Die Zerlegung g_F ≈ g_CD + 2χ/n gilt nur näherungsweise: Auf der blauen Seite ist g_F − g_CD = 0,014, zur roten
+  Seite fällt es auf 0,0087, vermutlich weil in die Kraft σ_pr statt σ_ext eingeht, also auch die Winkelverteilung des
+  gestreuten Lichts. Bei ωa = 0,5 und χ = 0,05 bzw. 0,2: Unterschied 2,1 % bzw. 8,7 %, linear in χ.
+- Über die Plasmonresonanz ist g_F fast konstant; die Resonanz erhöht die Kräfte (bei 530 nm etwa das Doppelte), nicht ihren
+  relativen Unterschied.
+- **Einschränkung:** Das setzt den Minkowski-Impuls voraus, wie er im Spannungstensor des Mediums steckt. Für die stationäre Kraft
+  auf einen Körper in einer ruhenden Flüssigkeit ist das die übliche, experimentell gestützte Wahl; die Abraham-Minkowski-Frage ist
+  aber eine bekannte Grundsatzdebatte. Die Dipolnäherung (`dipole_particle_force`) ist im chiralen Medium noch nicht umgesetzt.
+
 ## Grenzen
 
-- Nur achirale Außenmedien (der Spannungstensor im Pasteur-Medium ist ein anderer); Anregung durch ebene Wellen.
+- Spannungstensor seit v0.36 auch im chiralen Außenmedium; Dipolnäherung nur achiral; Anregung durch ebene Wellen.
 - Dipolnäherung ohne Rückwirkung des Teilchens auf das Feld; für größere Teilchen oder sehr kleine Abstände die volle Rechnung.
