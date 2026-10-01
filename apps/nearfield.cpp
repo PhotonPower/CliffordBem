@@ -2,6 +2,9 @@
 // Geometrie wie in spectrum: --sphere n [--sphere-dimer g] oder --mesh datei.msh, Laengen in nm mit --unit (Radius der Kugel).
 // Schichten: --coating "d:Material[:chi];..." (nach aussen) mit --twoport (Standard) oder --thin 0; --host-chi fuer ein chirales
 // Aussenmedium (dann --pol circ). Punkte innerhalb eines Koerpers bzw. seiner Huelle werden markiert (inside = 1).
+// Kraft auf ein kleines Teilchen (v0.35): --particle "Ae_re,Ae_im,Am_re,Am_im,Ac_re,Ac_im" (Polarisierbarkeiten in Einheiten des
+//   Netzes, z. B. aus tools/mie_polarizability.py) gibt je Punkt den Kraftquerschnitt sigma_F = F / (1/2 eps |E0|^2) in nm^2 aus
+//   und die chirale Kraft F(A_c) - F(-A_c) (Differenz der Enantiomere); --grad-step Schritt der zentralen Differenzen (nm).
 // Auswertung: H-Matrix ab 2000 Punkten (--nf-direct erzwingt direkte Summation, --nf-hmatrix die H-Matrix, --nf-eps Toleranz).
 // Beispiel (Gold-Dimer mit chiraler Schicht, Schnitt durch den Spalt):
 //   nearfield --sphere 8 --sphere-dimer 4 --unit 20 --materials Au --nbg 1.33 --coating "1:2.25,0:0.01" --lambda 580 \
@@ -17,11 +20,12 @@
 #include "cbem/geometry/gmsh_io.hpp"
 #include "cbem/problems/twoport_layer_problem.hpp"
 #include "cbem/sources/near_field.hpp"
+#include "cbem/sources/optical_force.hpp"
 using namespace cbem;
 static std::vector<std::string> split(const std::string& s, char c) { std::vector<std::string> v; std::stringstream ss(s); std::string t; while (std::getline(ss, t, c)) v.push_back(t); return v; }
 int main(int argc, char** argv) {
     std::string mesh, mats = "Au", coating, pol = "circ", plane = "xz", extent = "-40:40:81,-40:40:81", csv, datadir = "data/materials";
-    NearFieldOptions nfo;
+    NearFieldOptions nfo; DipolePolarizability particle; bool has_particle = false; double grad_step = 0.02;
     int sph = 0; double unit = 20, nbg = 1.0, host_chi = 0, lambda = 530, at = 0, gap = -1, thin = -1, heps = 1e-6, tol = 1e-8; Vec3 dir(0, 0, 1);
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
@@ -34,6 +38,9 @@ int main(int argc, char** argv) {
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt()); else if (o == "--csv") csv = nxt();
         else if (o == "--data") datadir = nxt();
         else if (o == "--nf-direct") nfo.hmatrix_min_points = static_cast<std::size_t>(-1);   // direkte Summation erzwingen
+        else if (o == "--particle") { auto v = split(nxt(), ','); if (v.size() != 6) { std::printf("--particle: sechs Zahlen\n"); return 1; }
+            particle = DipolePolarizability{cplx(std::stod(v[0]), std::stod(v[1])), cplx(std::stod(v[2]), std::stod(v[3])), cplx(std::stod(v[4]), std::stod(v[5]))}; has_particle = true; }
+        else if (o == "--grad-step") grad_step = std::stod(nxt());
         else if (o == "--nf-hmatrix") nfo.hmatrix_min_points = 0; else if (o == "--nf-eps") nfo.eps = std::stod(nxt());
         else { std::printf("unbekannte Option %s\n", o.c_str()); return 1; }
     }
@@ -89,12 +96,37 @@ int main(int argc, char** argv) {
     for (auto& q : f) if (!q.inside && !q.too_close) { emax = std::max(emax, q.enhancement); cmin = std::min(cmin, q.chirality); cmax = std::max(cmax, q.chirality); }
     std::printf("lambda %.1f nm, %zu Punkte (%zu zu nah am Netz): Loesen %.1f s (%d It.), Nahfeld %.1f s; max |E|^2/|E0|^2 = %.2f, C/C0 in [%.3f, %.3f]\n",
                 lambda, pts.size(), nclose, ts, its, tf, emax, cmin, cmax);
+    // Kraft auf ein kleines Teilchen an den gueltigen Punkten (Dipolnaeherung)
+    std::vector<Vec3> FF(pts.size(), Vec3(0, 0, 0)), FC(pts.size(), Vec3(0, 0, 0)); std::vector<char> fok(pts.size(), 0);
+    if (has_particle) {
+        t0 = std::chrono::steady_clock::now();
+        const real hstep = grad_step / unit;
+        std::vector<Vec3> vp; std::vector<std::size_t> idx;
+        const std::vector<real> dist = distance_to_surface(outer, pts, 3 * hstep);
+        for (std::size_t i = 0; i < pts.size(); ++i) if (!f[i].inside && !f[i].too_close && dist[i] >= 3 * hstep) { vp.push_back(pts[i]); idx.push_back(i); }
+        const auto g = fields_with_gradients(outer, h, bg, om, dir, p, vp, hstep, nfo);
+        DipolePolarizability mirror = particle; mirror.Ac = -particle.Ac;          // anderes Enantiomer
+        const real p2 = std::norm(p[0]) + std::norm(p[1]) + std::norm(p[2]), norm_f = unit * unit / (0.5 * std::real(bg.eps) * p2);
+        real fmax = 0, cmax2 = 0;
+        for (std::size_t q = 0; q < vp.size(); ++q) {
+            const Vec3 F1 = dipole_particle_force(g[q], particle, bg, om), F2 = dipole_particle_force(g[q], mirror, bg, om);
+            FF[idx[q]] = F1 * norm_f; FC[idx[q]] = (F1 - F2) * norm_f; fok[idx[q]] = 1;
+            fmax = std::max(fmax, norm(FF[idx[q]])); cmax2 = std::max(cmax2, norm(FC[idx[q]]));
+        }
+        std::printf("Teilchenkraft an %zu Punkten in %.1f s: max |sigma_F| = %.3e nm^2, max |chirale Kraft| = %.3e nm^2\n", vp.size(),
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(), fmax, cmax2);
+    }
     if (!csv.empty()) {
         std::ofstream o(csv); o.precision(8);
-        o << "x_nm,y_nm,z_nm,inside,too_close,enhancement,chirality,Ex_re,Ex_im,Ey_re,Ey_im,Ez_re,Ez_im\n";
-        for (std::size_t i = 0; i < pts.size(); ++i)
+        o << "x_nm,y_nm,z_nm,inside,too_close,enhancement,chirality,Ex_re,Ex_im,Ey_re,Ey_im,Ez_re,Ez_im";
+        if (has_particle) o << ",force_ok,Fx_nm2,Fy_nm2,Fz_nm2,Fcx_nm2,Fcy_nm2,Fcz_nm2";
+        o << '\n';
+        for (std::size_t i = 0; i < pts.size(); ++i) {
             o << pts[i].x * unit << ',' << pts[i].y * unit << ',' << pts[i].z * unit << ',' << int(f[i].inside) << ',' << int(f[i].too_close) << ',' << f[i].enhancement << ',' << f[i].chirality
-              << ',' << f[i].E[0].real() << ',' << f[i].E[0].imag() << ',' << f[i].E[1].real() << ',' << f[i].E[1].imag() << ',' << f[i].E[2].real() << ',' << f[i].E[2].imag() << '\n';
+              << ',' << f[i].E[0].real() << ',' << f[i].E[0].imag() << ',' << f[i].E[1].real() << ',' << f[i].E[1].imag() << ',' << f[i].E[2].real() << ',' << f[i].E[2].imag();
+            if (has_particle) o << ',' << int(fok[i]) << ',' << FF[i].x << ',' << FF[i].y << ',' << FF[i].z << ',' << FC[i].x << ',' << FC[i].y << ',' << FC[i].z;
+            o << '\n';
+        }
     }
     return 0;
 }

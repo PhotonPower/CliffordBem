@@ -62,6 +62,12 @@ int main() {
         std::printf("  chirale Kugel vor Gold: |F_Dipol - F_BEM|/|F| %.1e, Differenz der Enantiomere |dD - dB|/|dB| %.1e\n", norm(Fp - Fb[0]) / norm(Fb[0]), norm(dD - dB) / norm(dB));
         CHECK(norm(Fp - Fb[0]) < 0.03 * norm(Fb[0]), "Dipolnaeherung weicht von der vollen BEM-Rechnung ab");
         CHECK(norm(dD - dB) < 0.05 * norm(dB), "enantioselektive Kraft weicht von der vollen BEM-Rechnung ab");
+        // v0.35: die chirale Kraft folgt dem Gradienten der optischen Chiralitaet, F(+) - F(-) = -sqrt(eps mu) Re(A_c) grad Im(E*.H)
+        Vec3 gC(0, 0, 0); real gc[3];
+        for (int i = 0; i < 3; ++i) { cplx q = 0; for (int j = 0; j < 3; ++j) q += std::conj(g[0].dE[i][j]) * g[0].H[j] + std::conj(g[0].E[j]) * g[0].dH[i][j]; gc[i] = std::imag(q); }
+        gC = Vec3(gc[0], gc[1], gc[2]) * (-std::sqrt(std::real(water.eps)) * std::real(A.Ac));
+        std::printf("  chirale Kraft gegen -sqrt(eps) Re(A_c) grad Im(E*.H): |dD - Modell|/|dD| %.1e\n", norm(dD - gC) / norm(dD));
+        CHECK(norm(dD - gC) < 0.05 * norm(dD), "chirale Kraft folgt nicht dem Gradienten der optischen Chiralitaet");
     }
     REPORT();
 }

@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.34.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.35.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -81,7 +81,7 @@ ctest --test-dir build --output-on-failure         # 24 Tests
 | `scatter_multi` | Kugel-Dimer, auch chiral | `--n 8 --dist 3 --pol circ` |
 | `scatter_mesh` | beliebige Gmsh-Geometrie | `--mesh stab.msh --media "-11,1.2" --pol circ --precond hodlr:1e-2` |
 | `dipole` | Zerfallsraten und Fluoreszenzverstärkung eines Emitters (Kugel, Dimer, Gmsh; Abstandsreihe, Orientierungen x, y, z, Quantenausbeute, Anregung mit `--lambda-exc`) | `--sphere 16 --unit 20 --materials Au --nbg 1.33 --lambda 650 --dist "2,5,10,20" --q0 0.5` |
-| `nearfield` | Nahfeldkarte in einer Ebene (Kugel, Dimer, Gmsh, Schichten, chirales Außenmedium) | `--sphere 8 --sphere-dimer 4 --unit 20 --materials Au --nbg 1.33 --coating "1:2.25,0:0.01" --lambda 580 --pol circ --plane xz` |
+| `nearfield` | Nahfeldkarte in einer Ebene (Kugel, Dimer, Gmsh, Schichten, chirales Außenmedium); mit `--particle` Kraft und chirale Kraft auf ein kleines Teilchen | `--sphere 8 --sphere-dimer 4 --unit 20 --materials Au --nbg 1.33 --coating "1:2.25,0:0.01" --lambda 580 --pol circ --plane xz` |
 | `spectrum` | Spektren, Orientierungsmittelung, Beschichtungen (auch chiral, Dünnschicht-Näherung, Zweitor mit `--twoport`) | `--mesh x.msh --unit 25 --materials Ag --nbg 1.33 --lambda 340:520:20 [--coating "2:2.89,0[:χ]" --thin 0]` |
 | `scatter_coated` | beschichtete Kugel/Gmsh-Körper, gegen Aden–Kerker, neutrale Referenz, Dünnschicht-Näherung | `--n 4,8 --omega 0.5 --core -11,1.2 --coat 0.02,2.25,0 --neutral` bzw. `--thin --bare` (`--thin-model jump\|dirac1\|dirac2\|dirac2fit`, auch mit `--mesh`) |
 | `bench_compression` | Asymptotik der Kompression | `--geometry sphere --n 8,16,24 --mode joint` |
@@ -150,7 +150,8 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
   achirale Goldstrukturen verdünnen g_lum im Orientierungsmittel, einzelne Orientierungen werden verstärkt (`results_dipole.md`).
 - **Optische Kräfte (v0.33):** Maxwellscher Spannungstensor auf Körperflächen, Kugeln oder Parallelflächen; Strahlungsdruck auf
   eine Goldkugel wie Mie, optische Bindung am Dimer. Seit v0.34 die Kraft auf kleine, auch chirale Teilchen in Dipolnäherung
-  einschließlich der enantioselektiven Kraft, gegen die volle BEM-Rechnung auf 1–2 % (`results_force.md`).
+  einschließlich der enantioselektiven Kraft, gegen die volle BEM-Rechnung auf 1–2 %. Seit v0.35 Kraftkarten im Spaltfeld:
+  Die chirale Kraft folgt dem Gradienten der optischen Chiralität mit dem aus der Theorie erwarteten Faktor (`results_force.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).

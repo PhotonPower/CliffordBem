@@ -1,4 +1,4 @@
-# Ergebnisse: Optische Kräfte (v0.33, Dipolnäherung v0.34)
+# Ergebnisse: Optische Kräfte (v0.33, Dipolnäherung v0.34, Kraftkarten v0.35)
 
 Kräfte auf die BEM-Körper über den Maxwellschen Spannungstensor (`include/cbem/sources/optical_force.hpp`), zeitgemittelt,
 ε₀ = μ₀ = 1, achirales Außenmedium:
@@ -79,6 +79,33 @@ bn/C = −s a₁), nicht vorausgesetzt. Achiral: A_e = 6πi a₁/k³, A_m = 6πi
 - Die enantioselektive Kraft macht bei χ = 0,2 etwa 15 % der Gesamtkraft aus und ist linear in χ.
 - Der Rest von etwa 1 % gegen die volle Rechnung passt zur Diskretisierung der kleinen Kugel (n = 6) und zur vernachlässigten
   Rückwirkung zwischen den Teilchen. Die Dipolnäherung erlaubt Kraftkarten aus einer einzigen Lösung der Nanostruktur.
+
+## Enantioselektive Kraft im Spaltfeld (v0.35)
+
+Kraftkarten aus einer einzigen Lösung der Nanostruktur: `nearfield --particle "Ae,Am,Ac"` (Polarisierbarkeiten in Einheiten des
+Netzes, aus `tools/mie_polarizability.py`) gibt je Punkt den Kraftquerschnitt σ_F = F/(½ε|E₀|²) in nm² und die chirale Kraft
+F(A_c) − F(−A_c), die Differenz der Enantiomere; `tools/plot_force.py` zeichnet beide und vergleicht die chirale Kraft mit dem
+Gradienten der optischen Chiralität C derselben Karte.
+
+Gold-Dimer (2 × 20 nm, 4 nm Spalt) in Wasser bei 580 nm (gekoppelte Mode), zirkular polarisiert, Einfall entlang z; chirale Kugel
+R = 1 nm, ε = 2,25, χ = 0,1 (bewusst groß gewählt, die chirale Kraft ist linear in χ): A_e = 1,297·10⁻⁴, A_m = −9,0·10⁻⁷,
+A_c = 3,612·10⁻⁵ (Einheiten des Netzes, Länge 20 nm); n = 8 (`results/force_dimer_580.csv`, Spalt fein `results/force_gap_580.csv`):
+
+![Kraft und chirale Kraft am Gold-Dimer](fig_force_dimer.png)
+
+- Die Gradientenkraft zieht das Teilchen in den Spalt; der Kraftquerschnitt erreicht dort 473 nm², bei 3 nm² geometrischem
+  Querschnitt.
+- Die chirale Kraft erreicht 4,7 nm², etwa 1 % der Gesamtkraft, am größten rund um den Spalt; im Spalt bei z ≈ 3 nm hat sie einen
+  Nullpunkt, wo die optische Chiralität extremal ist.
+- **Sie folgt dem Gradienten der optischen Chiralität:** antiparallel zu ∇C (gewichteter Kosinus −0,9998, Median −1,0000) mit
+  einem einzigen Faktor −0,575 nm³ (Rest 3,4 %; im fein aufgelösten Spalt −0,579 nm³, Rest 0,9 %). Aus der Kraftformel folgt
+  für fast reelles A_c F_chir = −½√(εμ) A_c ∇Im(E*·H), die Differenz der Enantiomere ist das Doppelte; in den Einheiten der
+  Karte −2 Re(A_c) L³ ∇C = −0,578 nm³ (L = 20 nm). Das trifft die Anpassung auf 0,1–0,5 %; der kleine Rest stammt aus Im(A_c),
+  dem Rückstoßterm und den Differenzenquotienten.
+- Das Enantiomer mit A_c > 0 wird zur betragsmäßig größten Chiralität im Spalt hingezogen, das andere herausgedrückt
+  (Grundlage einer enantioselektiven optischen Falle). Gegenüber der Gradientenkraft ist der Effekt klein (1 %); er wächst
+  linear mit der Chiralität des Teilchens und der Chiralität des Feldes.
+- Kosten: 24 321 Punkte (14 263 gültig, sieben Feldauswertungen je Punkt) in 42 s nach einer Lösung von 60 s.
 
 ## Grenzen
 
