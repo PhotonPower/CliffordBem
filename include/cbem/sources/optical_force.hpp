@@ -34,4 +34,25 @@ Vec3 force_on_sphere(const TriangleMesh& outer, const std::vector<cplx>& h, cons
 Vec3 force_on_offset(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega, const Vec3& d, const CVec3& p,
                      const TriangleMesh& body, real delta, const NearFieldOptions& o = {});
 
+// ---------------------------------------------------------------------------------------------------------------------------
+// Kraft auf ein kleines Teilchen in Dipolnaeherung (v0.33, Stufe 2). Duale Groessen e = sqrt(eps) E, h = sqrt(mu) H:
+//   p / sqrt(eps) = A_e e + i A_c h,   m / sqrt(mu) = A_m h - i A_c e
+// (A_e, A_m: elektrische und magnetische Polarisierbarkeit, fuer eine Kugel A_e = 6 pi i a_1 / k^3, A_m = 6 pi i b_1 / k^3;
+// A_c: chiraler Anteil, (A_++ - A_--)/2 in der Helizitaetsbasis). Zeitgemittelte Kraft
+//   F = 1/2 Re[ sum_j p_j grad E_j* + sum_j m_j grad H_j* ] - (omega k^3 / (12 pi)) Re(p x m*),
+// der letzte Term ist der Rueckstoss durch die Interferenz von p und m (aus der Impulsbilanz im Fernfeld). Fuer die ebene Welle
+// ergibt das exakt den Mie-Strahlungsdruck mit n = 1 einschliesslich Re(a_1 b_1*). Das Teilchen wirkt nicht auf das Feld zurueck.
+struct DipolePolarizability { cplx Ae = 0, Am = 0, Ac = 0; };
+// aus den Mie-Koeffizienten a_1, b_1 der (achiralen) Kugel im Medium mit Wellenzahl k
+inline DipolePolarizability polarizability_from_mie(cplx a1, cplx b1, cplx k) {
+    const cplx c = 6 * pi * cplx(0, 1) / (k * k * k); return {c * a1, c * b1, 0.0};
+}
+struct FieldGradient { CVec3 E{}, H{}; CVec3 dE[3], dH[3]; };   // dE[i][j] = d_i E_j
+// E, H und Gradienten an den Punkten x (zentrale Differenzen mit Schritt delta) aus der Aussenspur, ebene Welle (d, p)
+std::vector<FieldGradient> fields_with_gradients(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega,
+                                                 const Vec3& d, const CVec3& p, const std::vector<Vec3>& x, real delta,
+                                                 const NearFieldOptions& o = {});
+// Kraft auf das Dipolteilchen im Feld g
+Vec3 dipole_particle_force(const FieldGradient& g, const DipolePolarizability& a, const Medium& m, real omega);
+
 }  // namespace cbem

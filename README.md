@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.33.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.34.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -62,7 +62,7 @@ ctest --test-dir build --output-on-failure         # 24 Tests
 | `test_materials` | Materialtabellen, Lebedev-Momente |
 | `test_hodlr` | Systemeinträge gegen Operator, HODLR als direkter Löser und Vorkonditionierer |
 | `test_layered` | Parallelflächen, ohne Schicht = T₁, beschichtete Kugel gegen Aden–Kerker, neutrale Schale, chirale Schale |
-| `test_optical_force` | Strahlungsdruck gegen Mie, drei Integrationswege, Dimer: Bindungskräfte und Summe |
+| `test_optical_force` | Strahlungsdruck gegen Mie, drei Integrationswege, Dimer: Bindungskräfte und Summe; Dipolnäherung: ebene Welle, kleine und chirale Kugel gegen die volle Rechnung |
 | `test_recycling` | Krylov-Recycling und GCRO-DR: gleiche Lösungen wie GMRES, weniger Iterationen bei Ausreißer-Eigenwerten; Eigenlöser |
 | `test_dipole` | Dipol: Kugel aus dem Außenmedium (Raten = 1), Goldkugel gegen die Reihenlösung, verdichtetes Netz, Fluoreszenz, chiraler Emitter (Helizitätsdipol, magnetischer Dipol gegen Mie) |
 | `test_near_field` | Nahfeld: Fernfeldgrenze, Goldkugel gegen Mie (\|E\|², Chiralität), Markierungen, χ → 0, Zweitor gegen Mie |
@@ -91,7 +91,7 @@ Geometrien: `python3 tools/make_geometries.py sphere|rod|bornkuhn|roundcube h ou
 Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compression.py`, `mie_spectrum.py`,
 `mie_coated.py` (Aden–Kerker, Mehrfachschichten), `mie_chiral_layered.py` (geschichtete Kugeln mit chiralen Schichten),
 `analyze_coated.py`, `analyze_thin.py`, `analyze_chiral_thin.py`, `analyze_twoport.py`, `plot_coated.py`,
-`mie_nearfield.py` (Nahfeld nach Mie), `plot_nearfield.py`, `mie_dipole.py` (Zerfallsraten vor der Kugel), `plot_fluorescence.py`, `mie_force.py` (Strahlungsdruck).
+`mie_nearfield.py` (Nahfeld nach Mie), `plot_nearfield.py`, `mie_dipole.py` (Zerfallsraten vor der Kugel), `plot_fluorescence.py`, `mie_force.py` (Strahlungsdruck), `mie_polarizability.py` (Dipol-Polarisierbarkeiten, auch chiral).
 
 ## Ergebnisse
 
@@ -149,7 +149,8 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
 - **Chirale Emitter (v0.32):** magnetischer Übergangsdipol, zirkular polarisierte Lumineszenz (g_lum) vor Nanostrukturen;
   achirale Goldstrukturen verdünnen g_lum im Orientierungsmittel, einzelne Orientierungen werden verstärkt (`results_dipole.md`).
 - **Optische Kräfte (v0.33):** Maxwellscher Spannungstensor auf Körperflächen, Kugeln oder Parallelflächen; Strahlungsdruck auf
-  eine Goldkugel wie Mie, optische Bindung am Dimer (`results_force.md`).
+  eine Goldkugel wie Mie, optische Bindung am Dimer. Seit v0.34 die Kraft auf kleine, auch chirale Teilchen in Dipolnäherung
+  einschließlich der enantioselektiven Kraft, gegen die volle BEM-Rechnung auf 1–2 % (`results_force.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).

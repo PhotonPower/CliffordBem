@@ -1,6 +1,8 @@
 // Optische Kraefte ueber den Spannungstensor (v0.33): Strahlungsdruck auf eine Goldkugel in Wasser gegen Mie
 // (tools/mie_force.py), Uebereinstimmung der drei Wege (Randspuren, Kugel, Parallelflaeche), verschwindende Querkraefte;
-// Dimer: Bindungskraefte entgegengesetzt gleich, Summe = Kraft auf die Kugel um beide, Vorzeichen je Polarisation.
+// Dimer: Bindungskraefte entgegengesetzt gleich, Summe = Kraft auf die Kugel um beide, Vorzeichen je Polarisation;
+// Dipolnaeherung (Stufe 2): ebene Welle = Mie mit n = 1, kleine Glaskugel vor Gold gegen die volle BEM-Rechnung,
+// enantioselektive Kraftdifferenz einer kleinen chiralen Kugel gegen die volle BEM-Rechnung.
 #include <cmath>
 #include "cbem/problems/scattering_problem.hpp"
 #include "cbem/sources/optical_force.hpp"
@@ -33,6 +35,33 @@ int main() {
             CHECK(std::abs((F1.z + F2.z) / Fs.z - 1) < 0.005, "Summe der Einzelkraefte weicht ab");
             CHECK(pol == 0 ? F1.x > 0 : F1.x < 0, "Vorzeichen der Bindungskraft falsch");
         }
+    }
+    // Dipolnaeherung
+    {
+        const CVec3 pc = circular_polarization(d, +1);
+        // ebene Welle ueber einen unsichtbaren Koerper: exakt Mie mit n = 1 (Kugel R = 0,3, eps = 4)
+        ScatteringProblem I({translated(make_icosphere(4), Vec3(5, 5, 5))}, {water}, 0.5, water, hp); const auto ri = I.solve_plane_wave(d, px, so);
+        const auto gi = fields_with_gradients(I.mesh(), ri.h, water, 0.5, d, px, {Vec3(0.2, -0.1, 0.3)}, 1e-3);
+        const Vec3 Fi = dipole_particle_force(gi[0], polarizability_from_mie(cplx(2.461520806985727e-06, -0.0015689215238185255),
+                                                                           cplx(7.832778966182338e-11, -8.850298845558161e-06), water.k(0.5)), water, 0.5);
+        std::printf("  ebene Welle: Dipol F_z %.10e, Mie (n = 1) 9.2276632922e-05\n", Fi.z);
+        CHECK(std::abs(Fi.z / 9.227663292185384e-05 - 1) < 1e-6, "Dipolkraft in der ebenen Welle weicht von Mie ab");
+        // chirale Glaskugel (R = 0,08, chi = +-0,2) bei (1,4, 0, 0) vor Gold, zirkular: Kraft und Differenz der Enantiomere
+        const DipolePolarizability A{cplx(0.0005210437319997587, 5.606082479217233e-09), cplx(-1.4636535189635014e-05, 1.3738518052308093e-09),
+                                     cplx(0.0002963869828156086, 2.341654447388878e-09)};   // tools/mie_polarizability.py
+        const real rs = 0.08; const Vec3 c(1.4, 0, 0); Vec3 Fb[2];
+        for (int e = 0; e < 2; ++e) {
+            const TriangleMesh small = translated(make_icosphere(6, rs), c);
+            ScatteringProblem Q({make_icosphere(8), small}, {gold, Medium{2.25, 1.0, e == 0 ? 0.2 : -0.2}}, 0.5, water, hp);
+            const auto rq = Q.solve_plane_wave(d, pc, so); Fb[e] = force_on_offset(Q.mesh(), rq.h, water, 0.5, d, pc, small, 0.25 * rs);
+        }
+        ScatteringProblem G({make_icosphere(8)}, {gold}, 0.5, water, hp); const auto rg = G.solve_plane_wave(d, pc, so);
+        const auto g = fields_with_gradients(G.mesh(), rg.h, water, 0.5, d, pc, {c}, 1e-3);
+        DipolePolarizability Am = A; Am.Ac = -A.Ac;
+        const Vec3 Fp = dipole_particle_force(g[0], A, water, 0.5), dD = Fp - dipole_particle_force(g[0], Am, water, 0.5), dB = Fb[0] - Fb[1];
+        std::printf("  chirale Kugel vor Gold: |F_Dipol - F_BEM|/|F| %.1e, Differenz der Enantiomere |dD - dB|/|dB| %.1e\n", norm(Fp - Fb[0]) / norm(Fb[0]), norm(dD - dB) / norm(dB));
+        CHECK(norm(Fp - Fb[0]) < 0.03 * norm(Fb[0]), "Dipolnaeherung weicht von der vollen BEM-Rechnung ab");
+        CHECK(norm(dD - dB) < 0.05 * norm(dB), "enantioselektive Kraft weicht von der vollen BEM-Rechnung ab");
     }
     REPORT();
 }

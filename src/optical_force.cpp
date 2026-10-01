@@ -80,4 +80,43 @@ Vec3 force_on_offset(const TriangleMesh& outer, const std::vector<cplx>& h, cons
     return integrate(f, nrm, w, m);
 }
 
+std::vector<FieldGradient> fields_with_gradients(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega,
+                                                 const Vec3& d, const CVec3& p, const std::vector<Vec3>& x, real delta, const NearFieldOptions& o) {
+    std::vector<Vec3> pts;
+    const Vec3 ex[3] = {Vec3(1, 0, 0), Vec3(0, 1, 0), Vec3(0, 0, 1)};
+    for (const Vec3& q : x) { pts.push_back(q); for (int i = 0; i < 3; ++i) { pts.push_back(q + ex[i] * delta); pts.push_back(q - ex[i] * delta); } }
+    const auto f = exterior_near_field(outer, h, m, omega, d, p, pts, o);
+    std::vector<FieldGradient> g(x.size());
+    for (std::size_t k = 0; k < x.size(); ++k) {
+        const auto& c = f[7 * k];
+        if (c.inside) throw std::invalid_argument("fields_with_gradients: Punkt innerhalb eines Koerpers");
+        g[k].E = c.E; g[k].H = c.H;
+        for (int i = 0; i < 3; ++i) {
+            const auto& a = f[7 * k + 1 + 2 * i]; const auto& b = f[7 * k + 2 + 2 * i];
+            for (int j = 0; j < 3; ++j) { g[k].dE[i][j] = (a.E[j] - b.E[j]) / (2 * delta); g[k].dH[i][j] = (a.H[j] - b.H[j]) / (2 * delta); }
+        }
+    }
+    return g;
+}
+
+Vec3 dipole_particle_force(const FieldGradient& g, const DipolePolarizability& a, const Medium& m, real omega) {
+    if (std::abs(m.chi) > 0) throw std::invalid_argument("dipole_particle_force: chirales Medium nicht unterstuetzt");
+    const cplx k = m.k(omega), se = std::sqrt(m.eps), sm = std::sqrt(m.mu), I(0, 1);
+    CVec3 pv, mv;
+    for (int j = 0; j < 3; ++j) {
+        const cplx e = se * g.E[j], hh = sm * g.H[j];
+        pv[j] = se * (a.Ae * e + I * a.Ac * hh);
+        mv[j] = sm * (a.Am * hh - I * a.Ac * e);
+    }
+    real F[3];
+    for (int i = 0; i < 3; ++i) {
+        cplx s = 0; for (int j = 0; j < 3; ++j) s += pv[j] * std::conj(g.dE[i][j]) + mv[j] * std::conj(g.dH[i][j]);
+        F[i] = 0.5 * std::real(s);
+    }
+    const CVec3 pm{pv[1] * std::conj(mv[2]) - pv[2] * std::conj(mv[1]), pv[2] * std::conj(mv[0]) - pv[0] * std::conj(mv[2]), pv[0] * std::conj(mv[1]) - pv[1] * std::conj(mv[0])};
+    const real c = std::real(omega * k * k * k) / (12 * pi);
+    for (int i = 0; i < 3; ++i) F[i] -= c * std::real(pm[i]);
+    return Vec3(F[0], F[1], F[2]);
+}
+
 }  // namespace cbem

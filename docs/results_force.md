@@ -1,4 +1,4 @@
-# Ergebnisse: Optische Kräfte (v0.33)
+# Ergebnisse: Optische Kräfte (v0.33, Dipolnäherung v0.34)
 
 Kräfte auf die BEM-Körper über den Maxwellschen Spannungstensor (`include/cbem/sources/optical_force.hpp`), zeitgemittelt,
 ε₀ = μ₀ = 1, achirales Außenmedium:
@@ -48,8 +48,39 @@ Zwei Goldkugeln (Radius 1) mit Spalt 0,3 entlang x in Wasser, Einfall entlang z,
 - Die Bindungskräfte sind entgegengesetzt gleich, und die Summe der Einzelkräfte trifft die Kraft auf die umschließende Kugel auf
   0,1–0,2 % (n = 6: 0,4 %). Randspuren und Parallelfläche stimmen auf 0,3–0,8 % überein.
 
-## Grenzen und nächster Schritt
+## Kraft auf kleine, auch chirale Teilchen in Dipolnäherung (v0.34)
+
+Ein kleines Teilchen antwortet mit den dualen Größen e = √ε E, h = √μ H
+
+    p/√ε = A_e e + i A_c h,   m/√μ = A_m h − i A_c e,
+
+die zeitgemittelte Kraft ist
+
+    F = ½ Re[Σ_j p_j ∇E_j* + Σ_j m_j ∇H_j*] − (ωk³/12π) Re(p × m*)
+
+(`dipole_particle_force`; der letzte Term ist der Rückstoß durch die Interferenz von p und m, hergeleitet aus der Impulsbilanz im
+Fernfeld). E, H und ihre Gradienten kommen aus dem Nahfeld mit zentralen Differenzen (`fields_with_gradients`, sieben Punkte je
+Ort). Das Teilchen wirkt nicht auf das Feld zurück.
+
+**Polarisierbarkeiten** (`tools/mie_polarizability.py`): aus den Koeffizienten n = 1 der chiralen Mie-Lösung. Für eine einfallende
+Helizitätswelle (Beschriftung s) ist h = −is·e, die Polarisierbarkeit derselben Helizität A_s = (A_e + A_m)/2 + s·A_c, also
+A_c = (A₊ − A₋)/2. Die Abbildung der Mie-Koeffizienten auf Bohren–Huffman ist am achiralen Grenzfall bestimmt (an/C = −b₁,
+bn/C = −s a₁), nicht vorausgesetzt. Achiral: A_e = 6πi a₁/k³, A_m = 6πi b₁/k³ (`polarizability_from_mie`).
+
+**Prüfungen** (`test_optical_force`):
+
+| Fall | Ergebnis |
+|---|---|
+| ebene Welle, Kugel R = 0,3, ε = 4 (merklicher magnetischer Anteil) | Dipolformel = Mie-Strahlungsdruck mit n = 1 (einschließlich Re(a₁b₁*)) auf 7·10⁻⁸ |
+| kleine Glaskugel (R = 0,08) 0,32 Radien vor einer Goldkugel, drei Orte | gegen die volle BEM-Rechnung beider Körper (Spannungstensor) auf 0,9–1,2 % in Betrag und Richtung |
+| kleine chirale Kugel (χ = ±0,2) vor Gold, zirkular polarisiert | Kraft auf 1,1 %, Differenz der Enantiomere F(+χ) − F(−χ) auf 1,8 % (auch die kleine Querkomponente) |
+
+- Die Gradientenkraft zieht die kleine Kugel zur Feldüberhöhung der Goldkugel hin.
+- Die enantioselektive Kraft macht bei χ = 0,2 etwa 15 % der Gesamtkraft aus und ist linear in χ.
+- Der Rest von etwa 1 % gegen die volle Rechnung passt zur Diskretisierung der kleinen Kugel (n = 6) und zur vernachlässigten
+  Rückwirkung zwischen den Teilchen. Die Dipolnäherung erlaubt Kraftkarten aus einer einzigen Lösung der Nanostruktur.
+
+## Grenzen
 
 - Nur achirale Außenmedien (der Spannungstensor im Pasteur-Medium ist ein anderer); Anregung durch ebene Wellen.
-- Stufe 2: Kraft auf ein kleines, auch chirales Teilchen in Dipolnäherung aus E, H und ihren Gradienten, einschließlich der
-  enantioselektiven Kraft im Spaltfeld.
+- Dipolnäherung ohne Rückwirkung des Teilchens auf das Feld; für größere Teilchen oder sehr kleine Abstände die volle Rechnung.
