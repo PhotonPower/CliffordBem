@@ -1,7 +1,7 @@
 // Allgemeine einfallende Felder und Kraefte bei Dipol- und Strahlanregung (v0.37): Strahlen als exakte Maxwell-Loesungen,
 // Leistung nach Parseval gegen den Poynting-Fluss, ebene Welle ueber die allgemeine Schnittstelle wie bisher, Impulserhaltung
 // bei Dipolanregung (Koerper + Emitter + Abstrahlung = 0), kleines Teilchen im fokussierten Strahl gegen die Dipolnaeherung;
-// Strahl im chiralen Medium (v0.38); optische Pinzette gegen die GLMT-Referenz (v0.39).
+// Strahl im chiralen Medium (v0.38); optische Pinzette gegen die GLMT-Referenz (v0.39), auch fuer chirale Kugeln (v0.40).
 #include <cmath>
 #include "cbem/problems/scattering_problem.hpp"
 #include "cbem/sources/dipole.hpp"
@@ -107,6 +107,17 @@ int main() {
         const real glmt = -0.01543359404291259;
         std::printf("  Pinzette gegen GLMT: Q_z BEM %.6f, GLMT %.6f (%.2f %%)\n", Qz, glmt, 100 * (Qz / glmt - 1));
         CHECK(std::abs(Qz / glmt - 1) < 0.01, "Pinzette weicht von der GLMT ab");
+    }
+    // 7. v0.40: chirale Kugel (chi_p = +0,1) im zirkularen Strahl gegen die chirale GLMT, 0,5 um hinter dem Fokus
+    {
+        const real R = 0.25, lam = 1.064, omr = 2 * pi * R / lam, s2 = 1.0 / std::sqrt(2.0); const Medium cps{2.5281, 1.0, 0.1};
+        ScatteringProblem P({make_icosphere(8)}, {cps}, omr, water, hp);
+        auto beam = std::make_shared<BeamField>(BeamField::focused(water, omr, Vec3(0, 0, -0.5 / R), 1.2, 1.0, CVec3{s2, cplx(0, s2), 0.0}));
+        const auto b = beam->project(P.mesh(), water); const auto r = P.solve_rhs(b, so);
+        const real Qz = force_on_sphere(make_near_field_eval(P.mesh(), r.h, b, water, omr, beam), water, Vec3(0, 0, 0), 1.3).z / std::sqrt(1.7689);
+        const real glmt = -0.011211605330389127;
+        std::printf("  chirale Kugel gegen chirale GLMT: Q_z BEM %.6f, GLMT %.6f (%.2f %%)\n", Qz, glmt, 100 * (Qz / glmt - 1));
+        CHECK(std::abs(Qz / glmt - 1) < 0.015, "chirale Kugel weicht von der chiralen GLMT ab");
     }
     REPORT();
 }

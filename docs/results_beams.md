@@ -1,4 +1,4 @@
-# Ergebnisse: Strahlanregung, Kräfte bei Dipolanregung, optische Pinzette (v0.37, chirale Medien v0.38, GLMT-Referenz v0.39)
+# Ergebnisse: Strahlanregung, Kräfte bei Dipolanregung, optische Pinzette (v0.37, chirale Medien v0.38, GLMT-Referenz v0.39, chiral v0.40)
 
 ## Allgemeine einfallende Felder
 
@@ -156,7 +156,37 @@ Normierung), unabhängig von der BEM:
   0,032279 gegen 0,032534 (−0,8 % statt −1,7 %), bei z = 0,5 µm −0,015414 gegen −0,015434 (−0,1 %).
 - Die Gleichgewichtslagen und Steifigkeiten aus v0.37 sind damit auf etwa 1–1,5 % bestätigt.
 - `test_beams` vergleicht die BEM bei z = 0,5 µm direkt mit dem GLMT-Wert (Toleranz 1 %).
-- Die GLMT ist für homogene achirale Kugeln umgesetzt; für chirale Kugeln (v0.38) fehlt die Referenz noch.
+- Die GLMT ist für homogene Kugeln umgesetzt, seit v0.40 auch chiral und im chiralen Außenmedium (unten).
+
+### Chirale Kugeln und chirales Außenmedium (v0.40)
+
+Die GLMT arbeitet in der Helizitätsbasis W_λ = M + λN (∇ × W_λ = λk W_λ). Aus den Maxwell-Gleichungen mit D = εE + iχH,
+B = μH − iχE folgt eindeutig k_λ = ω(n + λχ) und H = −iλ√(ε/μ) E, wie in `mie_chiral_layered.py` (W_A = W₊, W_B = W₋); eine
+ebene Welle `circular_polarization(k̂, s)` hat λ = s. Damit ist die Zuordnung der Wellenzahlen durch die Maxwell-Gleichungen
+erzwungen, und der Python-Strahl ist mit dem C++-Strahl identisch. Strahlkoeffizienten je Helizität (c_M hängt nicht von k ab;
+achirales Außenmedium A_λ = (c_M + λ c_N)/2), T-Matrix je n aus `mie_chiral_layered.coefficients`, Spannungstensor mit D und B.
+
+| Selbstprüfung (`test_glmt`) | Ergebnis |
+|---|---|
+| chiraler Weg bei χ = 0 gegen achirale GLMT | 5·10⁻¹⁵ |
+| Strahl im chiralen Medium: Helizitätsreinheit c_N = λ c_M, Maxwell-Gleichungen | 8·10⁻¹⁵, 2–3·10⁻¹⁰ |
+| chirale Kugel: F(+χ_p, s = +1) = F(−χ_p, s = −1) | exakt; F(+χ_p, s = −1) deutlich verschieden |
+
+Gegenrechnung mit v0.36 (Goldkugel in chiralem Wasser, χ_h = 0,2, ebene Helizitätswelle): GLMT 18,394 bzw. 20,236, BEM n = 8
+18,234 bzw. 19,901 (−0,9 bzw. −1,7 %; achiral auf demselben Netz −1,4 % gegen Mie).
+
+**Pinzetten-Kennlinien aus v0.38 gegen die chirale GLMT** (`results/glmt_chiral*.csv`):
+
+| Fall (BEM n = 8) | größte Abweichung, bezogen auf max\|Q\| | mittlere | Gleichgewicht BEM / GLMT |
+|---|---:|---:|---:|
+| Polystyrol in chiraler Lösung (χ = 0,01), s = +1 | 1,45 % | 0,54 % | 0,298 / 0,299 µm |
+| dto., s = −1 | 1,49 % | 0,55 % | 0,322 / 0,324 µm |
+| chirale Kugel χ_p = +0,1 in Wasser, s = +1 | 1,53 % | 0,58 % | 0,409 / 0,411 µm |
+| chirale Kugel χ_p = −0,1 in Wasser, s = +1 | 1,27 % | 0,49 % | 0,244 / 0,244 µm |
+
+Die chiralen Signale selbst stimmen ebenso: der Helizitätsunterschied in der chiralen Lösung (bis 0,0044) auf 2,1 %, der
+Unterschied der Enantiomere (bis 0,066) auf 1,7 %. Die Ergebnisse zur Enantiomerentrennung aus v0.38 sind damit quantitativ
+abgesichert. `test_beams` vergleicht die chirale Kugel bei z = 0,5 µm direkt (Toleranz 1,5 %).
 
 ## Grenzen
 
