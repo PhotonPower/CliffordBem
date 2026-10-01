@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(CliffordBem VERSION 0.41.0 LANGUAGES CXX)
+project(CliffordBem VERSION 0.42.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,6 +11,7 @@ option(CBEM_OPENMP "OpenMP-Parallelisierung der Assemblierung" ON)
 option(CBEM_NATIVE "Mit -march=native uebersetzen" OFF)
 option(CBEM_BUILD_TESTS "Tests bauen" ON)
 option(CBEM_BUILD_APPS "Anwendungen/Benchmarks bauen" ON)
+option(CBEM_BUILD_PYTHON "Python-Modul cliffordbem (pybind11) bauen" OFF)
 
 add_library(cbem
   src/multivector.cpp
@@ -46,6 +47,9 @@ add_library(cbem
   src/incident_field.cpp)
 target_include_directories(cbem PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(cbem PRIVATE -Wall -Wextra)
+if(CBEM_BUILD_PYTHON)
+  set_target_properties(cbem PROPERTIES POSITION_INDEPENDENT_CODE ON)   # wird in das Python-Modul gelinkt
+endif()
 if(CBEM_NATIVE)
   target_compile_options(cbem PUBLIC -march=native)
 endif()
@@ -96,5 +100,42 @@ if(CBEM_BUILD_TESTS)
   find_package(Python3 COMPONENTS Interpreter)
   if(Python3_FOUND)
     add_test(NAME test_glmt COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/glmt.py --selftest)
+  endif()
+endif()
+
+# Python-Anbindung (v0.42): Modul cliffordbem._cbem. Benoetigt pybind11 (pip install pybind11) und die Python-Entwicklungsdateien.
+# Nach dem Bau liegt das Paket in build/python (PYTHONPATH=build/python); pip install . baut es ueber pyproject.toml.
+if(CBEM_BUILD_PYTHON)
+  find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+  if(NOT DEFINED pybind11_DIR)
+    execute_process(COMMAND ${Python_EXECUTABLE} -m pybind11 --cmakedir OUTPUT_VARIABLE _cbem_pybind11_dir
+                    OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE _cbem_pybind11_res ERROR_QUIET)
+    if(_cbem_pybind11_res EQUAL 0)
+      list(APPEND CMAKE_PREFIX_PATH "${_cbem_pybind11_dir}")
+    endif()
+  endif()
+  set(PYBIND11_FINDPYTHON ON)
+  find_package(pybind11 2.10 CONFIG REQUIRED)
+  pybind11_add_module(_cbem MODULE
+    bindings/python/module.cpp
+    bindings/python/bind_core.cpp
+    bindings/python/bind_geometry.cpp
+    bindings/python/bind_operators.cpp
+    bindings/python/bind_problems.cpp
+    bindings/python/bind_sources.cpp)
+  target_link_libraries(_cbem PRIVATE cbem)
+  target_compile_options(_cbem PRIVATE -Wall -Wextra)
+  target_compile_definitions(_cbem PRIVATE CBEM_VERSION="${PROJECT_VERSION}"
+                                           CBEM_SOURCE_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/materials")
+  set(CBEM_PY_DIR ${CMAKE_BINARY_DIR}/python/cliffordbem)
+  set_target_properties(_cbem PROPERTIES LIBRARY_OUTPUT_DIRECTORY "$<1:${CBEM_PY_DIR}>")   # ohne Unterverzeichnis je Konfiguration
+  configure_file(bindings/python/cliffordbem/__init__.py ${CBEM_PY_DIR}/__init__.py COPYONLY)
+  if(SKBUILD)   # pip install . (scikit-build-core): Modul und Materialdaten ins Paket
+    install(TARGETS _cbem LIBRARY DESTINATION cliffordbem)
+    install(DIRECTORY data/materials DESTINATION cliffordbem/data)
+  endif()
+  if(CBEM_BUILD_TESTS)
+    add_test(NAME test_python COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/bindings/python/tests/test_python.py)
+    set_tests_properties(test_python PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_BINARY_DIR}/python;CBEM_TOOLS_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tools")
   endif()
 endif()

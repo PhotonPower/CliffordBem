@@ -33,3 +33,13 @@ python3 tools/make_geometries.py roundcube 0.3 examples/rc04.msh --radius 0.4 --
 ./build/spectrum --sphere 8 --unit 20 --materials Au --nbg 1.33 --lambda 450:650:10 --coating "2:2.1025,0;1:2.25,0:0.01" --twoport --pol circ --heps 1e-6 --tol 1e-9
 ./build/spectrum --mesh examples/rc04.msh --unit 25 --materials Ag --nbg 1.33 --lambda 400:480:20 --coating "2:2.89,0" --thin 0
 ```
+
+## Python-Skripte (v0.42)
+
+Mit `-DCBEM_BUILD_PYTHON=ON` gebaut (oder nach `pip install .`; siehe `docs/python.md`):
+
+```bash
+PYTHONPATH=build/python python3 examples/python/spectrum_gold_sphere.py --n 8 --plot spektrum.png   # Goldkugel gegen Mie
+PYTHONPATH=build/python python3 examples/python/nearfield_dimer.py --n 8 --plot nf.png              # Spaltfeld und Kräfte
+PYTHONPATH=build/python python3 examples/python/custom_formulation.py --n 6                         # T1 in NumPy
+```

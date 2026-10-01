@@ -5,13 +5,13 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.41.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.42.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
 beliebiger Dicke), chirale Außenmedien (Teilchen in chiraler Lösung), dispersive
 Materialien, Spektren mit Orientierungsmittelung, Nahfeldkarten (Feldverstärkung, optische Chiralität), Dipolanregung, Zerfallsraten und Fluoreszenzverstärkung von Emittern (Fluorophore), Phase der Vorwärtsamplitude, Block- und hierarchische
-Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
+Vorkonditionierung, Gmsh-Import, Python-Anbindung für Skripte (`cliffordbem`, pybind11). Versionsgeschichte: `CHANGELOG.md`.
 
 ## Was der Kern kann
 
@@ -31,6 +31,7 @@ Vorkonditionierung, Gmsh-Import. Versionsgeschichte: `CHANGELOG.md`.
 | Spektren | Johnson-Christy Au/Ag, Hintergrundmedium, Lebedev-Mittelung | Goldkugel in Wasser gegen Mie (≤ 1,5 % bei 1 280 Dreiecken) |
 | Vorkonditionierung | punktweise, Blöcke (Kanten/Ecken, Cluster), HODLR | voller Block bzw. feine HODLR-Toleranz = direkter Löser |
 | Geometrie | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörper, Gmsh 2.2/4.1 | Gmsh-Kugel konvergiert gegen Mie |
+| Python-Anbindung | Paket `cliffordbem` (pybind11): alle Problemklassen, Anregungen, Nahfeld, Dipole, Kräfte, Algebra und die Bausteine (Einträge, H-Matrix, Cauchy-Operator, T₁, GMRES mit Python-Operatoren); NumPy-Arrays, Rechnung ohne GIL | gleiche Ergebnisse wie C++ (Regression, Bausteine bitgleich), Nahfeld und Kräfte gegen Mie (`docs/python.md`) |
 
 ## Bauen und Testen
 
@@ -40,7 +41,16 @@ Für die Python-Werkzeuge: NumPy, SciPy, Matplotlib, optional `gmsh` (Geometrien
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release     # Optionen: -DCBEM_OPENMP=ON -DCBEM_NATIVE=ON
 cmake --build build -j
-ctest --test-dir build --output-on-failure         # 26 Tests
+ctest --test-dir build --output-on-failure         # 26 Tests (27 mit -DCBEM_BUILD_PYTHON=ON)
+```
+
+Python-Anbindung (v0.42, `docs/python.md`): `pip install .` oder `cmake -S . -B build -DCBEM_BUILD_PYTHON=ON` (benötigt
+pybind11 und die Python-Entwicklungsdateien; das Paket liegt dann in `build/python`):
+
+```python
+import cliffordbem as cb
+P = cb.ScatteringProblem(cb.make_icosphere(8), cb.Medium(eps=-11 + 1.2j), omega=0.5)
+print(P.solve_plane_wave(d=(0, 0, 1), p=(1, 0, 0)).sigma_ext / cb.pi)   # Q_ext der Goldkugel
 ```
 
 | Test | prüft |
@@ -71,6 +81,7 @@ ctest --test-dir build --output-on-failure         # 26 Tests
 | `test_chiral_host` | chirales Außenmedium: Unsichtbarkeit, Ablehnung linearer Polarisation, χ → 0, Spiegelsymmetrie, Goldkugel gegen Mie, Zweitor gegen exakte Methode |
 | `test_twoport` | Zweitor: neutrale Schicht, Glasschale d/h = 0,29 und 1,14 gegen Aden–Kerker, chirale Schicht (Symmetrie, CD), Mehrfachschichten (Zerlegung, Oxid + Glas, chirale Schicht auf Abstandshalter), Unterteilung dicker Schichten |
 | `test_thin_layer` | Flächenoperatoren, Formoperator und Laplace–Beltrami auf der Kugel, ohne Schicht = T₁, neutrale Schicht ohne Wirkung, Schichtwirkung erster und zweiter Ordnung gegen Aden–Kerker (auch nach innen), mehrere Körper, chirale Schicht (Spiegelsymmetrie, CD gegen Mie, chiraler Kern = T₁) |
+| `test_python` | Python-Anbindung (nur mit `-DCBEM_BUILD_PYTHON=ON`): Algebra, Netze, Regression und Bausteine bitgleich zu C++, Mie, chirale Medien, Nahfeld, Kräfte, Dipol, Strahlen, Schichten, Fehlerbehandlung, Threads ohne GIL |
 
 ## Anwendungen
 
@@ -186,14 +197,15 @@ include/cbem/problems    ScatteringProblem (Einstiegsklasse), LayeredScatteringP
 apps/  tests/  tools/  results/  examples/
 data/materials/          Johnson-Christy Au, Ag (refractiveindex.info, CC0)
 prototype/               Python-Prototypen: ap1 (Theorie), ap2 (3D-Galerkin, H-Matrix), resonance (Resonanzfenster)
-docs/                    Architektur, Ergebnisberichte, Arbeitspapiere AP 1–3, Zusammenfassung, Antrag
+docs/                    Architektur, Ergebnisberichte, Arbeitspapiere AP 1–3, Zusammenfassung, Antrag, Python-Anbindung
+bindings/python/         pybind11-Modul cliffordbem._cbem, Paket cliffordbem, Tests; examples/python: Skripte
 ```
 
 ## Offene Punkte
 
 Siehe `docs/ARCHITECTURE.md`. Wichtigste: reflexionsfreier Abschluss an 3D-Kanten im Resonanzfenster,
 Streckung um Spitzen im C++-Kern, Krylov-Recycling für viele rechte Seiten, Substrate, gekrümmte Elemente,
-Ansätze höherer Ordnung, parallele Tests auf Mehrkernrechnern, Python-Anbindung; für beschichtete Körper:
+Ansätze höherer Ordnung, parallele Tests auf Mehrkernrechnern, Typ-Stubs für die Python-Anbindung; für beschichtete Körper:
 Block-/HODLR-Vorkonditionierung, ein Eindeutigkeitsbeweis für verschachtelte Gebiete; für die Dünnschicht-Näherung
 Stabilität für d ≳ h (nichtlokale Formulierung) und Krümmungssprünge (Übergang von ebenen Seiten zu Rundungen).
 

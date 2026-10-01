@@ -1,4 +1,4 @@
-# Architektur und Ausbauplan (Stand 0.41)
+# Architektur und Ausbauplan (Stand 0.42)
 
 ## Leitlinien
 
@@ -14,7 +14,8 @@
    8×8-Matrix. Für Leistung später spezialisierte Grad-Darstellungen (Grad 1+2 für
    Maxwell-Anteile, 0+3 für Hilfsgrade) entsprechend der Blockstruktur aus AP 1.
 4. **Keine externen Bibliotheken im Kern.** QR und SVD für die Nachkompression sind eigene
-   Implementierungen (kleine Matrizen). LAPACK/BLAS kann später optional angebunden werden.
+   Implementierungen (kleine Matrizen). LAPACK/BLAS kann später optional angebunden werden. Die Python-Anbindung (pybind11) ist optional
+   (`CBEM_BUILD_PYTHON`) und berührt den Kern nicht.
 5. **Reproduzierbarkeit.** Jede Funktionalität hat einen Test gegen eine unabhängige Referenz
    (feine Quadratur, dichte Matrix, Python-Prototyp, Mie).
 
@@ -34,7 +35,7 @@
 | problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, Systemeinträge); LayeredScatteringProblem (Grenzflächengraph: Kern-Schale, Mehrfachschichten, Einschlüsse, chirale Schichten); ThinLayerScatteringProblem (eine Fläche je Körper, mehrere Körper; Dirac-Form 2. Ordnung mit Formoperator, glatten Normalen und quadratischer Anpassung der zweiten Ableitungen über die Knotennachbarschaft; Sprungform 1. Ordnung mit Kleinste-Quadrate-Gradient und Divergenz in Flussform; chirale Schichten und Kerne über den zentralen Multivektor K = k₊P₊ + k₋P₋); TwoPortLayerProblem (Schichten als Zweitore nach dem Vorbild der S-Matrix, E₂ auf der Außenfläche, E₁ auf dem Kern, g(s) über Partialbrüche mit dünnbesetzten Resolventen; Mehrfachschichten blockbidiagonal, jede Schicht auf ihrer eigenen Fläche, automatische Unterteilung dicker Schichten; mehrere Körper mit E₂ auf der Vereinigung und E₁ blockdiagonal) | mehrere rechte Seiten gleichzeitig, Wiederverwendung über Wellenlängen; Block-/HODLR-Vorkonditionierung für geschichtete Körper; neutrale Referenz mit gemeinsamem Aufbau; Dünnschicht: Krümmungssprünge an Rundungsübergängen, Nahfelder und Kräfte in chiralen Medien; Zweitor: Vorkonditionierer mit Kopplung benachbarter Schichten (Iterationen wachsen mit der Zahl der Teilschichten), Schichten nach innen |
 | apps | Kugel, chirale Kugel, Würfel, Würfel-Dimer, Kugel-Dimer, Gmsh-Geometrien, Spektren (auch beschichtet), beschichtete Körper, Kompressionsbenchmark | Parameterstudien für AP 4 |
 | prototype/resonance | 2D-Galerkin mit Streckung in log r, Absorber, angereicherte Eckelemente, 3D-Nullstellenanalyse | transparenter Kantenabschluss (diskrete DtN, Hardy-Raum-Ansatz) |
-| bindings | – | pybind11-Modul für Skripting |
+| bindings | pybind11-Modul `cliffordbem._cbem` mit Paket `cliffordbem` (v0.42): öffentliche API des Kerns, NumPy-Arrays, Rechnung ohne GIL, Lebensdauer über `keep_alive`/Kopien, `pip install .` (`docs/python.md`) | Typ-Stubs (.pyi), Wheels für weitere Plattformen, eigene einfallende Felder aus Python (vektorisiert) |
 
 ## Bekannte Grenzen
 

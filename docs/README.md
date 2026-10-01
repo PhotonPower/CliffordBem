@@ -23,6 +23,9 @@
 | `results_nearfield.md` | Nahfeld: Validierung gegen Mie, Spaltfeld und optische Chiralität des Gold-Dimers |
 | `results_coated.md` | beschichtete Grenzflächen: Aden–Kerker, dünne Schichten, Silberteilchen mit Oxid, Dünnschicht-Näherung erster und zweiter Ordnung, chirale Schichten, Zweitor |
 
+## Python-Anbindung
+- `python.md`: Bauen und Installieren, Konventionen, Umfang, Lebensdauer und Threads, Beispiele, Tests
+
 ## Arbeitspapiere und Antrag
 - `papers/ap1/AP1_Ausarbeitung.pdf`: Theorie (Formulierung, Eindeutigkeit, Kanten, Spitzen, chirale Medien, Resonanzfenster,
   verschachtelte Gebiete/beschichtete Grenzflächen)
