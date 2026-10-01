@@ -27,7 +27,11 @@ from . import _cbem
 from ._cbem import *  # noqa: F401,F403
 from ._cbem import __version__, _make_material  # noqa: F401  __version__ wird re-exportiert
 
-__all__ = [n for n in dir(_cbem) if not n.startswith("_")] + [
+from .fields import (AngularSpectrumField, CustomField, PythonPlaneWave, SuperposedField,  # noqa: E402,F401  Re-Export
+                     as_field_function, maxwell_residual)
+from . import fields as _fields  # noqa: E402
+
+__all__ = [n for n in dir(_cbem) if not n.startswith("_")] + _fields.__all__ + [
     "__version__", "DATA_DIR", "make_material", "omega_from_wavelength", "wavelength_from_omega", "trace_blocks", "polarization_basis",
     "spectrum", "e1", "e2", "e3", "e12", "e13", "e23", "I",
 ]
@@ -50,6 +54,28 @@ def _find_data_dir() -> str:
 
 #: Verzeichnis der Materialtabellen (Johnson-Christy Au, Ag)
 DATA_DIR: str = _find_data_dir()
+
+# Felder des Kerns lassen sich wie Python-Felder ueberlagern: PlaneWaveField(...) + 2 * DipoleField(...)
+def _field_add(a, b):
+    return SuperposedField([a, b])
+
+
+def _field_radd(a, b):
+    from numbers import Number
+    return a if isinstance(b, Number) and b == 0 else SuperposedField([b, a])
+
+
+def _field_mul(a, c):
+    from numbers import Number
+    return SuperposedField([a], [c]) if isinstance(c, Number) else NotImplemented
+
+
+IncidentField.__add__ = _field_add          # noqa: F405
+IncidentField.__radd__ = _field_radd        # noqa: F405
+IncidentField.__sub__ = lambda a, b: SuperposedField([a, b], [1.0, -1.0])   # noqa: F405
+IncidentField.__mul__ = _field_mul          # noqa: F405
+IncidentField.__rmul__ = _field_mul         # noqa: F405
+IncidentField.__neg__ = lambda a: SuperposedField([a], [-1.0])              # noqa: F405
 
 # Basis-Blades (unveraenderliche Multivektoren)
 e1 = Multivector.blade("e1")      # noqa: F405

@@ -1,4 +1,4 @@
-# Architektur und Ausbauplan (Stand 0.42)
+# Architektur und Ausbauplan (Stand 0.43)
 
 ## Leitlinien
 
@@ -35,7 +35,7 @@
 | problems | ScatteringProblem (ein/mehrere Körper, chirale Medien, Hintergrundmedium, Systemeinträge); LayeredScatteringProblem (Grenzflächengraph: Kern-Schale, Mehrfachschichten, Einschlüsse, chirale Schichten); ThinLayerScatteringProblem (eine Fläche je Körper, mehrere Körper; Dirac-Form 2. Ordnung mit Formoperator, glatten Normalen und quadratischer Anpassung der zweiten Ableitungen über die Knotennachbarschaft; Sprungform 1. Ordnung mit Kleinste-Quadrate-Gradient und Divergenz in Flussform; chirale Schichten und Kerne über den zentralen Multivektor K = k₊P₊ + k₋P₋); TwoPortLayerProblem (Schichten als Zweitore nach dem Vorbild der S-Matrix, E₂ auf der Außenfläche, E₁ auf dem Kern, g(s) über Partialbrüche mit dünnbesetzten Resolventen; Mehrfachschichten blockbidiagonal, jede Schicht auf ihrer eigenen Fläche, automatische Unterteilung dicker Schichten; mehrere Körper mit E₂ auf der Vereinigung und E₁ blockdiagonal) | mehrere rechte Seiten gleichzeitig, Wiederverwendung über Wellenlängen; Block-/HODLR-Vorkonditionierung für geschichtete Körper; neutrale Referenz mit gemeinsamem Aufbau; Dünnschicht: Krümmungssprünge an Rundungsübergängen, Nahfelder und Kräfte in chiralen Medien; Zweitor: Vorkonditionierer mit Kopplung benachbarter Schichten (Iterationen wachsen mit der Zahl der Teilschichten), Schichten nach innen |
 | apps | Kugel, chirale Kugel, Würfel, Würfel-Dimer, Kugel-Dimer, Gmsh-Geometrien, Spektren (auch beschichtet), beschichtete Körper, Kompressionsbenchmark | Parameterstudien für AP 4 |
 | prototype/resonance | 2D-Galerkin mit Streckung in log r, Absorber, angereicherte Eckelemente, 3D-Nullstellenanalyse | transparenter Kantenabschluss (diskrete DtN, Hardy-Raum-Ansatz) |
-| bindings | pybind11-Modul `cliffordbem._cbem` mit Paket `cliffordbem` (v0.42): öffentliche API des Kerns, NumPy-Arrays, Rechnung ohne GIL, Lebensdauer über `keep_alive`/Kopien, `pip install .` (`docs/python.md`) | Typ-Stubs (.pyi), Wheels für weitere Plattformen, eigene einfallende Felder aus Python (vektorisiert) |
+| bindings | pybind11-Modul `cliffordbem._cbem` mit Paket `cliffordbem` (v0.42): öffentliche API des Kerns, NumPy-Arrays, Rechnung ohne GIL, Lebensdauer über `keep_alive`/Kopien, `pip install .`; eigene einfallende Felder als Python-Klassen, vektorisiert und bitgleich zum C++-Pfad (v0.43) (`docs/python.md`) | Typ-Stubs (.pyi), Wheels für weitere Plattformen |
 
 ## Bekannte Grenzen
 

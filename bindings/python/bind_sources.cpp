@@ -1,6 +1,7 @@
 // Python-Anbindung: Anregungen, Fernfeld, Extinktion, Nahfeld, Dipole, optische Kraefte (v0.42).
 #include "common.hpp"
 
+#include "cbem/geometry/quadrature.hpp"
 #include "cbem/sources/chiral_incidence.hpp"
 #include "cbem/sources/dipole.hpp"
 #include "cbem/sources/fields.hpp"
@@ -45,6 +46,70 @@ struct PyNearFieldEval {
     NearFieldEval f;
     std::vector<NearFieldPoint> operator()(const std::vector<Vec3>& p) const { return f(p); }
 };
+
+// --- einfallende Felder aus Python (v0.43) ---------------------------------------------------------------------------------
+// Ein Python-Feld ist ein Objekt mit der Methode fields(x) -> (E, H) fuer Punkte x der Form (M, 3) und optional den Attributen
+// reference_E2, reference_C (Bezug fuer Verstaerkung und Chiralitaet, Voreinstellung 1). Der Kern wertet einfallende Felder nur an
+// zwei Stellen aus: bei der Projektion (alle Quadraturpunkte) und im Nahfeld (alle Auswertepunkte). Beide Stellen werden hier
+// durch einen einzigen vektorisierten Aufruf ersetzt -- mit GIL, ausserhalb jeder OpenMP-Schleife; die Rechnung des Kerns
+// (Streufeld) laeuft ohne GIL.
+
+// Python-Objekt, dessen letzte Freigabe den GIL holt (darf in Kopien von std::function ohne GIL stecken)
+std::shared_ptr<py::object> hold(py::object o) {
+    return std::shared_ptr<py::object>(new py::object(std::move(o)), [](py::object* p) { py::gil_scoped_acquire gil; delete p; });
+}
+
+void require_python_field(const py::object& f) {
+    if (!py::hasattr(f, "fields"))
+        throw py::type_error("einfallendes Feld: erwartet ein IncidentField des Kerns oder ein Objekt mit der Methode fields(x) -> (E, H)");
+}
+
+// fields(x) aufrufen und pruefen (GIL muss gehalten werden)
+void call_fields(const py::object& f, const std::vector<Vec3>& pts, std::vector<CVec3>& E, std::vector<CVec3>& H) {
+    py::object r = f.attr("fields")(points_to_numpy(pts));
+    if (!py::isinstance<py::sequence>(r) || py::len(r) != 2) throw py::type_error("fields(x) muss ein Paar (E, H) zurueckgeben");
+    auto seq = r.cast<py::sequence>();
+    const std::size_t M = pts.size();
+    auto take = [&](py::handle a, std::vector<CVec3>& out, const char* what) {
+        CArr arr = py::reinterpret_borrow<py::object>(a).cast<CArr>();
+        if (arr.ndim() != 2 || static_cast<std::size_t>(arr.shape(0)) != M || arr.shape(1) != 3)
+            throw py::value_error(std::string("fields(x): ") + what + " muss die Form (" + std::to_string(M) + ", 3) haben");
+        out.resize(M);
+        const cplx* d = arr.data();
+        for (std::size_t i = 0; i < M; ++i) out[i] = CVec3{d[3 * i], d[3 * i + 1], d[3 * i + 2]};
+    };
+    take(seq[0], E, "E");
+    take(seq[1], H, "H");
+}
+
+real attr_or(const py::object& f, const char* name, real dflt) {
+    return py::hasattr(f, name) ? f.attr(name).cast<real>() : dflt;
+}
+
+// Nahfeld mit Python-Feld; ohne GIL aufrufen. Gleiche Rechnung wie exterior_near_field mit IncidentField: Streufeld (dort mit
+// ZeroField, also +0) plus einfallendes Feld, dann Verstaerkung und Chiralitaet mit den Bezugsgroessen des Feldes.
+std::vector<NearFieldPoint> python_field_near_field(const TriangleMesh& outer, const std::vector<cplx>& h, const std::vector<cplx>& b,
+                                                    const Medium& m, real omega, const py::object& field, const std::vector<Vec3>& pts,
+                                                    const NearFieldOptions& o) {
+    auto out = exterior_near_field(outer, h, b, m, omega, ZeroField(), pts, o);
+    std::vector<CVec3> Ei, Hi;
+    real p2 = 1, C0 = 1;
+    {
+        py::gil_scoped_acquire gil;
+        call_fields(field, pts, Ei, Hi);
+        p2 = attr_or(field, "reference_E2", 1.0);
+        C0 = attr_or(field, "reference_C", 1.0);
+    }
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        NearFieldPoint& r = out[i];
+        for (int a = 0; a < 3; ++a) { r.E[a] += Ei[i][a]; r.H[a] += Hi[i][a]; }
+        real e2 = 0; cplx eh = 0;
+        for (int a = 0; a < 3; ++a) { e2 += std::norm(r.E[a]); eh += std::conj(r.E[a]) * r.H[a]; }
+        r.enhancement = e2 / p2;
+        r.chirality = std::imag(eh) / C0;
+    }
+    return out;
+}
 
 py::array_t<cplx> mat33(const CVec3 (&d)[3]) {
     py::array_t<cplx> a({py::ssize_t(3), py::ssize_t(3)});
@@ -177,6 +242,15 @@ Gibt ein dict mit E, H (M, 3), inside, too_close (M,), enhancement = |E|^2/|E0|^
               return near_field_to_dict(nogil([&] { return exterior_near_field(outer, hv, bv, md, omega, inc, x, o); }));
           }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a, "points"_a, "options"_a = NearFieldOptions{},
           "allgemeine Anregung: b = Projektion des einfallenden Feldes (incident.project oder project_dipole)");
+    m.def("exterior_near_field", [](const TriangleMesh& outer, const CArr& h, const CArr& b, const Medium& md, real omega,
+                                    py::object incident, const RArr& pts, const NearFieldOptions& o) {
+              require_python_field(incident);
+              auto hv = to_trace(h, outer.size(), "h");
+              auto bv = to_trace(b, outer.size(), "b");
+              auto x = to_points(pts);
+              return near_field_to_dict(nogil([&] { return python_field_near_field(outer, hv, bv, md, omega, incident, x, o); }));
+          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a, "points"_a, "options"_a = NearFieldOptions{},
+          "einfallendes Feld aus Python (Objekt mit fields(x) -> (E, H), z. B. CustomField): ein vektorisierter Aufruf je Auswertung");
 
     py::class_<PyNearFieldEval>(m, "NearFieldEvaluator", R"doc(
 Feldauswerter fuer Kraefte und Gradienten: haelt eigene Kopien von Netz und Spur. Aufruf mit Punkten (M, 3)
@@ -195,6 +269,54 @@ liefert dasselbe dict wie exterior_near_field.
               return e;
           }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a, "options"_a = NearFieldOptions{},
           "Feldauswerter fuer beliebige Anregung (Strahl, Dipol, ebene Welle)");
+    m.def("near_field_evaluator", [](const TriangleMesh& outer, const CArr& h, const CArr& b, const Medium& md, real omega,
+                                     py::object incident, const NearFieldOptions& o) {
+              require_python_field(incident);
+              PyNearFieldEval e;
+              e.mesh = std::make_shared<const TriangleMesh>(outer);
+              e.h = std::make_shared<const std::vector<cplx>>(to_trace(h, outer.size(), "h"));
+              auto bv = std::make_shared<const std::vector<cplx>>(to_trace(b, outer.size(), "b"));
+              auto field = hold(incident);
+              auto mesh = e.mesh; auto hh = e.h;
+              // wird von den Kraftfunktionen ohne GIL aufgerufen, je Auswertung einmal mit allen Punkten
+              e.f = [mesh, hh, bv, md, omega, field, o](const std::vector<Vec3>& pts) {
+                  return python_field_near_field(*mesh, *hh, *bv, md, omega, *field, pts, o);
+              };
+              return e;
+          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a, "options"_a = NearFieldOptions{},
+          "Feldauswerter fuer ein einfallendes Feld aus Python (fields(x) wird je Auswertung einmal vektorisiert aufgerufen)");
+
+    // Bausteine der Projektion fuer Python-Felder: dieselbe Regel und Rechenreihenfolge wie IncidentField::project
+    m.def("_quadrature_points", [](const TriangleMesh& me, int sub) {
+              if (sub < 1) throw py::value_error("sub >= 1");
+              MeshQuadrature q(me, QuadRule::subdivided(sub));
+              return points_to_numpy(q.x);
+          }, "mesh"_a, "sub"_a = 2, "Quadraturpunkte der Projektion (N q, 3), dreiecksweise");
+    m.def("_project_samples", [](const TriangleMesh& me, const CArr& Ea, const CArr& Ha, const Medium& md, int sub) {
+              if (sub < 1) throw py::value_error("sub >= 1");
+              MeshQuadrature q(me, QuadRule::subdivided(sub));
+              const std::size_t M = q.x.size();
+              for (const CArr* a : {&Ea, &Ha})
+                  if (a->ndim() != 2 || static_cast<std::size_t>(a->shape(0)) != M || a->shape(1) != 3)
+                      throw py::value_error("E, H: Form (" + std::to_string(M) + ", 3) erwartet");
+              const cplx* E = Ea.data(); const cplx* H = Ha.data();
+              std::vector<cplx> h(8 * me.size(), cplx(0));
+              nogil([&] {
+                  const cplx se = std::sqrt(md.eps), sm = std::sqrt(md.mu);
+                  for (std::size_t t = 0; t < me.size(); ++t) {
+                      for (int a = 0; a < q.q; ++a) {
+                          const std::size_t i = t * q.q + a;
+                          const CVec3 e{E[3 * i], E[3 * i + 1], E[3 * i + 2]}, hv{H[3 * i], H[3 * i + 1], H[3 * i + 2]};
+                          const Multivector F = Multivector::vector(e) * se + Multivector::blade(7) * Multivector::vector(hv) * sm;
+                          const real w = q.weights(t)[a];
+                          for (int c = 0; c < 8; ++c) h[8 * t + c] += w * F.c[c];
+                      }
+                      for (int c = 0; c < 8; ++c) h[8 * t + c] /= std::sqrt(me.area[t]);
+                  }
+              });
+              return to_numpy(h);
+          }, "mesh"_a, "E"_a, "H"_a, "medium"_a, "sub"_a = 2,
+          "Spur sqrt(eps) E + I sqrt(mu) H aus Feldwerten an den Punkten von _quadrature_points");
     m.def("plane_wave_evaluator", [](const TriangleMesh& outer, const CArr& h, const Medium& md, real omega, const Vec3& d, const CVec3& p,
                                      const NearFieldOptions& o) {
               PyNearFieldEval e;

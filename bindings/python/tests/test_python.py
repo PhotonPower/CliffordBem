@@ -1,6 +1,7 @@
-"""Tests der Python-Anbindung (v0.42): Algebra, Netze, Materialien, Parameter, Streuung (Regression gegen den C++-Test und
+"""Tests der Python-Anbindung (v0.42/v0.43): Algebra, Netze, Materialien, Parameter, Streuung (Regression gegen den C++-Test und
 bitgleich zum Low-Level-Pfad), Mie, chirale Medien, mehrere Koerper, Nahfeld gegen Mie, Kraefte (drei Wege und Mie), Dipol,
-Strahlen, geschichtete Probleme, Fehlerbehandlung, Lebensdauer (keep_alive), Threads ohne GIL.
+Strahlen, geschichtete Probleme, Fehlerbehandlung, Lebensdauer (keep_alive), Threads ohne GIL; eigene einfallende Felder
+(bitgleich zum Kern, Ueberlagerung, Maxwell-Pruefung, Bessel-Strahlen, Fehlerbehandlung).
 
 Aufruf: PYTHONPATH=build/python python3 bindings/python/tests/test_python.py   (oder pytest; ctest: test_python)
 Referenzen aus tools/ (mie.py, mie_nearfield.py, mie_force.py): Verzeichnis ueber CBEM_TOOLS_DIR, sonst relativ zum Quellbaum.
@@ -334,6 +335,170 @@ def test_threads_release_gil():
     for t in th:
         t.join()
     assert np.allclose(out, ref, rtol=1e-12) and len(ticks) > 5
+
+
+# --- eigene einfallende Felder (v0.43) -----------------------------------------------------------------------------------------
+class CountingField(cb.CustomField):
+    """Python-Kopie einer Feldklasse mit Zaehler der fields-Aufrufe (ein Aufruf je Projektion bzw. Nahfeldauswertung)."""
+
+    def __init__(self, inner):
+        self.inner, self.calls = inner, 0
+        self.reference_E2, self.reference_C = inner.reference_E2, inner.reference_C
+
+    def fields(self, x):
+        self.calls += 1
+        return self.inner.fields(x)
+
+
+class PyDipole(cb.CustomField):
+    """Dipolfeld nach der Formel in dipole.hpp, unabhaengig vom Kern in NumPy."""
+
+    def __init__(self, medium, omega, r0, p):
+        self.k, self.eps, self.om = medium.k(omega), medium.eps, omega
+        self.r0, self.p = np.asarray(r0, float), np.asarray(p, complex)
+
+    def fields(self, x):
+        R = x - self.r0
+        r = np.linalg.norm(R, axis=1)[:, None]
+        n = R / r
+        k = self.k
+        G = np.exp(1j * k * r) / (4 * np.pi * r)
+        nxp = np.cross(n, self.p)
+        H = self.om * k * nxp * G * (1 - 1 / (1j * k * r))
+        npn = np.sum(n * self.p, axis=1)[:, None]
+        E = (k * k * np.cross(nxp, n) + (3 * n * npn - self.p) * (1 / r ** 2 - 1j * k / r)) * G / self.eps
+        return E, H
+
+
+def test_custom_field_identical_to_core():
+    """Python-Welle = PlaneWaveField des Kerns: Projektion, Nahfeld, Kraft und Gradienten bitgleich; ein fields-Aufruf je Stapel."""
+    om, m = 0.5, cb.make_icosphere(4)
+    core = cb.PlaneWaveField(WATER, om, Z, X)
+    py = CountingField(cb.PythonPlaneWave(WATER, om, Z, X))
+    assert py.reference_E2 == core.reference_E2 and np.isclose(py.reference_C, core.reference_C)
+    b = py.project(m, WATER)
+    assert py.calls == 1 and np.array_equal(b, core.project(m, WATER))
+    assert np.allclose(b, cb.plane_wave_trace(m, WATER, om, Z, X), atol=1e-14)
+    P = cb.ScatteringProblem(m, GOLD, om, outer=WATER)
+    r = P.solve_rhs(b, cb.SolveOptions(tol=1e-10))
+    pts = np.array([[1.5, 0, 0], [0, 0.3, 2.0], [0.0, 0.0, 0.0]])
+    n_core = cb.exterior_near_field(P.mesh, r.h, b, WATER, om, core, pts)
+    n_py = cb.exterior_near_field(P.mesh, r.h, b, WATER, om, py, pts)
+    assert py.calls == 2 and list(n_py["inside"]) == [False, False, True]
+    for key in ("E", "H", "enhancement", "chirality"):
+        assert np.array_equal(n_core[key], n_py[key]), key
+    ev_core = cb.near_field_evaluator(P.mesh, r.h, b, WATER, om, core)
+    ev_py = cb.near_field_evaluator(P.mesh, r.h, b, WATER, om, py)
+    del P, r, b                                                       # Auswerter haelt Netz, Spuren und Feld selbst
+    py.calls = 0
+    F_py = cb.force_on_sphere(ev_py, WATER, (0, 0, 0), 1.5)
+    assert py.calls == 1 and np.array_equal(F_py, cb.force_on_sphere(ev_core, WATER, (0, 0, 0), 1.5))
+    g_py = cb.fields_with_gradients(ev_py, np.array([[2.0, 0, 0]]), 1e-3)[0]
+    g_core = cb.fields_with_gradients(ev_core, np.array([[2.0, 0, 0]]), 1e-3)[0]
+    assert py.calls == 2 and np.array_equal(g_py.dE, g_core.dE)
+    assert np.array_equal(cb.force_on_offset(ev_py, WATER, m, 0.2), cb.force_on_offset(ev_core, WATER, m, 0.2))
+
+
+def test_custom_dipole_against_core():
+    om, x0, p = 0.5, (0.2, -0.1, 1.4), (0.3, 1j, 1.0)
+    f = PyDipole(WATER, om, x0, p)
+    x = np.random.default_rng(2).normal(size=(40, 3)) * 2
+    E, H = f.eval(x)
+    Ec, Hc = cb.dipole_field(WATER, om, x0, p, x)
+    assert np.allclose(E, Ec, rtol=1e-12, atol=0) and np.allclose(H, Hc, rtol=1e-12, atol=0)
+    m = cb.make_icosphere(4)
+    assert np.allclose(f.project(m, WATER), cb.DipoleField(WATER, om, x0, p).project(m, WATER), rtol=1e-12, atol=1e-15)
+    # Nahfeld des Dipols variiert auf der Skala r < Wellenlaenge: kleinerer Differenzenschritt (Fehler ~ (h/r)^4)
+    assert cb.maxwell_residual(f, WATER, om, x) < 1e-5 and cb.maxwell_residual(f, WATER, om, x, step=2e-3) < 1e-8
+
+
+def test_superposition():
+    """Linearitaet: Loesung und Nahfeld der Summe = Summe; Stehwelle: keine Kraft auf die Kugel im Bauch (Symmetrie)."""
+    om, m = 0.5, cb.make_icosphere(4)
+    so = cb.SolveOptions(tol=1e-11)
+    up, down = cb.PlaneWaveField(WATER, om, Z, X), cb.PlaneWaveField(WATER, om, (0, 0, -1), X)
+    dip = PyDipole(WATER, om, (0, 0, 2.5), (1, 0, 0))
+    mix = up + 0.5j * dip - down                                        # Kern- und Python-Felder gemischt
+    assert isinstance(mix, cb.SuperposedField) and len(mix.components) == 3 and mix.coefficients == [1, 0.5j, -1]
+    assert len((mix + up).components) == 4 and isinstance(sum([up, down]), cb.SuperposedField)
+    P = cb.ScatteringProblem(m, GOLD, om, outer=WATER)
+    parts = [up, dip, down]
+    bs = [f.project(m, WATER) for f in parts]
+    hs = [P.solve_rhs(b, so).h for b in bs]
+    b = mix.project(m, WATER)
+    assert np.allclose(b, bs[0] + 0.5j * bs[1] - bs[2], atol=1e-14)
+    h = P.solve_rhs(b, so).h
+    assert np.allclose(h, hs[0] + 0.5j * hs[1] - hs[2], atol=1e-8 * np.abs(h).max())
+    pts = np.array([[1.4, 0.2, 0.1], [0.0, -1.6, 0.4]])
+    nf = cb.exterior_near_field(P.mesh, h, b, WATER, om, mix, pts)["E"]
+    ref = sum(c * cb.exterior_near_field(P.mesh, hh, bb, WATER, om, f, pts)["E"] for c, f, hh, bb in zip([1, 0.5j, -1], parts, hs, bs))
+    assert np.allclose(nf, ref, atol=1e-8)
+    # Stehwelle E = 2 x cos(kz): spiegelsymmetrisch zu z = 0, also F_z = 0 (Rauschboden der Quadratur: einige 1e-6 der
+    # Einzelwelle, so gross wie deren Querkraft); um +-s verschoben: F_z(s) = -F_z(-s), deutlich von null verschieden
+    def standing(s):
+        sw = cb.PythonPlaneWave(WATER, om, Z, X, origin=(0, 0, s)) + cb.PythonPlaneWave(WATER, om, (0, 0, -1), X, origin=(0, 0, s))
+        b = sw.project(m, WATER)
+        r = P.solve_rhs(b, so)
+        return cb.force_on_sphere(cb.near_field_evaluator(P.mesh, r.h, b, WATER, om, sw), WATER, (0, 0, 0), 1.5)
+    F1 = cb.force_on_sphere(P.mesh, hs[0], WATER, om, Z, X, (0, 0, 0), 1.5)
+    assert F1[2] > 0 and abs(F1[0]) < 2e-5 * F1[2]
+    assert abs(standing(0.0)[2]) < 2e-5 * F1[2]
+    Fp, Fm = standing(0.3), standing(-0.3)
+    assert abs(Fp[2]) > 0.05 * F1[2] and abs(Fp[2] + Fm[2]) < 1e-4 * abs(Fp[2]), (Fp, Fm)
+
+
+def test_maxwell_residual_and_beams():
+    om = 0.5
+    pts = np.random.default_rng(3).normal(size=(20, 3))
+    assert cb.maxwell_residual(cb.PythonPlaneWave(WATER, om, (1, 1, 1), (1, -1, 0)), WATER, om, pts) < 1e-8
+    chiral = cb.Medium(eps=1.7689, chi=0.02)
+    beam = cb.BeamField.gaussian(chiral, 2.0, (0, 0, 0), 3.0, cb.circular_polarization(Z, +1), 24, 48)
+    assert cb.maxwell_residual(beam, chiral, 2.0, pts) < 1e-8          # Pasteur-Relationen D, B wie im Kern
+    pw = cb.PythonPlaneWave(WATER, om, Z, X)
+    wrong_H = cb.as_field_function(lambda x: (pw.fields(x)[0], 2 * pw.fields(x)[1]))
+    wrong_k = cb.PythonPlaneWave(cb.Medium(eps=2.25), om, Z, X)
+    assert cb.maxwell_residual(wrong_H, WATER, om, pts) > 0.1 and cb.maxwell_residual(wrong_k, WATER, om, pts) > 0.05
+    # Bessel-Strahl: exakte Loesung, Intensitaet J0^2 auf der Achse unabhaengig von z; Wirbel (Ladung 1) dunkel auf der Achse
+    bes = cb.AngularSpectrumField.bessel(WATER, om, 0.6, nphi=48)
+    assert cb.maxwell_residual(bes, WATER, om, pts) < 1e-8
+    ax = np.array([[0, 0, z] for z in (-3.0, 0.0, 2.0)])
+    I_ax = np.sum(np.abs(bes.eval(ax)[0]) ** 2, axis=1)
+    assert np.allclose(I_ax, I_ax[0]) and np.isclose(I_ax[0], bes.reference_E2)
+    # Wirbel, Ladung 1: auf der Achse ueberlebt nur die Harmonische 0 der Amplituden. Zirkular mit sigma = +1: dunkel;
+    # sigma = -1: Spin-Bahn-Kopplung, nur E_z auf der Achse (linear waere ebenfalls nur E_z, nicht dunkel)
+    def vortex(sg):
+        return cb.AngularSpectrumField.bessel(WATER, om, 0.6, pol=cb.circular_polarization(Z, sg) / np.sqrt(2), charge=1, nphi=48)
+    off = np.sum(np.abs(vortex(+1).eval((1.5, 0, 1.0))[0]) ** 2)
+    assert np.sum(np.abs(vortex(+1).eval((0, 0, 1.0))[0]) ** 2) < 1e-20 * off
+    E_ax = vortex(-1).eval((0, 0, 1.0))[0]
+    assert np.abs(E_ax[:2]).max() < 1e-12 and abs(E_ax[2]) > 0.1
+    assert raises(ValueError, cb.AngularSpectrumField, chiral, om, [Z], [X])
+
+
+def test_custom_field_errors():
+    om, m = 0.5, cb.make_icosphere(3)
+    P = cb.ScatteringProblem(m, GOLD, om, outer=WATER)
+    pw = cb.PythonPlaneWave(WATER, om, Z, X)
+    b = pw.project(m, WATER)
+    r = P.solve_rhs(b)
+    pts = np.array([[2.0, 0, 0]])
+    bad_shape = cb.as_field_function(lambda x: (np.zeros((len(x), 2)), np.zeros((len(x), 3))))
+    not_pair = cb.as_field_function(lambda x: np.zeros((len(x), 3)))
+    assert raises(ValueError, cb.exterior_near_field, m, r.h, b, WATER, om, bad_shape, pts)
+    assert raises(TypeError, cb.exterior_near_field, m, r.h, b, WATER, om, not_pair, pts)
+    assert raises(ValueError, bad_shape.project, m, WATER)
+    assert raises(TypeError, cb.exterior_near_field, m, r.h, b, WATER, om, object(), pts)
+    assert raises(NotImplementedError, cb.CustomField().project, m, WATER)
+    as_list = cb.as_field_function(lambda x: list(pw.fields(x)))     # Liste statt Tupel ist erlaubt
+    assert np.array_equal(cb.exterior_near_field(m, r.h, b, WATER, om, as_list, pts)["E"],
+                          cb.exterior_near_field(m, r.h, b, WATER, om, pw, pts)["E"])
+
+    class Boom(cb.CustomField):
+        def fields(self, x):
+            raise ZeroDivisionError("aus Python")
+    ev = cb.near_field_evaluator(m, r.h, b, WATER, om, Boom())
+    assert raises(ZeroDivisionError, cb.force_on_sphere, ev, WATER, (0, 0, 0), 1.5)   # Ausnahme aus dem Lauf ohne GIL
+    assert np.all(np.isfinite(cb.force_on_sphere(cb.near_field_evaluator(m, r.h, b, WATER, om, pw), WATER, (0, 0, 0), 1.5)))
 
 
 def main():

@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.42.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.43.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -31,7 +31,7 @@ Vorkonditionierung, Gmsh-Import, Python-Anbindung für Skripte (`cliffordbem`, p
 | Spektren | Johnson-Christy Au/Ag, Hintergrundmedium, Lebedev-Mittelung | Goldkugel in Wasser gegen Mie (≤ 1,5 % bei 1 280 Dreiecken) |
 | Vorkonditionierung | punktweise, Blöcke (Kanten/Ecken, Cluster), HODLR | voller Block bzw. feine HODLR-Toleranz = direkter Löser |
 | Geometrie | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörper, Gmsh 2.2/4.1 | Gmsh-Kugel konvergiert gegen Mie |
-| Python-Anbindung | Paket `cliffordbem` (pybind11): alle Problemklassen, Anregungen, Nahfeld, Dipole, Kräfte, Algebra und die Bausteine (Einträge, H-Matrix, Cauchy-Operator, T₁, GMRES mit Python-Operatoren); NumPy-Arrays, Rechnung ohne GIL | gleiche Ergebnisse wie C++ (Regression, Bausteine bitgleich), Nahfeld und Kräfte gegen Mie (`docs/python.md`) |
+| Python-Anbindung | Paket `cliffordbem` (pybind11): alle Problemklassen, Anregungen, Nahfeld, Dipole, Kräfte, Algebra und die Bausteine (Einträge, H-Matrix, Cauchy-Operator, T₁, GMRES mit Python-Operatoren); eigene einfallende Felder als Python-Klassen (Bessel-, Wirbel-, Stehwellen); NumPy-Arrays, Rechnung ohne GIL | gleiche Ergebnisse wie C++ (Regression, Bausteine bitgleich), Nahfeld und Kräfte gegen Mie (`docs/python.md`) |
 
 ## Bauen und Testen
 
@@ -81,7 +81,7 @@ print(P.solve_plane_wave(d=(0, 0, 1), p=(1, 0, 0)).sigma_ext / cb.pi)   # Q_ext 
 | `test_chiral_host` | chirales Außenmedium: Unsichtbarkeit, Ablehnung linearer Polarisation, χ → 0, Spiegelsymmetrie, Goldkugel gegen Mie, Zweitor gegen exakte Methode |
 | `test_twoport` | Zweitor: neutrale Schicht, Glasschale d/h = 0,29 und 1,14 gegen Aden–Kerker, chirale Schicht (Symmetrie, CD), Mehrfachschichten (Zerlegung, Oxid + Glas, chirale Schicht auf Abstandshalter), Unterteilung dicker Schichten |
 | `test_thin_layer` | Flächenoperatoren, Formoperator und Laplace–Beltrami auf der Kugel, ohne Schicht = T₁, neutrale Schicht ohne Wirkung, Schichtwirkung erster und zweiter Ordnung gegen Aden–Kerker (auch nach innen), mehrere Körper, chirale Schicht (Spiegelsymmetrie, CD gegen Mie, chiraler Kern = T₁) |
-| `test_python` | Python-Anbindung (nur mit `-DCBEM_BUILD_PYTHON=ON`): Algebra, Netze, Regression und Bausteine bitgleich zu C++, Mie, chirale Medien, Nahfeld, Kräfte, Dipol, Strahlen, Schichten, Fehlerbehandlung, Threads ohne GIL |
+| `test_python` | Python-Anbindung (nur mit `-DCBEM_BUILD_PYTHON=ON`): Algebra, Netze, Regression und Bausteine bitgleich zu C++, Mie, chirale Medien, Nahfeld, Kräfte, Dipol, Strahlen, Schichten, Fehlerbehandlung, Threads ohne GIL; eigene einfallende Felder bitgleich zum Kern, Überlagerung, Maxwell-Prüfung |
 
 ## Anwendungen
 

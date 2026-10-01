@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(CliffordBem VERSION 0.42.0 LANGUAGES CXX)
+project(CliffordBem VERSION 0.43.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -129,7 +129,11 @@ if(CBEM_BUILD_PYTHON)
                                            CBEM_SOURCE_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/materials")
   set(CBEM_PY_DIR ${CMAKE_BINARY_DIR}/python/cliffordbem)
   set_target_properties(_cbem PROPERTIES LIBRARY_OUTPUT_DIRECTORY "$<1:${CBEM_PY_DIR}>")   # ohne Unterverzeichnis je Konfiguration
-  configure_file(bindings/python/cliffordbem/__init__.py ${CBEM_PY_DIR}/__init__.py COPYONLY)
+  file(GLOB _cbem_py_files CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bindings/python/cliffordbem/*.py)
+  foreach(_f ${_cbem_py_files})
+    get_filename_component(_n ${_f} NAME)
+    configure_file(${_f} ${CBEM_PY_DIR}/${_n} COPYONLY)
+  endforeach()
   if(SKBUILD)   # pip install . (scikit-build-core): Modul und Materialdaten ins Paket
     install(TARGETS _cbem LIBRARY DESTINATION cliffordbem)
     install(DIRECTORY data/materials DESTINATION cliffordbem/data)

@@ -1,4 +1,4 @@
-# Python-Anbindung (v0.42)
+# Python-Anbindung (v0.42, eigene einfallende Felder v0.43)
 
 Das Paket `cliffordbem` macht den C++-Kern für Skripte zugänglich: Parameterstudien, eigene Auswertungen, Abbildungen und
 eigene Formulierungen aus den Bausteinen des Kerns, ohne für jede Fragestellung ein neues C++-Programm zu schreiben. Die
@@ -79,10 +79,73 @@ Medien und Multivektoren lassen sich kopieren und mit `pickle` speichern.
 | Dipole | `dipole_field`, `project_dipole`, `dipole_rates` → `DipoleRates`, `fluorescence_enhancement`, `helicity_projector_sign` |
 | Kräfte | `force_from_traces`, `force_on_sphere`, `force_on_offset`, `force_from_far_field`, `emitter_force`, `radiated_momentum`, `stress_dot_normal`, `fields_with_gradients` → `FieldGradient`, `DipolePolarizability`, `polarizability_from_mie`, `dipole_particle_force` |
 | Bausteine | `KernelEntries`, `KernelHMatrix` (`stats` → `HStats`), `CauchyOperator`, `ChiralCauchyOperator`, `TransmissionOperator`, `gmres` (C++-Operator oder Python-Funktion, Vorkonditionierer als Python-Funktion), `group_by_clusters`, `group_by_features`, `FeatureSet` |
+| eigene Felder (v0.43) | `CustomField` (Methode `fields(x)`), `SuperposedField` (auch `+`, `-`, `*` mit Kernfeldern), `PythonPlaneWave`, `AngularSpectrumField` (`bessel`), `as_field_function`, `maxwell_residual`; angenommen von `exterior_near_field`, `near_field_evaluator` (und damit allen Kraft- und Gradientenfunktionen) |
 | Komfort | `spectrum` (wie die App, homogene Körper), `omega_from_wavelength`, `wavelength_from_omega`, `polarization_basis`, `trace_blocks`, `set_num_threads`, `omp_threads` |
 
 Die Docstrings (`help(cb.ScatteringProblem)`) beschreiben Argumente und Rückgaben; die Bedeutung der Größen ist in den
 C++-Headern unter `include/cbem` erklärt, deren Namen die Anbindung übernimmt.
+
+## Eigene einfallende Felder (v0.43)
+
+Ein einfallendes Feld ist eine Unterklasse von `cb.CustomField` mit der Methode `fields(x)`: für Punkte `x` der Form
+(M, 3) liefert sie `(E, H)` als komplexe Arrays (M, 3), vektorisiert mit NumPy. Normierung wie im Kern (H physikalisch,
+ebene Welle H = √(ε/μ) d × E). Solche Felder gehen überall dorthin, wo der Kern ein `IncidentField` annimmt:
+
+```python
+class Stehwelle(cb.CustomField):
+    def __init__(self, medium, omega):
+        self.k, self.Z = medium.k(omega), np.sqrt(medium.eps / medium.mu)
+    def fields(self, x):
+        c, s = np.cos(self.k * x[:, 2]), np.sin(self.k * x[:, 2])
+        E = np.zeros((len(x), 3), complex); H = np.zeros_like(E)
+        E[:, 0] = 2 * c; H[:, 1] = 2j * self.Z * s
+        return E, H
+
+f = Stehwelle(water, om)
+print(cb.maxwell_residual(f, water, om, np.random.rand(10, 3)))   # ~1e-10: Maxwell-Lösung
+b = f.project(P.mesh, water)                                        # rechte Seite (dieselbe Regel wie im Kern)
+r = P.solve_rhs(b)
+nf = cb.exterior_near_field(P.mesh, r.h, b, water, om, f, pts)     # Nahfeld, Verstärkung, Chiralität
+ev = cb.near_field_evaluator(P.mesh, r.h, b, water, om, f)
+F = cb.force_on_sphere(ev, water, (0, 0, 0), 1.5)                  # ebenso force_on_offset, fields_with_gradients
+```
+
+**Wie der Kern das Feld aufruft.** Der Kern wertet einfallende Felder nur an zwei Stellen aus: bei der Projektion (alle
+Quadraturpunkte) und im Nahfeld (alle Auswertepunkte; alle Kraft- und Gradientenfunktionen rufen den Feldauswerter einmal mit
+allen Punkten auf). Beide Stellen ersetzt die Anbindung durch **einen** vektorisierten Aufruf von `fields` – mit GIL,
+außerhalb jeder OpenMP-Schleife –, während der Kern das Streufeld ohne GIL rechnet. Ein Python-Aufruf je Punkt aus
+parallelen Threads (Trampolinklasse) wäre langsamer und fehleranfällig. Für dasselbe Feld ist das Ergebnis **bitgleich**
+zum C++-Pfad (Projektion, Nahfeld, Verstärkung, Chiralität, Kräfte, Gradienten; `test_custom_field_identical_to_core`).
+
+**Bezugsgrößen.** Die Attribute `reference_E2` und `reference_C` (Voreinstellung 1) normieren die Verstärkung
+|E|²/`reference_E2` und die optische Chiralität Im(E*·H)/`reference_C` im Nahfeld.
+
+**Überlagerung.** Felder lassen sich addieren, subtrahieren und mit Zahlen multiplizieren, auch zusammen mit den Feldern des
+Kerns: `cb.PlaneWaveField(...) + 0.5j * mein_feld - cb.DipoleField(...)` ergibt ein `SuperposedField` (Bezugsgrößen der
+ersten Komponente, wenn nicht angegeben).
+
+**Fertige Bausteine.** `PythonPlaneWave` (Vorlage, bitgleich zu `PlaneWaveField`), `AngularSpectrumField` (endliche Summe
+ebener Wellen, exakte Maxwell-Lösung; Grundlage eigener Strahlen) mit `AngularSpectrumField.bessel` (vektorieller Bessel-
+Strahl, auch Wirbel mit topologischer Ladung), `as_field_function(fun)` (Feld aus einer Funktion).
+
+**Maxwell-Prüfung.** `cb.maxwell_residual(feld, medium, omega, punkte)` prüft curl E = iωB, curl H = −iωD mit den
+Pasteur-Relationen des Mediums (zentrale Differenzen vierter Ordnung). Eine Maxwell-Lösung, die auf der Skala der
+Wellenlänge variiert, ergibt etwa 10⁻¹⁰; ein falsch normiertes H 0,7. Ein Feld, das die Maxwell-Gleichungen verletzt, gibt
+in der BEM stillschweigend bedeutungslose Ergebnisse – daher vor jeder Rechnung prüfen. Im Nahfeld von Quellen (Skala L
+kleiner als die Wellenlänge) wächst der Differenzenfehler wie (Schritt/L)⁴: dann `step` verkleinern (Dipol im Abstand 1:
+1,5·10⁻⁶ mit der Voreinstellung, unter 10⁻⁸ mit `step=2e-3`, für die Kernklasse genauso wie für die Python-Kopie).
+
+**Physikalische Kontrollen** (Tests und `examples/python/custom_field.py`):
+- Stehwelle: Die Kraft ist quadratisch im Feld e^{−iks}F↑ + e^{iks}F↓, also F_z(s) = C + A cos 2ks + B sin 2ks; die Symmetrie
+  erzwingt C = A = 0. Die Rechnung trifft F_z(s) = B sin(2ks) bis auf 1,1·10⁻⁷ (Goldkugel, 600 nm, auch fern der
+  Dipolnäherung); im Bauch ist F_z null im Rahmen des Quadraturrauschens (einige 10⁻⁶ der Einzelwelle, so groß wie deren
+  Querkraft, die aus Symmetrie verschwinden muss).
+- Krylov-Recycling: Da jede verschobene Stehwelle eine Linearkombination derselben zwei ebenen Wellen ist, liegt die rechte
+  Seite im recycelten Raum; die Iterationszahl fällt von 19 auf 0–1.
+- Bessel-Strahl: Intensität auf der Achse unabhängig von z; Wirbel mit Ladung 1 und zirkularer Polarisation σ = +1 exakt
+  dunkel auf der Achse, mit σ = −1 nur E_z auf der Achse (Spin-Bahn-Kopplung; linear polarisiert ebenfalls nur E_z, nicht
+  dunkel). Die Querkraft auf die Goldkugel zeigt zur Achse (hohe Intensität), wie in der Stehwelle (zum Bauch).
+- Linearität: Spur, Lösung und Nahfeld einer Überlagerung aus Kern- und Python-Feldern gleich der Summe der Einzelrechnungen.
 
 ## Lebensdauer und Threads
 
@@ -91,7 +154,8 @@ C++-Headern unter `include/cbem` erklärt, deren Namen die Anbindung übernimmt.
   `TransmissionOperator` → Operatoren, `NearFieldOperator` → Netz) halten ihre Eingaben über `keep_alive` am Leben; die
   Kette `CauchyOperator(m, KernelHMatrix(KernelEntries(m, k)))` ist ohne Zwischenvariablen sicher.
 - **Feldauswerter** (`plane_wave_evaluator`, `near_field_evaluator`) halten eigene Kopien von Netz und Spur; im Kern
-  hält `make_near_field_eval` beide nur per Referenz.
+  hält `make_near_field_eval` beide nur per Referenz. Ein Auswerter mit Python-Feld hält auch das Feldobjekt; Ausnahmen aus
+  `fields` kommen auch aus den Kraftfunktionen, die ohne GIL laufen, unverändert in Python an.
 - **Vektorfelder** von `LayeredGeometry`, `ThinBody` und `TwoPortBody` werden als Kopien geliefert (Referenzen in die
   Vektoren wären nach `add_surface` ungültig).
 - **Der GIL wird freigegeben**, während der Kern rechnet (Aufbau, Lösen, Nahfeld, Kräfte, Projektionen). Python-Threads
@@ -105,6 +169,7 @@ C++-Headern unter `include/cbem` erklärt, deren Namen die Anbindung übernimmt.
 |---|---|
 | `examples/python/spectrum_gold_sphere.py` | Spektrum einer Goldkugel in Wasser gegen Mie, CSV und Abbildung |
 | `examples/python/nearfield_dimer.py` | Nahfeldkarte eines Gold-Dimers, Kräfte je Kugel gegen die Impulsbilanz im Fernfeld |
+| `examples/python/custom_field.py` | eigene Felder: Stehwelle (F_z = B sin 2ks exakt), Bessel-Strahl mit Querkraft, Recycling über viele rechte Seiten |
 | `examples/python/custom_formulation.py` | T₁ in NumPy aus den Cauchy-Operatoren des Kerns, Plemelj-Spurtrennung, GMRES mit Python-Vorkonditionierer |
 
 Mit n = 4 (Dimer: 640 Dreiecke, 41 × 21 Punkte) laufen die Beispiele in wenigen Sekunden; das Dimer ergibt Kräfte
@@ -127,14 +192,22 @@ Die von Hand zusammengesetzte T₁ stimmt mit dem Operator des Kerns auf allen S
 | `test_dipole_and_beams` | Raten ohne Streuer = 1, Dipolfeld, Gaußstrahl mit Leistung 1 und Poynting-Fluss 1 |
 | `test_layered_neutral` | neutrale Schicht: Dünnschicht exakt ohne Wirkung, Zweitor und exakte Rechnung bis auf die Diskretisierung |
 | `test_errors_and_gmres` | Längen- und Formprüfungen, GMRES mit Python-Operator, Ausnahmen aus Python-Rückrufen |
+| `test_custom_field_identical_to_core` | Python-Welle bitgleich zu `PlaneWaveField`: Projektion, Nahfeld, Kraft auf Kugel und Parallelfläche, Gradienten; ein `fields`-Aufruf je Stapel |
+| `test_custom_dipole_against_core` | Dipol in NumPy nach `dipole.hpp` gegen den Kern (10⁻¹²), Projektion, Maxwell-Residuum |
+| `test_superposition` | Linearität (Kern- und Python-Felder gemischt), Stehwelle: F_z = 0 im Bauch, F_z(s) = −F_z(−s) |
+| `test_maxwell_residual_and_beams` | Residuum erkennt falsches H und falsches k, chiraler Gaußstrahl, Bessel- und Wirbelstrahlen |
+| `test_custom_field_errors` | falsche Formen, fehlende Methode, Ausnahmen aus `fields` durch den Lauf ohne GIL |
 | `test_threads_release_gil` | zwei Lösungen parallel in Python-Threads, gleiche Ergebnisse, GIL frei während der Rechnung |
 
-Laufzeit etwa 40 s auf einem Kern.
+18 Tests, Laufzeit etwa 55 s auf einem Kern.
 
 ## Grenzen
 
-- Eigene einfallende Felder und Materialmodelle lassen sich nicht als Python-Unterklassen an den Kern übergeben (die
-  Auswertung je Quadraturpunkt würde den GIL brauchen); eigene rechte Seiten gehen über `solve_rhs` mit einer selbst
-  berechneten Spur, eigene Materialien über `Medium(eps=...)` je Wellenlänge.
+- Eigene Felder müssen vektorisiert sein (`fields(x)` für alle Punkte); ein Feld, das nur punktweise rechnet, kann intern
+  über die Punkte laufen, ist dann aber entsprechend langsamer. Eigene Felder im chiralen Außenmedium sind möglich (die
+  Projektion ist dieselbe), `PythonPlaneWave` und `AngularSpectrumField` sind aber auf achirale Medien beschränkt; die
+  Helizitätswellen im chiralen Medium liefert `PlaneWaveField` des Kerns. `emitter_force` und `radiated_momentum` nehmen
+  weiterhin nur `DipoleField`.
+- Materialmodelle aus Python: über `Medium(eps=...)` je Wellenlänge (der Kern wertet Materialien nicht selbst aus).
 - Typ-Stubs (`.pyi`) fehlen noch; Signaturen zeigen `help()` und die Docstrings.
 - Gebaut und getestet mit g++ 13, Python 3.12, pybind11 3.1 unter Linux; andere Plattformen sind nicht geprüft.

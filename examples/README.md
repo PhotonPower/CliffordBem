@@ -42,4 +42,5 @@ Mit `-DCBEM_BUILD_PYTHON=ON` gebaut (oder nach `pip install .`; siehe `docs/pyth
 PYTHONPATH=build/python python3 examples/python/spectrum_gold_sphere.py --n 8 --plot spektrum.png   # Goldkugel gegen Mie
 PYTHONPATH=build/python python3 examples/python/nearfield_dimer.py --n 8 --plot nf.png              # Spaltfeld und Kräfte
 PYTHONPATH=build/python python3 examples/python/custom_formulation.py --n 6                         # T1 in NumPy
+PYTHONPATH=build/python python3 examples/python/custom_field.py --n 6 --plot falle.png              # eigene Felder
 ```
