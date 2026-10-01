@@ -1,9 +1,10 @@
 // Allgemeine einfallende Felder und Kraefte bei Dipol- und Strahlanregung (v0.37): Strahlen als exakte Maxwell-Loesungen,
 // Leistung nach Parseval gegen den Poynting-Fluss, ebene Welle ueber die allgemeine Schnittstelle wie bisher, Impulserhaltung
 // bei Dipolanregung (Koerper + Emitter + Abstrahlung = 0), kleines Teilchen im fokussierten Strahl gegen die Dipolnaeherung;
-// Strahl im chiralen Medium (v0.38); optische Pinzette gegen die GLMT-Referenz (v0.39), auch fuer chirale Kugeln (v0.40).
+// Strahl im chiralen Medium (v0.38); optische Pinzette gegen die GLMT-Referenz (v0.39), auch fuer chirale (v0.40) und beschichtete Kugeln (v0.41).
 #include <cmath>
 #include "cbem/problems/scattering_problem.hpp"
+#include "cbem/problems/twoport_layer_problem.hpp"
 #include "cbem/sources/dipole.hpp"
 #include "cbem/sources/optical_force.hpp"
 #include "check.hpp"
@@ -118,6 +119,20 @@ int main() {
         const real glmt = -0.011211605330389127;
         std::printf("  chirale Kugel gegen chirale GLMT: Q_z BEM %.6f, GLMT %.6f (%.2f %%)\n", Qz, glmt, 100 * (Qz / glmt - 1));
         CHECK(std::abs(Qz / glmt - 1) < 0.015, "chirale Kugel weicht von der chiralen GLMT ab");
+    }
+    // 8. v0.41: beschichtete Kugel (Polystyrol R = 0,25 um mit 0,05 um Silika, n = 1,45; Zweitor) gegen die geschichtete GLMT
+    {
+        const real Rc = 0.25, lam = 1.064, omr = 2 * pi * Rc / lam, t = 0.05 / Rc; const Medium ps{2.5281, 1.0, 0.0}, si{1.45 * 1.45, 1.0, 0.0};
+        const auto surf = TwoPortLayerProblem::layer_surfaces(make_icosphere(8), {Coating{t, si}});
+        TwoPortLayerProblem P(surf, ps, std::vector<Coating>{Coating{t, si}}, omr, water, hp);
+        const TriangleMesh outer = P.outer_mesh();
+        auto beam = std::make_shared<BeamField>(BeamField::focused(water, omr, Vec3(0, 0, -0.5 / Rc), 1.2, 1.0, CVec3{1.0, 0.0, 0.0}));
+        const auto b = beam->project(outer, water); const auto r = P.solve_rhs(b, so);
+        std::vector<cplx> h(r.h.begin(), r.h.begin() + b.size());
+        const real Qz = force_on_sphere(make_near_field_eval(outer, h, b, water, omr, beam), water, Vec3(0, 0, 0), 1.3 * (1 + t)).z / std::sqrt(1.7689);
+        const real glmt = -0.02124441293938074;
+        std::printf("  beschichtete Kugel gegen geschichtete GLMT: Q_z BEM %.6f, GLMT %.6f (%.2f %%)\n", Qz, glmt, 100 * (Qz / glmt - 1));
+        CHECK(std::abs(Qz / glmt - 1) < 0.02, "beschichtete Kugel weicht von der GLMT ab");
     }
     REPORT();
 }

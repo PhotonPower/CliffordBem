@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.40.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.41.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -162,7 +162,8 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
   optischen Pinzette (`tweezers`, `results_beams.md`). Seit v0.38 Strahlen in chiralen Medien (Winkelspektrum nach Helizitäten
   mit k±): Pinzette in chiraler Lösung und für chirale Teilchen; die Enantiomere werden sehr verschieden gefangen. Seit v0.39
   GLMT-Referenz (`tools/glmt.py`): Die Pinzette stimmt bei n = 8 auf 1,5 % mit der verallgemeinerten Lorenz-Mie-Theorie überein,
-  seit v0.40 auch für chirale Kugeln und chirale Lösungen (Unterschied der Enantiomere auf 1,7 %).
+  seit v0.40 auch für chirale Kugeln und chirale Lösungen (Unterschied der Enantiomere auf 1,7 %), seit v0.41 für geschichtete
+  Kugeln; die Pinzette rechnet beschichtete Teilchen über das Zweitor (`--shell`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).

@@ -1,4 +1,4 @@
-# Ergebnisse: Strahlanregung, Kräfte bei Dipolanregung, optische Pinzette (v0.37, chirale Medien v0.38, GLMT-Referenz v0.39, chiral v0.40)
+# Ergebnisse: Strahlanregung, Kräfte bei Dipolanregung, optische Pinzette (v0.37, chirale Medien v0.38, GLMT-Referenz v0.39, chiral v0.40, geschichtet v0.41)
 
 ## Allgemeine einfallende Felder
 
@@ -156,7 +156,7 @@ Normierung), unabhängig von der BEM:
   0,032279 gegen 0,032534 (−0,8 % statt −1,7 %), bei z = 0,5 µm −0,015414 gegen −0,015434 (−0,1 %).
 - Die Gleichgewichtslagen und Steifigkeiten aus v0.37 sind damit auf etwa 1–1,5 % bestätigt.
 - `test_beams` vergleicht die BEM bei z = 0,5 µm direkt mit dem GLMT-Wert (Toleranz 1 %).
-- Die GLMT ist für homogene Kugeln umgesetzt, seit v0.40 auch chiral und im chiralen Außenmedium (unten).
+- Die GLMT ist für homogene Kugeln umgesetzt, seit v0.40 auch chiral und im chiralen Außenmedium, seit v0.41 geschichtet (unten).
 
 ### Chirale Kugeln und chirales Außenmedium (v0.40)
 
@@ -187,6 +187,49 @@ Gegenrechnung mit v0.36 (Goldkugel in chiralem Wasser, χ_h = 0,2, ebene Helizit
 Die chiralen Signale selbst stimmen ebenso: der Helizitätsunterschied in der chiralen Lösung (bis 0,0044) auf 2,1 %, der
 Unterschied der Enantiomere (bis 0,066) auf 1,7 %. Die Ergebnisse zur Enantiomerentrennung aus v0.38 sind damit quantitativ
 abgesichert. `test_beams` vergleicht die chirale Kugel bei z = 0,5 µm direkt (Toleranz 1,5 %).
+
+### Geschichtete Kugeln (v0.41)
+
+Die T-Matrix kommt aus `mie_chiral_layered.coefficients` mit einer beliebigen Schichtfolge (`force_chiral(…, layers=(radii,
+media))`, Radien relativ zum Außenradius; `glmt.py --shell t:n`). Die Pinzette rechnet beschichtete Kugeln über das Zweitor
+(`tweezers --shell t:n`, `--radius` ist dann der Kernradius).
+
+| Selbstprüfung (`test_glmt`) | Ergebnis |
+|---|---|
+| zwei Schichten aus gleichem Material gegen die homogene Kugel | exakt |
+| ebene Welle auf eine beschichtete Kugel (Kern n = 2,3, Schicht n = 1,75) gegen `mie_force.py` (`mie_coated.py`, unabhängige Implementierung) | zehn Stellen |
+
+**BEM gegen GLMT, Titandioxid-Kern (n = 2,3, R = 0,25 µm) mit Schicht n = 1,75, t = 0,152 µm** (λ/4, Außenradius 0,40 µm,
+kR = 3,16; `results/tweezers_tio2_coated.csv`, `results/glmt_tio2_coated.csv`):
+
+| z | BEM n = 8 | BEM n = 12 | extrapoliert, O(h²) | GLMT |
+|---|---:|---:|---:|---:|
+| −0,5 µm | 0,4896 (−4,9 %) | 0,5045 (−2,0 %) | 0,5164 (+0,35 %) | 0,5147 |
+| 0 | 0,3052 (−8,0 %) | 0,3207 (−3,3 %) | 0,3331 (+0,47 %) | 0,3316 |
+
+Bei n = 8 weicht die BEM bis 5 % (bezogen auf das Maximum, lokal 8 %) ab, viel mehr als bei homogenen Kugeln mit geringem Index
+(1,5 %). Das ist ein Diskretisierungsfehler: Er schrumpft von n = 8 auf 12 um den Faktor 2,4 (zweite Ordnung: 2,25), und nach
+Richardson-Extrapolation trifft die BEM die GLMT auf 0,4–0,5 %. Ursache ist die kürzere Wellenlänge im Kern (n = 2,3) und in der
+dicken Schicht; für Teilchen mit hohem Index n ≥ 12 oder Extrapolation verwenden. Bei geringem Kontrast (Polystyrol mit 0,05 µm
+Silika, n = 1,45) stimmt schon n = 8 (`test_beams`, Toleranz 2 %).
+
+**Anwendung: Lassen sich Titandioxid-Teilchen durch eine Schicht fangen?** Bei Teilchen mit hohem Index überwiegt die Streukraft,
+eine Antireflexschicht mit n ≈ √(n_Kern n_Wasser) ≈ 1,75 und λ/4-Dicke soll sie senken (Konzept nach Jannasch et al., Nature
+Photonics 2012; Angabe aus dem Gedächtnis, nicht nachgeprüft). GLMT, NA 1,2, 1064 nm, kleinste axiale Kraft hinter dem Fokus
+(negativ heißt fangbar; Achse grob in Schritten von 0,2 µm; `results/glmt_tio2_scan.csv`):
+
+| Kernradius | ohne Schicht | t = 0,08 µm | t = 0,152 µm (λ/4) | t = 0,22 µm |
+|---|---:|---:|---:|---:|
+| 0,15 µm | +0,0011 | +0,0052 | +0,0115 | **−0,0094** |
+| 0,20 µm | +0,019 | +0,055 | +0,044 | +0,045 |
+| 0,30 µm | +0,136 | +0,188 | +0,142 | +0,128 |
+
+- Gefangen wird nur der kleinste Kern mit der dicksten Schicht, ein Teilchen überwiegend aus Schichtmaterial; das ist keine
+  Entspiegelung im eigentlichen Sinn. Die unbeschichtete Kugel mit 0,15 µm liegt knapp an der Grenze (Gradientenkraft und
+  Streukraft halten sich die Waage).
+- Die λ/4-Schicht hilft in diesem Größenbereich nicht, sie verschlechtert die Fangbarkeit sogar. Das Konzept zielt auf
+  Mikrometer-Teilchen, bei denen die Rückreflexion den Strahlungsdruck dominiert; unterhalb von 1 µm überwiegen andere
+  Mechanismen. Eine Prüfung im Mikrometerbereich (kR ≈ 4–8) wäre mit der GLMT schnell möglich, mit der BEM nur mit feinen Netzen.
 
 ## Grenzen
 

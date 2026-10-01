@@ -164,14 +164,17 @@ def scattered_fields(cM, cN, a, b, k, omega, mu, pts):
     return E, H
 
 
-def chiral_scattered_fields(A, eps_p, chi_p, beam, pts, nmax):
-    """Streufeld einer (chiralen) Kugel im (chiralen) Aussenmedium aus den Helizitaetskoeffizienten A_l."""
+def chiral_scattered_fields(A, eps_p, chi_p, beam, pts, nmax, layers=None):
+    """Streufeld einer (chiralen, seit v0.41 auch geschichteten) Kugel im (chiralen) Aussenmedium aus den Helizitaetskoeffizienten
+    A_l. layers = (radii, media): Radien aufsteigend relativ zum Aussenradius 1, media je Schicht (eps, mu, chi) von innen nach
+    aussen; ohne layers die homogene Kugel (eps_p, chi_p)."""
+    radii, media = layers if layers is not None else ([1.0], [(eps_p, 1.0, chi_p)])
     eps, mu, chi, om = beam.eps, beam.mu, beam.chi, beam.omega; n0 = np.sqrt(eps * mu); eta = np.sqrt(mu / eps)
     E = np.zeros(pts.shape, complex); H = np.zeros(pts.shape, complex)
     for n in range(1, nmax + 1):
         T = {}
         for l in (+1, -1):
-            C, x1, x2 = mcl.coefficients(n, om, [1.0], [(eps_p, 1.0, chi_p)], l, eps, chi); T[l] = (x1 / C, x2 / C)
+            C, x1, x2 = mcl.coefficients(n, om, list(radii), list(media), l, eps, chi); T[l] = (x1 / C, x2 / C)
         for m in range(-n, n + 1):
             s1 = A[+1][n, m] * T[+1][0] + A[-1][n, m] * T[-1][0]; s2 = A[+1][n, m] * T[+1][1] + A[-1][n, m] * T[-1][1]
             if chi == 0:                                                          # F1 = M, F2 = N bei k
@@ -190,13 +193,13 @@ def stress_force_chiral(E, H, nrm, w, eps, mu, chi):
     return np.sum(T * w[:, None], 0)
 
 
-def force_chiral(beam, eps_p, chi_p, nmax=None, Rs=1.3, nt=40):
-    """Kraft auf eine homogene (chirale) Kugel im (chiralen) Aussenmedium des Strahls."""
+def force_chiral(beam, eps_p, chi_p, nmax=None, Rs=1.3, nt=40, layers=None):
+    """Kraft auf eine (chirale, geschichtete) Kugel im (chiralen) Aussenmedium des Strahls; layers wie oben."""
     k = abs(beam.omega * (np.sqrt(beam.eps * beam.mu) + abs(beam.chi)))
     nmie = nmax or int(np.ceil(k + 4 * k ** (1 / 3) + 6))
     A, dev = beam.helicity_coefficients(nmie)
     P, Nv, W = sphere_quadrature(Rs, nt)
-    Ei, Hi = beam.fields(P); Es, Hs = chiral_scattered_fields(A, eps_p, chi_p, beam, P, nmie)
+    Ei, Hi = beam.fields(P); Es, Hs = chiral_scattered_fields(A, eps_p, chi_p, beam, P, nmie, layers)
     return stress_force_chiral(Ei + Es, Hi + Hs, Nv, W, beam.eps, beam.mu, beam.chi), dev
 
 
@@ -287,6 +290,15 @@ def selftest():
     Fb, _ = force_chiral(Beam.plane_helicity(1.7689, 1.0, 0.0, 0.8, d, -1), 2.5281, -0.1)
     Fc, _ = force_chiral(Beam.plane_helicity(1.7689, 1.0, 0.0, 0.8, d, -1), 2.5281, 0.1)
     r = abs(Fa @ d - Fb @ d) / abs(Fa @ d); print(f"  chirale Kugel: F(+chi, +) {Fa @ d:.8f}, F(-chi, -) {Fb @ d:.8f}, F(+chi, -) {Fc @ d:.8f}"); ok &= r < 1e-9 and abs(Fa @ d - Fc @ d) > 1e-3 * abs(Fa @ d)
+    # 8. v0.41, geschichtet: zwei gleiche Schichten wie homogen; ebene Welle auf beschichtete Kugel gegen mie_force (mie_coated)
+    Bh = Beam.focused(1.7689, 1.0, 0.6, np.array([0.1, -0.2, 0.5]), 1.2, 1.0, np.array([1.0, 0.0]), 24, 48)
+    Fh, _ = force_chiral(Bh, 2.5281, 0.0); Fl, _ = force_chiral(Bh, 0, 0, layers=([0.6, 1.0], [(2.5281, 1.0, 0.0), (2.5281, 1.0, 0.0)]))
+    r = np.linalg.norm(Fl - Fh) / np.linalg.norm(Fh); print(f"  zwei gleiche Schichten gegen homogen: {r:.1e}"); ok &= r < 1e-9
+    d = np.array([0.3, -0.4, 0.866]); d /= np.linalg.norm(d); e = np.cross(d, [0, 0, 1.0]); e /= np.linalg.norm(e)
+    om, eps2 = 0.8, 1.7689; radii, eps_l = [0.6, 1.0], [5.29, 3.0625]                 # Kern n = 2,3, Schicht n = 1,75
+    F, _ = force_chiral(Beam.plane(eps2, 1.0, om, d, e), 0, 0, layers=(radii, [(eps_l[0], 1.0, 0.0), (eps_l[1], 1.0, 0.0)]))
+    ref = mie_force.force_z(om, radii, eps_l, eps2)
+    print(f"  ebene Welle auf beschichtete Kugel: F.d {F @ d:.10f}, mie_coated {ref:.10f}"); ok &= abs((F @ d) / ref - 1) < 1e-8
     print("alle Pruefungen bestanden" if ok else "PRUEFUNG FEHLGESCHLAGEN"); return ok
 
 
@@ -299,10 +311,15 @@ if __name__ == "__main__":
     ap.add_argument('--z', default=None); ap.add_argument('--x', default=None); ap.add_argument('--at-z', type=float, default=0.0)
     ap.add_argument('--csv', default=None)
     ap.add_argument('--host-chi', type=float, default=0.0); ap.add_argument('--chi-particle', type=float, default=0.0)
+    ap.add_argument('--shell', default=None, help='t:n Schichtdicke (um) und Index; --radius ist dann der Kernradius')
     A = ap.parse_args()
     if not selftest(): sys.exit(1)
     if A.selftest: sys.exit(0)
-    R = A.radius; om = 2 * np.pi * R / A.lam; eps2 = A.nbg ** 2; epsp = A.n_particle ** 2
+    eps2 = A.nbg ** 2; epsp = A.n_particle ** 2; layers = None; R = A.radius
+    if A.shell:                                                  # Laengeneinheit: Aussenradius
+        t, ns = map(float, A.shell.split(':')); R = A.radius + t
+        layers = ([A.radius / R, 1.0], [(epsp, 1.0, A.chi_particle), (ns ** 2, 1.0, 0.0)])
+    om = 2 * np.pi * R / A.lam
     s2 = 1 / np.sqrt(2); pol = {'x': [1, 0], 'y': [0, 1], 'circ+': [s2, 1j * s2], 'circ-': [s2, -1j * s2]}[A.pol]
     rng = lambda s: np.linspace(float(s.split(':')[0]), float(s.split(':')[1]), int(s.split(':')[2]))
     pos = [np.array([0, 0, z]) for z in rng(A.z)] if A.z else [np.array([x, 0, A.at_z]) for x in rng(A.x)]
@@ -310,6 +327,6 @@ if __name__ == "__main__":
     if out: out.write("x_um,y_um,z_um,Qx,Qy,Qz\n")
     for p in pos:
         B = Beam.focused(eps2, 1.0, om, -p / R, A.NA, A.f0, np.array(pol, complex), chi=A.host_chi)
-        Q = (force(B, epsp, om) if A.host_chi == 0 and A.chi_particle == 0 else force_chiral(B, epsp, A.chi_particle)[0]) / A.nbg
+        Q = (force(B, epsp, om) if A.host_chi == 0 and A.chi_particle == 0 and layers is None else force_chiral(B, epsp, A.chi_particle, layers=layers)[0]) / A.nbg
         print(f"  x {p[0]:6.3f}  z {p[2]:6.3f}   Q = ({Q[0]:+.5e}, {Q[1]:+.5e}, {Q[2]:+.5e})", flush=True)
         if out: out.write(f"{p[0]},{p[1]},{p[2]},{Q[0]},{Q[1]},{Q[2]}\n"); out.flush()
