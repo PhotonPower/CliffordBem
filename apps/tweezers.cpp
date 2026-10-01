@@ -2,6 +2,8 @@
 // Gaussstrahls auf eine Kugel. Das Teilchen bleibt fest, der Brennpunkt wandert: Der Operator wird einmal aufgebaut, jede
 // Brennpunktlage ist eine neue rechte Seite. Kraft ueber den Spannungstensor auf einer Kugel um das Teilchen, ausgegeben als
 // Effizienz Q = F c / (n P) (Strahlleistung P = 1). Positionen sind die Lage des Teilchens relativ zum Brennpunkt (in um).
+// Chirale Medien (v0.38): --host-chi (chirales Aussenmedium, Strahl nach Helizitaeten zerlegt), --chi-particle (chirales Teilchen);
+// --pol circ+ / circ- (zirkular in der Pupille).
 // Beispiel: tweezers --radius 0.25 --n-particle 1.59 --nbg 1.33 --lambda 1.064 --NA 1.2 --f0 1 --axial "-1:2:13" --mesh 8
 //           tweezers ... --lateral "0:0.6:7" --at-z 0.3
 #include <chrono>
@@ -14,7 +16,7 @@
 using namespace cbem;
 static std::vector<std::string> split(const std::string& s, char c) { std::vector<std::string> v; std::stringstream ss(s); std::string t; while (std::getline(ss, t, c)) v.push_back(t); return v; }
 int main(int argc, char** argv) {
-    double R = 0.25, np = 1.59, nk = 0.0, nbg = 1.33, lam = 1.064, NA = 1.2, f0 = 1.0, w0 = -1, atz = 0, heps = 1e-6, tol = 1e-8;
+    double R = 0.25, np = 1.59, nk = 0.0, nbg = 1.33, lam = 1.064, NA = 1.2, f0 = 1.0, w0 = -1, atz = 0, heps = 1e-6, tol = 1e-8, hchi = 0, pchi = 0;
     int nmesh = 8, nt = 40; std::string pol = "x", axial, lateral, csv;
     for (int a = 1; a < argc; ++a) {
         std::string o = argv[a]; auto nxt = [&]() { return std::string(argv[++a]); };
@@ -22,17 +24,20 @@ int main(int argc, char** argv) {
         else if (o == "--nbg") nbg = std::stod(nxt()); else if (o == "--lambda") lam = std::stod(nxt()); else if (o == "--NA") NA = std::stod(nxt());
         else if (o == "--f0") f0 = std::stod(nxt()); else if (o == "--gaussian") w0 = std::stod(nxt()); else if (o == "--pol") pol = nxt();
         else if (o == "--axial") axial = nxt(); else if (o == "--lateral") lateral = nxt(); else if (o == "--at-z") atz = std::stod(nxt());
+        else if (o == "--host-chi") hchi = std::stod(nxt()); else if (o == "--chi-particle") pchi = std::stod(nxt());
         else if (o == "--mesh") nmesh = std::stoi(nxt()); else if (o == "--ntheta") nt = std::stoi(nxt());
         else if (o == "--heps") heps = std::stod(nxt()); else if (o == "--tol") tol = std::stod(nxt()); else if (o == "--csv") csv = nxt();
         else { std::printf("unbekannte Option %s\n", o.c_str()); return 1; }
     }
     // Einheiten: Laengen in Teilchenradien
     const real om = 2 * pi * R / lam;
-    const Medium host{nbg * nbg, 1.0, 0.0}, part{cplx(np, nk) * cplx(np, nk), 1.0, 0.0};
-    const CVec3 pp = pol == "circ" ? CVec3{1.0 / std::sqrt(2.0), cplx(0, 1.0 / std::sqrt(2.0)), 0.0} : pol == "y" ? CVec3{0.0, 1.0, 0.0} : CVec3{1.0, 0.0, 0.0};
+    const Medium host{nbg * nbg, 1.0, hchi}, part{cplx(np, nk) * cplx(np, nk), 1.0, pchi};
+    const real s2 = 1.0 / std::sqrt(2.0);
+    const CVec3 pp = (pol == "circ" || pol == "circ+") ? CVec3{s2, cplx(0, s2), 0.0} : pol == "circ-" ? CVec3{s2, cplx(0, -s2), 0.0} : pol == "y" ? CVec3{0.0, 1.0, 0.0} : CVec3{1.0, 0.0, 0.0};
     HMatrixParams hp; hp.eps = heps; SolveOptions so; so.tol = tol;
     auto t0 = std::chrono::steady_clock::now();
     ScatteringProblem P({make_icosphere(nmesh)}, {part}, om, host, hp);
+    if (hchi != 0 || pchi != 0) std::printf("chiral: Aussenmedium chi = %g, Teilchen chi = %g, Polarisation %s\n", hchi, pchi, pol.c_str());
     std::printf("Kugel R = %.3f um, n = %.3f%+.3fi in n = %.3f, lambda = %.3f um, %s, %zu Dreiecke (k R = %.2f); Aufbau %.1f s\n", R, np, nk, nbg, lam,
                 w0 > 0 ? ("Gaussstrahl w0 = " + std::to_string(w0) + " um").c_str() : ("NA " + std::to_string(NA).substr(0, 4) + ", f0 " + std::to_string(f0).substr(0, 4)).c_str(),
                 P.mesh().size(), std::real(host.k(om)), std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());

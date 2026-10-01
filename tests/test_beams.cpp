@@ -1,6 +1,7 @@
 // Allgemeine einfallende Felder und Kraefte bei Dipol- und Strahlanregung (v0.37): Strahlen als exakte Maxwell-Loesungen,
 // Leistung nach Parseval gegen den Poynting-Fluss, ebene Welle ueber die allgemeine Schnittstelle wie bisher, Impulserhaltung
-// bei Dipolanregung (Koerper + Emitter + Abstrahlung = 0), kleines Teilchen im fokussierten Strahl gegen die Dipolnaeherung.
+// bei Dipolanregung (Koerper + Emitter + Abstrahlung = 0), kleines Teilchen im fokussierten Strahl gegen die Dipolnaeherung;
+// Strahl im chiralen Medium (v0.38).
 #include <cmath>
 #include "cbem/problems/scattering_problem.hpp"
 #include "cbem/sources/dipole.hpp"
@@ -66,6 +67,34 @@ int main() {
         const Vec3 Fd = dipole_particle_force(fields_with_gradients(only_beam, {Vec3(0, 0, 0)}, 1e-3)[0], A, water, om);
         std::printf("  kleines Teilchen im Fokus: BEM (%+.4e, %+.4e), Dipol (%+.4e, %+.4e), rel. %.1e\n", Fb.x, Fb.z, Fd.x, Fd.z, norm(Fb - Fd) / norm(Fd));
         CHECK(norm(Fb - Fd) < 0.015 * norm(Fd), "Kraft im fokussierten Strahl weicht von der Dipolnaeherung ab");
+    }
+    // 5. v0.38: Strahl im chiralen Medium -- chirale Maxwell-Gleichungen, Leistung, Spiegelsymmetrie der Pinzette
+    {
+        const real lam = 1.064, om = 2 * pi / lam; const Medium mc{1.7689, 1.0, 0.05};
+        const real s2 = 1.0 / std::sqrt(2.0);
+        const BeamField B = BeamField::focused(mc, om, Vec3(0, 0, 0), 1.2, 0.5, CVec3{s2, cplx(0, s2), 0.0}, 30, 60);
+        const real h = 1e-4 * lam; const Vec3 x = Vec3(-0.3, 0.2, 0.4) * lam;
+        CVec3 E0, H0, Ep[3], Em[3], Hp[3], Hm[3]; B.eval(x, E0, H0);
+        for (int i = 0; i < 3; ++i) { Vec3 e(0, 0, 0); (i == 0 ? e.x : i == 1 ? e.y : e.z) = h; B.eval(x + e, Ep[i], Hp[i]); B.eval(x - e, Em[i], Hm[i]); }
+        auto dE = [&](int i, int j) { return (Ep[i][j] - Em[i][j]) / (2 * h); }; auto dH = [&](int i, int j) { return (Hp[i][j] - Hm[i][j]) / (2 * h); };
+        const CVec3 cE{dE(1, 2) - dE(2, 1), dE(2, 0) - dE(0, 2), dE(0, 1) - dE(1, 0)}, cH{dH(1, 2) - dH(2, 1), dH(2, 0) - dH(0, 2), dH(0, 1) - dH(1, 0)};
+        const cplx I(0, 1); real e2 = 0, r1 = 0, r2 = 0;
+        for (int a = 0; a < 3; ++a) { e2 += std::norm(E0[a]); r1 += std::norm(cE[a] - I * om * (mc.mu * H0[a] - I * mc.chi * E0[a])); r2 += std::norm(cH[a] + I * om * (mc.eps * E0[a] + I * mc.chi * H0[a])); }
+        const real Pf = B.poynting_flux(0, 6 * lam, 120);
+        std::printf("  chiraler Strahl: rot E %.1e, rot H %.1e, Poynting-Fluss %.5f\n", std::sqrt(r1 / e2) / om, std::sqrt(r2 / e2) / om, Pf);
+        CHECK(std::sqrt(r1 / e2) / om < 1e-5 && std::sqrt(r2 / e2) / om < 1e-5, "chiraler Strahl erfuellt die Maxwell-Gleichungen nicht");
+        CHECK(std::abs(Pf - 1) < 1e-3, "Leistung des chiralen Strahls");
+        // Spiegelsymmetrie: Q_z(s = +1, chi) = Q_z(s = -1, -chi) fuer eine achirale Kugel auf der Achse
+        const real R = 0.25, omr = 2 * pi * R / lam; real Q[2];
+        for (int k = 0; k < 2; ++k) {
+            const Medium host{1.7689, 1.0, k == 0 ? 0.05 : -0.05}, ps{2.5281, 1.0, 0.0};
+            ScatteringProblem P({make_icosphere(4)}, {ps}, omr, host, hp);
+            auto beam = std::make_shared<BeamField>(BeamField::focused(host, omr, Vec3(0, 0, -0.4), 1.2, 1.0, CVec3{s2, cplx(0, k == 0 ? s2 : -s2), 0.0}, 24, 48));
+            const auto b = beam->project(P.mesh(), host); const auto r = P.solve_rhs(b, so);
+            Q[k] = force_on_sphere(make_near_field_eval(P.mesh(), r.h, b, host, omr, beam), host, Vec3(0, 0, 0), 1.3).z;
+        }
+        std::printf("  Spiegelsymmetrie der Pinzette: Q_z(+, chi) %.7f, Q_z(-, -chi) %.7f\n", Q[0], Q[1]);
+        CHECK(std::abs(Q[0] - Q[1]) < 1e-3 * std::abs(Q[0]), "Spiegelsymmetrie verletzt");
     }
     REPORT();
 }

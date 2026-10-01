@@ -60,7 +60,6 @@ void DipoleField::eval(const Vec3& x, CVec3& E, CVec3& H) const { dipole_field(m
 
 // --- Strahl --------------------------------------------------------------------------------------------------------------
 BeamField BeamField::focused(const Medium& m, real omega, const Vec3& focus, real NA, real f0, const CVec3& pp, int nt, int np) {
-    if (std::abs(m.chi) > 0) throw std::invalid_argument("BeamField: chirales Medium nicht unterstuetzt");
     BeamField B(m, omega, focus); B.k_ = m.k(omega);
     const real n = std::real(std::sqrt(m.eps * m.mu));
     if (!(NA > 0 && NA < n)) throw std::invalid_argument("BeamField: 0 < NA < n verlangt");
@@ -75,14 +74,13 @@ BeamField BeamField::focused(const Medium& m, real omega, const Vec3& focus, rea
             const cplx er = pp[0] * cp + pp[1] * sp, ep = -pp[0] * sp + pp[1] * cp;
             const real w = wth[i] * st * 2 * pi / np;                           // dOmega = sin theta dtheta dphi
             CVec3 a; for (int c = 0; c < 3; ++c) a[c] = w * f * (ep * phi[c] + er * the[c]);
-            B.dir_.push_back(Vec3(st * cp, st * sp, ct)); B.amp_.push_back(a); B.dw_.push_back(w);
+            B.add(Vec3(st * cp, st * sp, ct), a, w);
         }
     }
     B.finish(); return B;
 }
 
 BeamField BeamField::gaussian(const Medium& m, real omega, const Vec3& focus, real w0, const CVec3& p, int nt, int np) {
-    if (std::abs(m.chi) > 0) throw std::invalid_argument("BeamField: chirales Medium nicht unterstuetzt");
     BeamField B(m, omega, focus); B.k_ = m.k(omega);
     const real kr = std::real(B.k_);
     // Winkelbereich: bis exp(-(k w0 sin theta/2)^2) < 1e-12, hoechstens pi/2
@@ -93,18 +91,29 @@ BeamField BeamField::gaussian(const Medium& m, real omega, const Vec3& focus, re
         for (int j = 0; j < np; ++j) {
             const real ph = 2 * pi * (j + 0.5) / np, cp = std::cos(ph), sp = std::sin(ph), w = wth[i] * st * 2 * pi / np;
             const CVec3 a{w * g * p[0] * ct, w * g * p[1] * ct, -w * g * st * (p[0] * cp + p[1] * sp)};
-            B.dir_.push_back(Vec3(st * cp, st * sp, ct)); B.amp_.push_back(a); B.dw_.push_back(w);
+            B.add(Vec3(st * cp, st * sp, ct), a, w);
         }
     }
     B.finish(); return B;
 }
 
+void BeamField::add(const Vec3& dir, const CVec3& a, real w) {
+    if (!(std::abs(m_.chi) > 0)) { dir_.push_back(dir); amp_.push_back(a); dw_.push_back(w); kc_.push_back(k_); return; }
+    for (int s : {+1, -1}) {                                                    // Helizitaetsanteile mit eigener Wellenzahl
+        CVec3 e = circular_polarization(dir, s); for (auto& c : e) c /= std::sqrt(2.0);
+        const cplx c = std::conj(e[0]) * a[0] + std::conj(e[1]) * a[1] + std::conj(e[2]) * a[2];
+        if (std::abs(c) == 0) continue;
+        dir_.push_back(dir); amp_.push_back(CVec3{c * e[0], c * e[1], c * e[2]}); dw_.push_back(w);
+        kc_.push_back(plane_wave_incidence(m_, omega_, dir, circular_polarization(dir, s)).k);
+    }
+}
+
 void BeamField::finish() {
     // Leistung nach Parseval: P = 1/2 sqrt(eps/mu) (2 pi/k)^2 int |a|^2 dOmega = 1/2 sqrt(eps/mu) (2 pi/k)^2 sum |amp_i|^2 / dOmega_i
-    const real kr = std::real(k_), z = std::real(std::sqrt(m_.eps / m_.mu));
+    const real z = std::real(std::sqrt(m_.eps / m_.mu));
     real S = 0;
-    for (std::size_t i = 0; i < amp_.size(); ++i) { real a2 = 0; for (auto c : amp_[i]) a2 += std::norm(c); S += a2 / dw_[i]; }
-    P_ = 0.5 * z * std::pow(2 * pi / kr, 2) * S;
+    for (std::size_t i = 0; i < amp_.size(); ++i) { real a2 = 0; for (auto c : amp_[i]) a2 += std::norm(c); S += a2 / dw_[i] * std::pow(2 * pi / std::real(kc_[i]), 2); }
+    P_ = 0.5 * z * S;
     const real s = 1 / std::sqrt(P_);
     for (auto& a : amp_) for (auto& c : a) c *= s;
     P_ = 1.0;
@@ -124,9 +133,9 @@ real BeamField::poynting_flux(real dz, real L, int ng) const {
 
 void BeamField::eval(const Vec3& x, CVec3& E, CVec3& H) const {
     E = CVec3{}; H = CVec3{};
-    const Vec3 r = x - focus_; const cplx ik = cplx(0, 1) * k_, z = std::sqrt(m_.eps / m_.mu);
+    const Vec3 r = x - focus_; const cplx z = std::sqrt(m_.eps / m_.mu);
     for (std::size_t i = 0; i < dir_.size(); ++i) {
-        const cplx ph = std::exp(ik * dot(dir_[i], r));
+        const cplx ph = std::exp(cplx(0, 1) * kc_[i] * dot(dir_[i], r));
         const CVec3 kxa = cr(CVec3{dir_[i].x, dir_[i].y, dir_[i].z}, amp_[i]);
         for (int c = 0; c < 3; ++c) { E[c] += amp_[i][c] * ph; H[c] += z * kxa[c] * ph; }
     }

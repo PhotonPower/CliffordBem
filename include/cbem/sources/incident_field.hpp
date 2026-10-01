@@ -8,7 +8,10 @@
 //                  f(theta) = exp(-sin^2 theta / (f0^2 sin^2 theta_max)) (gaussfoermige Pupillenausleuchtung, Fuellfaktor f0)
 //   Gaussstrahl:   a = exp(-(k w0 sin theta / 2)^2) (p_x cos theta, p_y cos theta, -sin theta (p_x cos phi + p_y sin phi))
 //                  (exakt aus dem Querfeld exp(-rho^2/w0^2) p im Brennpunkt, jede Teilwelle transversal)
-// Leistung (Parseval): P = 1/2 sqrt(eps/mu) (2 pi/k)^2 int |a|^2 dOmega; der Strahl wird auf P = 1 normiert. Kraft-Effizienz der
+// Leistung (Parseval): P = 1/2 sqrt(eps/mu) (2 pi/k)^2 int |a|^2 dOmega; der Strahl wird auf P = 1 normiert.
+// Chirales Medium (v0.38): jede Teilwelle a(k) wird in ihre Helizitaetsanteile c_s e_s(k) zerlegt (e_s = circular_polarization/
+// sqrt 2, orthonormal), jeder Anteil laeuft mit seiner Wellenzahl k_s; H = sqrt(eps/mu) k x E je Anteil (die Wellenimpedanz ist im
+// Pasteur-Medium unveraendert); P = sum_s 1/2 sqrt(eps/mu) (2 pi/k_s)^2 int |c_s|^2 dOmega. Kraft-Effizienz der
 // optischen Pinzette Q = F c / (n P) = F / sqrt(eps mu) (c = 1).
 #include <memory>
 #include <vector>
@@ -75,6 +78,8 @@ private:
     Medium m_; real omega_; Vec3 focus_; cplx k_ = 0;
     std::vector<Vec3> dir_; std::vector<CVec3> amp_;      // a(k) dOmega je Teilwelle
     std::vector<real> dw_;                                // dOmega je Teilwelle (fuer die Leistung nach Parseval)
+    std::vector<cplx> kc_;                                // Wellenzahl je Teilwelle (chiral: k_sigma der Helizitaet)
+    void add(const Vec3& dir, const CVec3& a, real w);    // Teilwelle anfuegen; im chiralen Medium nach Helizitaeten zerlegt
     real P_ = 0, I0_ = 0;
 };
 
