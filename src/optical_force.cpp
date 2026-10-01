@@ -89,8 +89,7 @@ Vec3 force_from_far_field(const TriangleMesh& outer, const std::vector<cplx>& h,
     return d * (std::real(inc.k) * p2 * sigma_ext * c) - S * c;
 }
 
-Vec3 force_on_sphere(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega, const Vec3& d, const CVec3& p,
-                     const Vec3& c, real R, int ntheta, const NearFieldOptions& o) {
+Vec3 force_on_sphere(const NearFieldEval& nf, const Medium& m, const Vec3& c, real R, int ntheta) {
     std::vector<real> ct, wt; gauss_legendre(ntheta, ct, wt);
     const int nphi = 2 * ntheta;
     std::vector<Vec3> pts, nrm; std::vector<real> w;
@@ -101,13 +100,12 @@ Vec3 force_on_sphere(const TriangleMesh& outer, const std::vector<cplx>& h, cons
             pts.push_back(c + nv * R); nrm.push_back(nv); w.push_back(wt[i] * 2 * pi / nphi * R * R);
         }
     }
-    const auto f = exterior_near_field(outer, h, m, omega, d, p, pts, o);
+    const auto f = nf(pts);
     for (const auto& q : f) if (q.inside || q.too_close) throw std::invalid_argument("force_on_sphere: Kugel schneidet einen Koerper");
     return integrate(f, nrm, w, m);
 }
 
-Vec3 force_on_offset(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega, const Vec3& d, const CVec3& p,
-                     const TriangleMesh& body, real delta, const NearFieldOptions& o) {
+Vec3 force_on_offset(const NearFieldEval& nf, const Medium& m, const TriangleMesh& body, real delta) {
     TriangleMesh S = offset_surface(body, delta); S.compute_geometry();
     MeshQuadrature q(S, QuadRule::dunavant7());
     std::vector<Vec3> pts, nrm; std::vector<real> w;
@@ -115,17 +113,16 @@ Vec3 force_on_offset(const TriangleMesh& outer, const std::vector<cplx>& h, cons
         const Vec3* qp = q.points(t); const real* qw = q.weights(t);
         for (int a = 0; a < q.q; ++a) { pts.push_back(qp[a]); nrm.push_back(S.normal[t]); w.push_back(qw[a]); }
     }
-    const auto f = exterior_near_field(outer, h, m, omega, d, p, pts, o);
+    const auto f = nf(pts);
     for (const auto& x : f) if (x.inside) throw std::invalid_argument("force_on_offset: Parallelflaeche schneidet einen Koerper");
     return integrate(f, nrm, w, m);
 }
 
-std::vector<FieldGradient> fields_with_gradients(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega,
-                                                 const Vec3& d, const CVec3& p, const std::vector<Vec3>& x, real delta, const NearFieldOptions& o) {
+std::vector<FieldGradient> fields_with_gradients(const NearFieldEval& nf, const std::vector<Vec3>& x, real delta) {
     std::vector<Vec3> pts;
     const Vec3 ex[3] = {Vec3(1, 0, 0), Vec3(0, 1, 0), Vec3(0, 0, 1)};
     for (const Vec3& q : x) { pts.push_back(q); for (int i = 0; i < 3; ++i) { pts.push_back(q + ex[i] * delta); pts.push_back(q - ex[i] * delta); } }
-    const auto f = exterior_near_field(outer, h, m, omega, d, p, pts, o);
+    const auto f = nf(pts);
     std::vector<FieldGradient> g(x.size());
     for (std::size_t k = 0; k < x.size(); ++k) {
         const auto& c = f[7 * k];
@@ -157,6 +154,67 @@ Vec3 dipole_particle_force(const FieldGradient& g, const DipolePolarizability& a
     const real c = std::real(omega * k * k * k) / (12 * pi);
     for (int i = 0; i < 3; ++i) F[i] -= c * std::real(pm[i]);
     return Vec3(F[0], F[1], F[2]);
+}
+
+// --- v0.37: Feldauswerter und Huellen fuer die ebene Welle ---------------------------------------------------------------------
+NearFieldEval make_near_field_eval(const TriangleMesh& outer, const std::vector<cplx>& h, const std::vector<cplx>& b, const Medium& m,
+                                   real omega, std::shared_ptr<const IncidentField> inc, const NearFieldOptions& o) {
+    return [&outer, &h, b, m, omega, inc, o](const std::vector<Vec3>& pts) { return exterior_near_field(outer, h, b, m, omega, *inc, pts, o); };
+}
+NearFieldEval make_plane_wave_eval(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega, const Vec3& d,
+                                   const CVec3& p, const NearFieldOptions& o) {
+    return [&outer, &h, m, omega, d, p, o](const std::vector<Vec3>& pts) { return exterior_near_field(outer, h, m, omega, d, p, pts, o); };
+}
+Vec3 force_on_sphere(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega, const Vec3& d, const CVec3& p,
+                     const Vec3& c, real R, int ntheta, const NearFieldOptions& o) {
+    return force_on_sphere(make_plane_wave_eval(outer, h, m, omega, d, p, o), m, c, R, ntheta);
+}
+Vec3 force_on_offset(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega, const Vec3& d, const CVec3& p,
+                     const TriangleMesh& body, real delta, const NearFieldOptions& o) {
+    return force_on_offset(make_plane_wave_eval(outer, h, m, omega, d, p, o), m, body, delta);
+}
+std::vector<FieldGradient> fields_with_gradients(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega,
+                                                 const Vec3& d, const CVec3& p, const std::vector<Vec3>& x, real delta, const NearFieldOptions& o) {
+    return fields_with_gradients(make_plane_wave_eval(outer, h, m, omega, d, p, o), x, delta);
+}
+
+Vec3 emitter_force(const TriangleMesh& outer, const std::vector<cplx>& h, const std::vector<cplx>& b, const Medium& m, real omega,
+                   const DipoleField& src, real delta) {
+    auto zero = std::make_shared<ZeroField>();
+    const auto g = fields_with_gradients(make_near_field_eval(outer, h, b, m, omega, zero), {src.position()}, delta);
+    const cplx k = m.k(omega); const CVec3& p = src.p(); const CVec3& md = src.md();
+    real F[3];
+    for (int i = 0; i < 3; ++i) { cplx s = 0; for (int j = 0; j < 3; ++j) s += p[j] * std::conj(g[0].dE[i][j]) + md[j] * std::conj(g[0].dH[i][j]); F[i] = 0.5 * std::real(s); }
+    const CVec3 mc{std::conj(md[0]), std::conj(md[1]), std::conj(md[2])};
+    const CVec3 pxm{p[1] * mc[2] - p[2] * mc[1], p[2] * mc[0] - p[0] * mc[2], p[0] * mc[1] - p[1] * mc[0]};
+    const real c = std::real(omega * k * k * k) / (12 * pi);
+    return Vec3(F[0] - c * std::real(pxm[0]), F[1] - c * std::real(pxm[1]), F[2] - c * std::real(pxm[2]));
+}
+
+Vec3 radiated_momentum(const TriangleMesh& outer, const std::vector<cplx>& h, const std::vector<cplx>& b, const Medium& m, real omega,
+                       const DipoleField& src, int ntheta) {
+    const cplx k = m.k(omega), se = std::sqrt(m.eps);
+    std::vector<cplx> hs(h.size()); for (std::size_t i = 0; i < h.size(); ++i) hs[i] = h[i] - b[i];
+    std::vector<real> ct, wt; gauss_legendre(ntheta, ct, wt); const int nphi = 2 * ntheta;
+    const CVec3& p = src.p(); const CVec3& md = src.md(); const Vec3& r0 = src.position();
+    real P[3] = {0, 0, 0};
+    CBEM_OMP(omp parallel for schedule(dynamic) reduction(+ : P[:3]))
+    for (int i = 0; i < ntheta; ++i) {
+        const real st = std::sqrt(std::max(0.0, 1 - ct[i] * ct[i]));
+        for (int j = 0; j < nphi; ++j) {
+            const real ph = 2 * pi * (j + 0.5) / nphi, w = wt[i] * 2 * pi / nphi;
+            const Vec3 xh(st * std::cos(ph), st * std::sin(ph), ct[i]); const CVec3 xc{xh.x, xh.y, xh.z};
+            auto cr = [](const CVec3& a, const CVec3& bb) { return CVec3{a[1] * bb[2] - a[2] * bb[1], a[2] * bb[0] - a[0] * bb[2], a[0] * bb[1] - a[1] * bb[0]}; };
+            const CVec3 e0 = cr(cr(xc, p), xc), em = cr(xc, md);
+            const cplx ex = std::exp(-cplx(0, 1) * k * dot(xh, r0));
+            const Multivector Ff = far_field(outer, hs, k, xh);
+            real e2 = 0; const int VEC[3] = {1, 2, 4};
+            for (int c = 0; c < 3; ++c) e2 += std::norm(k * k / (4 * pi * m.eps) * ex * e0[c] - omega * k / (4 * pi) * ex * em[c] + Ff.c[VEC[c]] / se);
+            const real f = w * 0.5 * std::real(m.eps) * e2;
+            P[0] += f * xh.x; P[1] += f * xh.y; P[2] += f * xh.z;
+        }
+    }
+    return Vec3(P[0], P[1], P[2]);
 }
 
 }  // namespace cbem

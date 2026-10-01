@@ -15,6 +15,7 @@
 #include "cbem/hmatrix/cluster_tree.hpp"
 #include "cbem/hmatrix/hmatrix.hpp"
 #include "cbem/sources/chiral_incidence.hpp"
+#include "cbem/sources/incident_field.hpp"
 
 namespace cbem {
 
@@ -63,5 +64,11 @@ struct NearFieldOptions { std::size_t hmatrix_min_points = 2000; real eps = 1e-4
 // Die chirale Normierung bezieht sich auf die zirkulare ebene Welle derselben Richtung im selben Medium (auch bei linearer p).
 std::vector<NearFieldPoint> exterior_near_field(const TriangleMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega,
                                                 const Vec3& d, const CVec3& p, const std::vector<Vec3>& pts, const NearFieldOptions& opt = {});
+
+// Allgemeines einfallendes Feld (v0.37): b = Projektion des einfallenden Feldes auf outer (z. B. inc.project(outer, m) oder
+// project_dipole), h_s = h - b; Gesamtfeld = Streufeld + inc.eval(x); Bezugsgroessen fuer Verstaerkung und Chiralitaet aus inc
+std::vector<NearFieldPoint> exterior_near_field(const TriangleMesh& outer, const std::vector<cplx>& h, const std::vector<cplx>& b,
+                                                const Medium& m, real omega, const IncidentField& inc, const std::vector<Vec3>& pts,
+                                                const NearFieldOptions& o = {});
 
 }  // namespace cbem

@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.36.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.37.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -40,7 +40,7 @@ Für die Python-Werkzeuge: NumPy, SciPy, Matplotlib, optional `gmsh` (Geometrien
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release     # Optionen: -DCBEM_OPENMP=ON -DCBEM_NATIVE=ON
 cmake --build build -j
-ctest --test-dir build --output-on-failure         # 24 Tests
+ctest --test-dir build --output-on-failure         # 25 Tests
 ```
 
 | Test | prüft |
@@ -62,6 +62,7 @@ ctest --test-dir build --output-on-failure         # 24 Tests
 | `test_materials` | Materialtabellen, Lebedev-Momente |
 | `test_hodlr` | Systemeinträge gegen Operator, HODLR als direkter Löser und Vorkonditionierer |
 | `test_layered` | Parallelflächen, ohne Schicht = T₁, beschichtete Kugel gegen Aden–Kerker, neutrale Schale, chirale Schale |
+| `test_beams` | Strahlen als Maxwell-Lösungen, Leistung, Impulserhaltung bei Dipolanregung, Teilchen im Fokus gegen Dipolnäherung |
 | `test_optical_force` | Strahlungsdruck gegen Mie, drei Integrationswege, Dimer: Bindungskräfte und Summe; Dipolnäherung: ebene Welle, kleine und chirale Kugel gegen die volle Rechnung |
 | `test_recycling` | Krylov-Recycling und GCRO-DR: gleiche Lösungen wie GMRES, weniger Iterationen bei Ausreißer-Eigenwerten; Eigenlöser |
 | `test_dipole` | Dipol: Kugel aus dem Außenmedium (Raten = 1), Goldkugel gegen die Reihenlösung, verdichtetes Netz, Fluoreszenz, chiraler Emitter (Helizitätsdipol, magnetischer Dipol gegen Mie) |
@@ -82,6 +83,7 @@ ctest --test-dir build --output-on-failure         # 24 Tests
 | `scatter_mesh` | beliebige Gmsh-Geometrie | `--mesh stab.msh --media "-11,1.2" --pol circ --precond hodlr:1e-2` |
 | `dipole` | Zerfallsraten und Fluoreszenzverstärkung eines Emitters (Kugel, Dimer, Gmsh; Abstandsreihe, Orientierungen x, y, z, Quantenausbeute, Anregung mit `--lambda-exc`) | `--sphere 16 --unit 20 --materials Au --nbg 1.33 --lambda 650 --dist "2,5,10,20" --q0 0.5` |
 | `nearfield` | Nahfeldkarte in einer Ebene (Kugel, Dimer, Gmsh, Schichten, chirales Außenmedium); mit `--particle` Kraft und chirale Kraft auf ein kleines Teilchen | `--sphere 8 --sphere-dimer 4 --unit 20 --materials Au --nbg 1.33 --coating "1:2.25,0:0.01" --lambda 580 --pol circ --plane xz` |
+| `tweezers` | Optische Pinzette: Kraft-Effizienz eines fokussierten Strahls (NA, Füllfaktor) oder Gaußstrahls auf eine Kugel, axial und seitlich | `--radius 0.25 --n-particle 1.59 --nbg 1.33 --lambda 1.064 --NA 1.2 --axial "-1:2:25"` |
 | `spectrum` | Spektren, Orientierungsmittelung, Beschichtungen (auch chiral, Dünnschicht-Näherung, Zweitor mit `--twoport`) | `--mesh x.msh --unit 25 --materials Ag --nbg 1.33 --lambda 340:520:20 [--coating "2:2.89,0[:χ]" --thin 0]` |
 | `scatter_coated` | beschichtete Kugel/Gmsh-Körper, gegen Aden–Kerker, neutrale Referenz, Dünnschicht-Näherung | `--n 4,8 --omega 0.5 --core -11,1.2 --coat 0.02,2.25,0 --neutral` bzw. `--thin --bare` (`--thin-model jump\|dirac1\|dirac2\|dirac2fit`, auch mit `--mesh`) |
 | `bench_compression` | Asymptotik der Kompression | `--geometry sphere --n 8,16,24 --mode joint` |
@@ -154,6 +156,9 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
   Die chirale Kraft folgt dem Gradienten der optischen Chiralität mit dem aus der Theorie erwarteten Faktor. Seit v0.36 Kräfte in
   chiralen Medien: Spannungstensor und unabhängige Impulsbilanz im Fernfeld; helizitätsabhängiger Strahlungsdruck einer Goldkugel
   in chiraler Lösung (`results_force.md`).
+- **Strahlanregung und optische Pinzette (v0.37):** allgemeine einfallende Felder (ebene Welle, Dipol, Gaußstrahl, fokussierter
+  Strahl nach Richards–Wolf als exaktes Winkelspektrum); Kräfte bei Dipolanregung mit Impulserhaltung auf 10⁻⁴; Kennlinien einer
+  optischen Pinzette (`tweezers`, `results_beams.md`).
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).
