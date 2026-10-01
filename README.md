@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.38.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.39.** Galerkin-BEM mit stückweise konstanten Multivektor-Dichten auf ebenen Dreiecken:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -40,7 +40,7 @@ Für die Python-Werkzeuge: NumPy, SciPy, Matplotlib, optional `gmsh` (Geometrien
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release     # Optionen: -DCBEM_OPENMP=ON -DCBEM_NATIVE=ON
 cmake --build build -j
-ctest --test-dir build --output-on-failure         # 25 Tests
+ctest --test-dir build --output-on-failure         # 26 Tests
 ```
 
 | Test | prüft |
@@ -62,6 +62,7 @@ ctest --test-dir build --output-on-failure         # 25 Tests
 | `test_materials` | Materialtabellen, Lebedev-Momente |
 | `test_hodlr` | Systemeinträge gegen Operator, HODLR als direkter Löser und Vorkonditionierer |
 | `test_layered` | Parallelflächen, ohne Schicht = T₁, beschichtete Kugel gegen Aden–Kerker, neutrale Schale, chirale Schale |
+| `test_glmt` | Selbstprüfung der GLMT-Referenz (Python) |
 | `test_beams` | Strahlen als Maxwell-Lösungen, Leistung, Impulserhaltung bei Dipolanregung, Teilchen im Fokus gegen Dipolnäherung |
 | `test_optical_force` | Strahlungsdruck gegen Mie, drei Integrationswege, Dimer: Bindungskräfte und Summe; Dipolnäherung: ebene Welle, kleine und chirale Kugel gegen die volle Rechnung |
 | `test_recycling` | Krylov-Recycling und GCRO-DR: gleiche Lösungen wie GMRES, weniger Iterationen bei Ausreißer-Eigenwerten; Eigenlöser |
@@ -93,7 +94,7 @@ Geometrien: `python3 tools/make_geometries.py sphere|rod|bornkuhn|roundcube h ou
 Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compression.py`, `mie_spectrum.py`,
 `mie_coated.py` (Aden–Kerker, Mehrfachschichten), `mie_chiral_layered.py` (geschichtete Kugeln mit chiralen Schichten),
 `analyze_coated.py`, `analyze_thin.py`, `analyze_chiral_thin.py`, `analyze_twoport.py`, `plot_coated.py`,
-`mie_nearfield.py` (Nahfeld nach Mie), `plot_nearfield.py`, `mie_dipole.py` (Zerfallsraten vor der Kugel), `plot_fluorescence.py`, `mie_force.py` (Strahlungsdruck), `mie_polarizability.py` (Dipol-Polarisierbarkeiten, auch chiral).
+`mie_nearfield.py` (Nahfeld nach Mie), `plot_nearfield.py`, `mie_dipole.py` (Zerfallsraten vor der Kugel), `plot_fluorescence.py`, `mie_force.py` (Strahlungsdruck), `mie_polarizability.py` (Dipol-Polarisierbarkeiten, auch chiral), `glmt.py` (Kugel im fokussierten Strahl), `plot_tweezers.py`.
 
 ## Ergebnisse
 
@@ -159,7 +160,8 @@ Auswertung: `tools/analyze_scattering.py`, `analyze_chiral.py`, `analyze_compres
 - **Strahlanregung und optische Pinzette (v0.37):** allgemeine einfallende Felder (ebene Welle, Dipol, Gaußstrahl, fokussierter
   Strahl nach Richards–Wolf als exaktes Winkelspektrum); Kräfte bei Dipolanregung mit Impulserhaltung auf 10⁻⁴; Kennlinien einer
   optischen Pinzette (`tweezers`, `results_beams.md`). Seit v0.38 Strahlen in chiralen Medien (Winkelspektrum nach Helizitäten
-  mit k±): Pinzette in chiraler Lösung und für chirale Teilchen; die Enantiomere werden sehr verschieden gefangen.
+  mit k±): Pinzette in chiraler Lösung und für chirale Teilchen; die Enantiomere werden sehr verschieden gefangen. Seit v0.39
+  GLMT-Referenz (`tools/glmt.py`): Die Pinzette stimmt bei n = 8 auf 1,5 % mit der verallgemeinerten Lorenz-Mie-Theorie überein.
 - **Anwendungen:** CD-Spektrum eines Born-Kuhn-Dimers, Silberwürfel-Spektren in Abhängigkeit vom Rundungsradius,
   Silberkugel und -würfel mit 2 nm Oxid: Rotverschiebung um 10 bzw. 20 nm, Phasenänderung der Vorwärtsamplitude bis
   0,9 bzw. 0,5 rad (`results_multibody.md`, `results_spectra.md`, `results_roundcube.md`, `results_coated.md`).

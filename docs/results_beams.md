@@ -1,4 +1,4 @@
-# Ergebnisse: Strahlanregung, Kräfte bei Dipolanregung, optische Pinzette (v0.37, chirale Medien v0.38)
+# Ergebnisse: Strahlanregung, Kräfte bei Dipolanregung, optische Pinzette (v0.37, chirale Medien v0.38, GLMT-Referenz v0.39)
 
 ## Allgemeine einfallende Felder
 
@@ -71,8 +71,7 @@ n = 10 (unter dem Fehler der Dipolnäherung, etwa (kR)²). Großes Teilchen (R =
   der instabilen Lage überwiegt er, und das Teilchen entkommt.
 - Seitlich ist die Falle 4,5- bis 6-mal steifer als axial, typisch für optische Pinzetten; senkrecht zur Polarisation steifer,
   passend zum dort schmaleren Brennfleck.
-- Ein Vergleich mit der verallgemeinerten Lorenz-Mie-Theorie für fokussierte Strahlen steht aus (nicht implementiert); die
-  Größenordnung der Effizienzen ist für solche Teilchen plausibel.
+- Gegen die verallgemeinerte Lorenz-Mie-Theorie geprüft (v0.39, Abschnitt unten): Abweichung höchstens 1,5 % bei n = 8.
 
 ## Strahlen in chiralen Medien (v0.38)
 
@@ -122,6 +121,42 @@ von 0,25 µm, die Steifigkeiten sind daher grob; `results/tweezers_chiral*.csv`)
   vermutlich weil bei kleinerem Kontrast zum Wasser die Gegenhelizität im stark fokussierten Strahl und die Helizitätsmischung an
   der Oberfläche stärker ins Gewicht fallen. Die volle Rechnung bleibt nötig.
 - Die Werte χ = 0,01 bzw. χ_p = ±0,1 sind bewusst groß gewählt; die Unterschiede sind in χ linear.
+
+## GLMT-Referenz (v0.39)
+
+`tools/glmt.py` berechnet die Kraft auf eine homogene Kugel im **selben** Strahl wie `BeamField` (gleiche Quadraturknoten, gleiche
+Normierung), unabhängig von der BEM:
+
+1. Strahlkoeffizienten: Der Strahl ist eine endliche Summe ebener Wellen; jede Teilwelle hat die geschlossene Entwicklung
+   c_M = 4π iⁿ X*_nm(k̂)·ê, c_N = α 4π iⁿ (k̂ × X*_nm(k̂))·ê nach M_nm = j_n X_nm, N_nm = (1/k)∇ × M_nm. Der Vorfaktor α = −i
+   wird im Selbsttest bestimmt (Rekonstruktion der ebenen Welle), nicht vorausgesetzt.
+2. Mie (Bohren–Huffman): einlaufend c_M, c_N → auslaufend s_M = −b_n c_M, s_N = −a_n c_N.
+3. Kraft: Spannungstensor auf einer Kugel um das Teilchen; einfallendes Feld direkt aus dem Strahl, Streufeld aus der
+   Multipolsumme.
+
+| Selbstprüfung (`test_glmt`) | Ergebnis |
+|---|---|
+| N = (1/k)∇ × M (numerische Rotation) | 1,8·10⁻⁶ |
+| Rekonstruktion der ebenen Welle (α = −i) | 9·10⁻¹¹ |
+| ganzer Kraftweg, ebene Welle auf eine Kugel, gegen σ_pr (`mie_force.py`) | zehn Stellen, Querkraft 10⁻¹¹ |
+| Strahlkoeffizienten: Feld im Teilchengebiet gegen den Strahl direkt | 5·10⁻¹¹ |
+
+**Vergleich mit der BEM** (Polystyrol R = 0,25 µm, λ = 1064 nm, NA 1,2, f₀ = 1, x-polarisiert; `results/glmt_ps250_*.csv`):
+
+![Pinzette: BEM gegen GLMT](fig_tweezers_glmt.png)
+
+| Kennlinie (BEM n = 8) | größte Abweichung, bezogen auf max\|Q\| | mittlere |
+|---|---:|---:|
+| axial (25 Punkte) | 1,47 % | 0,55 % |
+| seitlich parallel zur Polarisation | 1,34 % | 0,69 % |
+| seitlich senkrecht | 1,14 % | 0,60 % |
+
+- Die BEM liegt systematisch leicht unter der GLMT, an den Maxima um etwa 1,5 %: derselbe Diskretisierungsfehler wie beim
+  Strahlungsdruck einer Kugel in der ebenen Welle (v0.33, −1,5 % bei n = 8). Er fällt mit dem Netz: n = 12 im Fokus
+  0,032279 gegen 0,032534 (−0,8 % statt −1,7 %), bei z = 0,5 µm −0,015414 gegen −0,015434 (−0,1 %).
+- Die Gleichgewichtslagen und Steifigkeiten aus v0.37 sind damit auf etwa 1–1,5 % bestätigt.
+- `test_beams` vergleicht die BEM bei z = 0,5 µm direkt mit dem GLMT-Wert (Toleranz 1 %).
+- Die GLMT ist für homogene achirale Kugeln umgesetzt; für chirale Kugeln (v0.38) fehlt die Referenz noch.
 
 ## Grenzen
 

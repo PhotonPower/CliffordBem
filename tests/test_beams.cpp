@@ -1,7 +1,7 @@
 // Allgemeine einfallende Felder und Kraefte bei Dipol- und Strahlanregung (v0.37): Strahlen als exakte Maxwell-Loesungen,
 // Leistung nach Parseval gegen den Poynting-Fluss, ebene Welle ueber die allgemeine Schnittstelle wie bisher, Impulserhaltung
 // bei Dipolanregung (Koerper + Emitter + Abstrahlung = 0), kleines Teilchen im fokussierten Strahl gegen die Dipolnaeherung;
-// Strahl im chiralen Medium (v0.38).
+// Strahl im chiralen Medium (v0.38); optische Pinzette gegen die GLMT-Referenz (v0.39).
 #include <cmath>
 #include "cbem/problems/scattering_problem.hpp"
 #include "cbem/sources/dipole.hpp"
@@ -95,6 +95,18 @@ int main() {
         }
         std::printf("  Spiegelsymmetrie der Pinzette: Q_z(+, chi) %.7f, Q_z(-, -chi) %.7f\n", Q[0], Q[1]);
         CHECK(std::abs(Q[0] - Q[1]) < 1e-3 * std::abs(Q[0]), "Spiegelsymmetrie verletzt");
+    }
+    // 6. v0.39: optische Pinzette gegen die GLMT-Referenz (tools/glmt.py, derselbe Strahl): Polystyrol R = 0,25 um, NA 1,2,
+    //    x-polarisiert, Teilchen 0,5 um hinter dem Fokus; GLMT Q_z = -0,0154336, BEM n = 8 etwa 0,3 % darunter
+    {
+        const real R = 0.25, lam = 1.064, omr = 2 * pi * R / lam; const Medium ps{2.5281, 1.0, 0.0};
+        ScatteringProblem P({make_icosphere(8)}, {ps}, omr, water, hp);
+        auto beam = std::make_shared<BeamField>(BeamField::focused(water, omr, Vec3(0, 0, -0.5 / R), 1.2, 1.0, CVec3{1.0, 0.0, 0.0}));
+        const auto b = beam->project(P.mesh(), water); const auto r = P.solve_rhs(b, so);
+        const real Qz = force_on_sphere(make_near_field_eval(P.mesh(), r.h, b, water, omr, beam), water, Vec3(0, 0, 0), 1.3).z / std::sqrt(1.7689);
+        const real glmt = -0.01543359404291259;
+        std::printf("  Pinzette gegen GLMT: Q_z BEM %.6f, GLMT %.6f (%.2f %%)\n", Qz, glmt, 100 * (Qz / glmt - 1));
+        CHECK(std::abs(Qz / glmt - 1) < 0.01, "Pinzette weicht von der GLMT ab");
     }
     REPORT();
 }
