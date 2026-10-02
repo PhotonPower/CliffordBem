@@ -1,4 +1,4 @@
-# Architektur und Ausbauplan (Stand 0.53)
+# Architektur und Ausbauplan (Stand 0.54)
 
 ## Leitlinien
 

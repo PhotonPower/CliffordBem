@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53), schnelleres H-Matrix-Produkt (v0.54)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -626,3 +626,49 @@ Die anisotrope Regel ist genauer als isotrop 6 und so teuer wie isotrop 5: Aufba
 **Prüfung.** `test_curved` (7): anisotrop gegen isotrop 12 auf 180 Elementen: Ecke 1,7·10⁻⁷, Kante 1,2·10⁻⁶,
 Selbstterm 1,0·10⁻⁶ (isotrop 5: 2,5·10⁻⁶, 5,2·10⁻⁶, 2,2·10⁻⁵). Die ebene Gegenprobe (2) gegen `LinearKernelEntries`
 läuft mit der isotropen Regel, damit sie bitgenau bleibt.
+
+## Schnelleres H-Matrix-Produkt (v0.54)
+
+**Messung** (Gold, 1 280 Elemente, ein Kern; `prototype/curved/hmatrix_params.cpp`). Das Lösen kostete so viel wie der
+ganze Aufbau: bei tol = 10⁻⁶ 23 Iterationen in 20,5 s, bei 10⁻¹⁰ 45 Iterationen in 38,7 s (Aufbau 22 s). Je Iteration
+werden zwei H-Matrizen angewendet, je 0,42 s. Eine H-Matrix hält 481 MB (dichte Blöcke 283 MB); das Produkt lief damit
+mit 1,1 GB/s, die Speicherbandbreite eines Kerns liegt bei 7,2 GB/s.
+
+Ursachen:
+- GCC prüft nach jeder komplexen Multiplikation `std::complex<double>` auf NaN und springt dann in `__muldc3` (C99
+  Anhang G). Die innere Schleife des Produkts enthielt 48 solche Aufrufstellen; die Verzweigung verhindert die
+  Vektorisierung.
+- Die 8 Komponenten des Ergebnisses wurden nach jeder Operation zurückgeschrieben (`y` und `z` könnten für den Compiler
+  denselben Speicher bezeichnen).
+
+**Änderung** (`CurvedHMatrix::apply`): innere Schleife y += k z in reeller Arithmetik (ac − bd, ad + bc, die Rechnung
+des schnellen Zweigs von `std::complex`), Ergebnis in lokalen Akkumulatoren. Die Reihenfolge der Additionen bleibt; die
+Ergebnisse sind bitgleich (σ_ext von Gold auf 17 Stellen, gleiche Iterationszahlen).
+
+| | v0.53 | v0.54 | v0.54 mit `-DCBEM_NATIVE=ON` |
+|---|---:|---:|---:|
+| Produkt, dichte Blöcke | 0,27 s | 0,127 s | 0,058 s |
+| Produkt, niedrigrangige Blöcke | 0,15 s | 0,098 s | 0,047 s |
+| Lösen Gold 320, tol 10⁻¹⁰ (47 It.) | 7,4 s | 3,8 s | |
+| Lösen Gold 1 280, tol 10⁻¹⁰ (45 It.) | 38,7 s | 22,3 s | |
+
+Mit `-march=native` (AVX2, FMA) halbiert sich das Produkt noch einmal; die dichten Blöcke laufen dann mit 4,9 GB/s nahe
+der Bandbreite, und der Aufbau wird 15 % schneller (Ergebnisse wegen FMA nicht mehr bitgleich). `CBEM_NATIVE` bleibt
+in der Voreinstellung aus (portable Programme und Wheels); für eigene Rechnungen lohnt es sich.
+
+**Partition** (gleiche Messung, Fehler des Produkts gegen ε = 10⁻⁸):
+
+| leaf / eta / sep_factor | Aufbau | Produkt | Speicher (dicht) | Fehler |
+|---|---:|---:|---:|---:|
+| 32 / 1 / 3 (Voreinstellung) | 5,2 s | 0,42 s | 481 MB (283) | 1,4·10⁻⁶ |
+| 64 / 1 / 3 | 4,8 s | 0,57 s | 631 MB (491) | 9,1·10⁻⁷ |
+| 32 / 2 / 3 | 4,1 s | 0,39 s | 438 MB (283) | 1,6·10⁻⁶ |
+| 64 / 2 / 2 | 4,2 s | 0,36 s | 405 MB (252) | 2,3·10⁻⁶ |
+
+(Zeiten vor der Änderung des Produkts.) `eta = 2` spart 20 % des Aufbaus bei kaum größerem Fehler. `HMatrixParams` gilt
+für alle Pfade; die Voreinstellung bleibt deshalb.
+
+**Nächste Schritte.** Dieselbe Umstellung für `KernelHMatrix` (konstante und lineare Dichten; 45 Aufrufstellen von
+`__muldc3`), HODLR (23) und dichte Blöcke (34) – bitgleich, also ohne Änderung der Ergebnisse. Danach Speicherung in
+einfacher Genauigkeit (complex64): halbiert den Speicher und, weil die dichten Blöcke mit `-march=native` an der
+Bandbreite liegen, etwa auch das Produkt.

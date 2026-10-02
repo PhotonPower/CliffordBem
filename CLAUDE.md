@@ -4,7 +4,7 @@ Koordinatenfreie Galerkin-Randelementmethode (BEM) der Nano-Optik in der komplex
 Streuung, Nahfeld, Dipolemission und optische Kräfte an (auch chiralen, beschichteten, mehreren) Körpern. C++17-Kern ohne
 externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Projekts: **Deutsch**.
 
-**Stand: v0.53** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
+**Stand: v0.54** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
 
 | Dichten / Geometrie | Klasse | seit | Genauigkeit an der Kugel (320 Elemente) |
 |---|---|---|---|
@@ -13,7 +13,7 @@ externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Proj
 | unstetig linear / quadratisch gekrümmt | `CurvedScatteringProblem` | v0.47 | Glas −0,012 %, Gold −0,007 %, etwa O(h⁴) |
 
 Die Herleitung, Messungen und Begründungen der gekrümmten Elemente stehen in `docs/results_curved.md` (Stufen 1, 2a, 1b,
-2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
+2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
 
 ## Bauen und testen
 
@@ -107,6 +107,10 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
 - Lang laufende Befehle (Bau, ctest) mit `setsid nohup … &` in eine Protokolldatei starten und kurz abfragen.
 - Windows/MinGW (MSYS2 ucrt64): Programme werden statisch gelinkt (`-static` in `CMakeLists.txt`). Ohne das luden sie
   über den PATH die `libstdc++-6.dll` aus Git for Windows, und `test_materials`/`test_gmsh` stürzten in den Dateistreams ab.
+- `std::complex<double>`-Multiplikation in heißen Schleifen: GCC erzeugt nach jeder Multiplikation eine NaN-Prüfung mit
+  Rückfall auf `__muldc3` (sichtbar mit `objdump -dr datei.obj | grep __muldc3`); das verhindert die Vektorisierung. In
+  inneren Schleifen reell rechnen und in lokalen Feldern akkumulieren (v0.54: Produkt fast doppelt so schnell, bitgleich).
+  Laufzeiten nie nur für den Aufbau messen: das Lösen kostete bei 1 280 Elementen ebenso viel.
 - Textersetzungen in Quelldateien nur mit eindeutigem Anker und Prüfung (`assert a in s`); eine Ersetzung in
   `src/hmatrix.cpp` traf einmal zwei Stellen.
 - Neue Überladungen (z. B. `translated`, `signed_volume` für `QuadraticMesh`) machen `&funktion` in den pybind11-Bindungen
@@ -121,19 +125,21 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
 
 ## Offene Aufgaben (priorisiert)
 
-1. **Aufbau gekrümmter Elemente weiter beschleunigen**: auf dem Windows-Rechner (v0.53) 22 s bei 1 280 Elementen
+1. **`__muldc3` aus heißen Schleifen entfernen** wie in v0.54 (`CurvedHMatrix::apply`): `KernelHMatrix::apply` (konstante und
+   lineare Dichten, 45 Aufrufstellen), HODLR (23), dichte Blöcke (34) – bitgleich nachweisen. Danach complex64-Speicher.
+2. **Aufbau gekrümmter Elemente weiter beschleunigen**: auf dem Windows-Rechner (v0.53) 22 s bei 1 280 Elementen
    (Gold, ein Kern): Nahquadratur 12,6 s (Sauter-Schwab etwa 5 s, seit v0.53 anisotrop und genauer, nicht schneller),
    H-Matrizen 10 s (ACA auf Quadraturpunkten, Speicher). Sauter-Schwab auf verzerrten Elementen (längste Kante/Höhe > 1,7)
    konvergiert langsam (Ausreißer bis 10⁻⁴ auf Gmsh-Netzen) – Ordnung nach Elementform wählen? Befunde v0.52/v0.53:
    erst messen, welche Größe begrenzt. Die H-Matrix (v0.50: 10 s) ließe sich weiter mit einer ACA auf den
    Quadraturpunkten beschleunigen (geschätzt Faktor 1,5); Speicher 475 MB je H-Matrix, davon 280 MB dichte Blöcke.
-2. **Nahfeld und Kräfte auf gekrümmten Elementen:** Streufeld aus der 24N-Spur (Quadratur mit `CurvedQuadrature`,
+3. **Nahfeld und Kräfte auf gekrümmten Elementen:** Streufeld aus der 24N-Spur (Quadratur mit `CurvedQuadrature`,
    Normale je Punkt), dann `exterior_near_field`- und Kraft-Varianten; Gewinn gegen Mie (`tools/mie_nearfield.py`,
    `tools/mie_force.py`) messen – Feldwerte konvergieren punktweise langsamer als die Extinktion.
-3. **Chirales Außenmedium** für lineare und gekrümmte Elemente (Fernfeld je Helizität wie `extinction_in_medium`).
-4. Block-/HODLR-Vorkonditionierung und geschichtete Körper für lineare/gekrümmte Elemente.
-5. Typ-Stubs (`.pyi`) für die Python-Anbindung; Wheels für weitere Plattformen.
-6. Ältere offene Punkte aus `README.md`/`docs/ARCHITECTURE.md`: reflexionsfreier Abschluss an 3D-Kanten, Streckung um
+4. **Chirales Außenmedium** für lineare und gekrümmte Elemente (Fernfeld je Helizität wie `extinction_in_medium`).
+5. Block-/HODLR-Vorkonditionierung und geschichtete Körper für lineare/gekrümmte Elemente.
+6. Typ-Stubs (`.pyi`) für die Python-Anbindung; Wheels für weitere Plattformen.
+7. Ältere offene Punkte aus `README.md`/`docs/ARCHITECTURE.md`: reflexionsfreier Abschluss an 3D-Kanten, Streckung um
    Spitzen im C++-Kern, Substrate, parallele Tests auf Mehrkernrechnern, Stabilität der Dünnschicht-Näherung für d ≳ h.
 
 ## Kurzbeispiel (Python)
