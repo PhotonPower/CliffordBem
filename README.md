@@ -202,7 +202,7 @@ include/cbem/problems    ScatteringProblem (Einstiegsklasse), LayeredScatteringP
 apps/  tests/  tools/  results/  examples/
 data/materials/          Johnson-Christy Au, Ag (refractiveindex.info, CC0)
 prototype/               Python-Prototypen: ap1 (Theorie), ap2 (3D-Galerkin, H-Matrix), resonance (Resonanzfenster)
-docs/                    Architektur, Ergebnisberichte, Arbeitspapiere AP 1–3, Zusammenfassung, Antrag, Python-Anbindung
+docs/                    Architektur, Ergebnisberichte, Arbeitspapiere AP 1–3, Zusammenfassung, Python-Anbindung
 bindings/python/         pybind11-Modul cliffordbem._cbem, Paket cliffordbem, Tests; examples/python: Skripte
 ```
 

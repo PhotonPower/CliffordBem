@@ -28,10 +28,9 @@
 ## Python-Anbindung
 - `python.md`: Bauen und Installieren, Konventionen, Umfang, Lebensdauer und Threads, Beispiele, Tests
 
-## Arbeitspapiere und Antrag
+## Arbeitspapiere
 - `papers/ap1/AP1_Ausarbeitung.pdf`: Theorie (Formulierung, Eindeutigkeit, Kanten, Spitzen, chirale Medien, Resonanzfenster,
   verschachtelte Gebiete/beschichtete Grenzflächen)
 - `papers/ap2/AP2_Ausarbeitung.pdf`: 3D-Galerkin-Prototyp, Würfel, Vorkonditionierung
 - `papers/ap3/AP3_Ausarbeitung.pdf`: Kompression, C++-Kern
 - `papers/Zusammenfassung_Vorarbeiten.pdf`: Zusammenfassung aller Ergebnisse
-- `antrag/CliffordBem.pdf`: Antragstext

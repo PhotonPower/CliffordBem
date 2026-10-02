@@ -30,7 +30,7 @@ Repository = "https://github.com/PhotonPower/CliffordBem"
 minimum-version = "0.8"
 build-dir = "build/{wheel_tag}"
 wheel.packages = ["bindings/python/cliffordbem"]
-sdist.exclude = ["results", "docs/papers", "docs/antrag", "prototype", "build"]
+sdist.exclude = ["results", "docs/papers", "prototype", "build"]
 
 [tool.scikit-build.cmake.define]
 CBEM_BUILD_PYTHON = "ON"
