@@ -36,4 +36,5 @@ PYBIND11_MODULE(_cbem, m) {
     init_problems(m);
     init_sources(m);
     init_linear(m);
+    init_curved(m);
 }

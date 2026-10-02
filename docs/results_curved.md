@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -237,3 +237,76 @@ Der Volumenfehler fällt wie O(h⁴), wie von der Theorie für Interpolation vom
 **Grenzen.** Wie in Stufe 1: nur die Kugel, je eine Frequenz, nur die Extinktion; Extrapolation mit höchstens fünf Punkten.
 Die Kantenmitten liegen hier exakt auf der Kugel. Bei Gmsh liegen sie auf der CAD-Fläche, bei Netzen ohne CAD-Beschreibung
 muss die Fläche anders rekonstruiert werden.
+
+## Stufe 2b: gekrümmte Elemente im Kern (v0.47)
+
+Der Kern rechnet jetzt auf quadratischen (gekrümmten) Elementen mit unstetig linearen Dichten (`CurvedScatteringProblem`,
+24 Unbekannte je Element). Das ist die Kombination, die sich in Stufe 1 als lohnend erwiesen hat.
+
+**Ergebnis** (Fehler von σ_ext gegen Mie, ebene Welle, Voreinstellungen):
+
+| Elemente | Glas, heute | **Glas, gekrümmt** | Gold, heute | **Gold, gekrümmt** |
+|---:|---:|---:|---:|---:|
+| 320 | −5,68 % | **−0,012 %** | +7,31 % | **−0,0067 %** |
+| 500 | −3,68 % | **−0,0048 %** | +4,68 % | **−0,0023 %** |
+| 720 | −2,57 % | **−0,0027 %** | +3,25 % | **−0,0010 %** |
+| 1 280 | −1,46 % | – | +1,81 % | −0,00006 % |
+
+Bei 320 Elementen ist der Fehler etwa 500-mal (Glas) bzw. 1 000-mal (Gold) kleiner als heute. Gold mit 320 gekrümmten
+Elementen ist genauer als die heutige Rechnung mit 11 520 Elementen (+0,19 %). Der Fehler fällt etwa wie O(h⁴): bei Gold
+von 320 auf 500 auf 720 Elemente um die Faktoren 2,9 und 2,3, erwartet sind 2,4 und 2,1. Bei 1 280 Elementen liegt Gold
+nahe am Vorzeichenwechsel bzw. am Rauschboden der Kompression (6·10⁻⁷ relativ); eine Ordnung ist daraus nicht abzulesen.
+Strengere Parameter (ACA ε = 10⁻⁶, Sauter-Schwab-Ordnung 8, Nahquadratur 0,2/0,1) ändern Gold bei 320 Elementen nur von
+−0,0067 % auf −0,0068 %.
+
+**Aufbau.**
+- `QuadraticMesh`: 6-Knoten-Elemente wie Gmsh `ElementOrder 2` (Ecken des ebenen Netzes, Kantenmitten auf der Fläche),
+  Parametrisierung über dem Referenzdreieck, dS = |X_u × X_v| du dv, Normale je Punkt. Die Basis ist je Element orthonormal
+  bezüglich der gekrümmten Fläche: ψ = L⁻¹λ mit der Cholesky-Zerlegung der numerisch integrierten Gram-Matrix.
+- `CurvedKernelEntries`: Die Normale variiert im Element und steht deshalb im Integral. G(z)·n(y) = s·n + v·(z·n) +
+  v·(z∧n) hat sieben Komponenten (Skalar, Vektor, Bivektor), nicht 4×3 = 12. Fernpaare werden mit Gauß 7×7 im
+  Parameterraum gerechnet, benachbarte Paare mit Sauter-Schwab in Parameterkoordinaten. Im Selbstterm wird
+  Φ₀(x−y)n(y) = K_a + K_s zerlegt: K_a = Φ₀(n(x)+n(y))/2 ist antisymmetrisch und wird als Hauptwert mit antisymmetrisierten
+  Gewichten integriert, K_s = Φ₀(n(y)−n(x))/2 ist schwach singulär. Nahe, getrennte Paare werden doppelt adaptiv
+  integriert; analytische Innenintegrale gibt es auf gekrümmten Elementen nicht.
+- `CurvedHMatrix` für sieben Komponenten (Baum über Elementen, je drei Indizes, Joint-ACA), `CurvedCauchyOperator`.
+- `CurvedTransmissionOperator`: J(n(x)) variiert im Element und bildet lineare Dichten nicht auf lineare ab. Die exakte
+  Komposition E₁J wäre ein Kern mit 64 Komponenten. Verwendet wird die Galerkin-Projektion J_G (24×24 je Element). Der
+  Prototyp hat das vorab gemessen: Der Zusatzfehler beträgt etwa 20 % des Diskretisierungsfehlers (Glas, 320 Elemente:
+  +0,005 %; Gold: +0,023 %) und fällt selbst wie O(h⁴). Vorkonditionierung 2(1 + J_G)⁻¹ je Element.
+
+**Prüfungen** (`tests/test_curved.cpp`, Python `test_curved_elements`):
+
+| Prüfung | Ergebnis |
+|---|---|
+| ebene Elemente (Mitten auf den Sehnen): Flächen, Normalen, Basis | 10⁻¹⁵ |
+| Volumen der quadratischen Kugel, 320 Elemente | −1,458·10⁻⁴ (Prototyp Stufe 1b: −1,460·10⁻⁴), O(h⁴) (Faktor 15,7) |
+| ebene Gegenprobe der Einträge gegen `LinearKernelEntries`: fern, Ecke, Kante, Selbstterm | ≤ 4,4·10⁻¹⁵ |
+| dasselbe für nahe, getrennte Paare | 5,8·10⁻⁶; das ist der Fehler der Referenz (Rest mit 7 Gauß-Punkten); die doppelt adaptive Quadratur konvergiert in sich auf 2·10⁻⁷ |
+| ebene Gegenprobe des Streuproblems gegen `LinearScatteringProblem` | 1,9·10⁻⁶ |
+| Plemelj auf der gekrümmten Fläche: E h = h (innere Lösung), E h = −h (äußere, Dipol) | O(h²) (Faktor 2,2 bei 320 → 720) |
+| Gegentest: Selbstterm ohne K_s | Fehler 40-mal größer und nur O(h): der Plemelj-Test erkennt einen falschen Selbstterm |
+| chirale Kugel: σ_s(χ) = σ_−s(−χ) | 10⁻⁸ |
+
+**Abweichung von der Vorhersage bei Gold.** Für Glas trifft der Kern die Vorhersage aus Stufe 1b einschließlich der
+J_G-Korrektur (vorhergesagt etwa −0,015 % bei 320 Elementen, gemessen −0,012 %). Für Gold ist er etwa zehnmal besser als
+vorhergesagt (etwa −0,09 % vorhergesagt, gemessen −0,007 %). Drei Befunde sprechen für den Kern und gegen die Vorhersage:
+
+1. Der Kern ist numerisch konvergiert; strengere Parameter ändern das Ergebnis nicht.
+2. Der Fehler geht wie O(h⁴) gegen null. Ein Fehlerterm im Kern würde typischerweise stagnieren oder langsamer fallen.
+3. Der Plemelj-Test bestätigt den gekrümmten Operator, und ein absichtlich verfälschter Selbstterm fällt darin deutlich auf.
+
+Die Vorhersage für Gold beruhte auf einer Extrapolation, die große Zahlen auslöschen musste (+1,82 → +0,79 → +0,42 % für
+m = 2…4, extrapoliert auf −0,07 bis −0,12 %). Ihre Unsicherheit war offenbar größer als die angegebene Spanne über die
+Fehlermodelle. Endgültig bewiesen ist das nicht.
+
+**Kosten.** Gekrümmte Elemente mit 320 Elementen brauchen auf einem Kern 27 s Aufbau, davon 25 s für die doppelt adaptive
+Nahquadratur, und 155 MB. Die heutige Rechnung braucht für einen vergleichbaren Fehler (Gold +0,19 % bei 11 520
+Elementen) deutlich mehr Speicher und Zeit. Die Nahquadratur ist der erste Ansatzpunkt für eine Optimierung, etwa über
+Singularitätssubtraktion mit den analytischen Integralen des Sehnendreiecks.
+
+**Umfang von 2b.** Wie in 2a: ein oder mehrere Körper (auch chiral), achirales Außenmedium, ebene Wellen und beliebige
+rechte Seiten, Extinktion, Vorwärtsamplitude und Fernfeld, jeweils auch in Python. Noch nicht unterstützt: das chirale
+Außenmedium, Nahfeld und Kräfte, der Import quadratischer Gmsh-Netze (`ElementOrder 2`), Block- und
+HODLR-Vorkonditionierung sowie geschichtete Körper. Netze mit Kanten und Ecken (Würfel) profitieren an den ebenen Seiten
+nicht.

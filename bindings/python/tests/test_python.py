@@ -538,6 +538,40 @@ def test_linear_densities():
     assert C.apply(b).shape == b.shape and e_lin < 2e-3 and e_lin < 0.25 * e_con, (e_lin, e_con)
 
 
+# --- gekruemmte Elemente (v0.47) ------------------------------------------------------------------------------------------
+def test_curved_elements():
+    """Quadratische Elemente mit linearen Dichten: Geometrie (O(h^4)), eigene Projektion der Kantenmitten, ebene Gegenprobe,
+    Kugel gegen Mie (180 Elemente: unter 0,06 %, eben mit konstanten Dichten etwa -10 %), Fehler, Lebensdauer."""
+    q = cb.quadratic_icosphere(3)
+    assert len(q) == 180 and q.midpoints.shape == (180, 3, 3) and q.unknowns == 24 * 180
+    v3, v6 = q.volume() / (4 * np.pi / 3) - 1, cb.quadratic_icosphere(6).volume() / (4 * np.pi / 3) - 1
+    assert 14 < v3 / v6 < 17                                             # Volumenfehler O(h^4)
+    q2 = cb.make_quadratic(cb.make_icosphere(3), lambda p: p / np.linalg.norm(p))
+    assert np.abs(q2.midpoints - q.midpoints).max() < 1e-14
+    flat = cb.make_quadratic(cb.make_icosphere(3), lambda p: p)        # ebene Elemente
+    assert np.allclose(flat.areas, cb.make_icosphere(3).areas, rtol=1e-13)
+    assert np.allclose(np.linalg.norm(q.point(5, (0.2, 0.3, 0.5))), 1.0, atol=1e-2)
+    assert raises(ValueError, cb.QuadraticMesh, cb.make_icosphere(3), np.zeros((10, 3, 3)))
+    so = cb.SolveOptions(tol=1e-9)
+    Pf = cb.CurvedScatteringProblem(flat, cb.Medium(eps=2.25), 1.0)
+    Pl = cb.LinearScatteringProblem(cb.make_icosphere(3), cb.Medium(eps=2.25), 1.0)
+    sf, sl = Pf.solve_plane_wave(Z, X, so).sigma_ext, Pl.solve_plane_wave(Z, X, so).sigma_ext
+    assert abs(sf / sl - 1) < 2e-5, sf / sl - 1
+    P = cb.CurvedScatteringProblem(q, cb.Medium(eps=2.25), 1.0)
+    r = P.solve_plane_wave(Z, X, so)
+    err = r.sigma_ext / np.pi / 0.2150978 - 1
+    assert abs(err) < 6e-4, err
+    b = cb.plane_wave_trace_curved(q, cb.Medium(), 1.0, Z, X)
+    assert np.isclose(cb.extinction_cross_section_curved(q, r.h - b, 1.0, 1.0, Z, X), r.sigma_ext)
+    assert np.allclose(P.solve_rhs(b, so).h, r.h)
+    assert raises(ValueError, P.solve_rhs, np.zeros(8 * len(q)))
+    E = cb.CurvedKernelEntries(q, 1.0)
+    assert E.block(0, 0).shape == (3, 3, 7)
+    C = cb.CurvedCauchyOperator(q, cb.CurvedHMatrix(E))                 # Eintraege und H-Matrix bleiben am Leben
+    del E
+    assert np.linalg.norm(C.apply(b) - b) < 5e-3 * np.linalg.norm(b)    # Plemelj E b = b (innere Loesung)
+
+
 def main():
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = 0

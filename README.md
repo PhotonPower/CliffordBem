@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.46.** Galerkin-BEM mit stückweise konstanten (seit v0.45 auch unstetig linearen) Multivektor-Dichten auf ebenen Dreiecken:
+**Stand 0.47.** Galerkin-BEM mit stückweise konstanten (seit v0.45 auch unstetig linearen) Multivektor-Dichten auf ebenen Dreiecken, seit v0.47 auch auf gekrümmten (quadratischen) Elementen:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -32,6 +32,7 @@ Vorkonditionierung, Gmsh-Import, Python-Anbindung für Skripte (`cliffordbem`, p
 | Vorkonditionierung | punktweise, Blöcke (Kanten/Ecken, Cluster), HODLR | voller Block bzw. feine HODLR-Toleranz = direkter Löser |
 | Geometrie | Kugel, Würfel (gleichmäßig/gradiert), Mehrkörper, Gmsh 2.2/4.1 | Gmsh-Kugel konvergiert gegen Mie |
 | Lineare Dichten (v0.45) | `LinearScatteringProblem`: unstetig lineare Dichten (24 Unbekannte je Dreieck), analytische Nahfeldintegrale, auch chirale und mehrere Körper; Grundlage gekrümmter Elemente | Einträge summieren sich exakt zu den konstanten (10⁻¹⁵), Kugel wie die unabhängige Vorhersage aus Stufe 1 (`docs/results_curved.md`) |
+| Gekrümmte Elemente (v0.47) | `CurvedScatteringProblem`: quadratische Elemente (wie Gmsh `ElementOrder 2`) mit unstetig linearen Dichten, Normale im Integral (7 Kernkomponenten), Transmissionsabbildung als Elementmatrix | Kugel mit 320 Elementen: Fehler gegen Mie −0,012 % (Glas) und −0,007 % (Gold) statt −5,7 % und +7,3 %, Konvergenz etwa O(h⁴) (`docs/results_curved.md`) |
 | Python-Anbindung | Paket `cliffordbem` (pybind11): alle Problemklassen, Anregungen, Nahfeld, Dipole, Kräfte, Algebra und die Bausteine (Einträge, H-Matrix, Cauchy-Operator, T₁, GMRES mit Python-Operatoren); eigene einfallende Felder als Python-Klassen (Bessel-, Wirbel-, Stehwellen); NumPy-Arrays, Rechnung ohne GIL | gleiche Ergebnisse wie C++ (Regression, Bausteine bitgleich), Nahfeld und Kräfte gegen Mie (`docs/python.md`) |
 
 ## Bauen und Testen
@@ -42,7 +43,7 @@ Für die Python-Werkzeuge: NumPy, SciPy, Matplotlib, optional `gmsh` (Geometrien
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release     # Optionen: -DCBEM_OPENMP=ON -DCBEM_NATIVE=ON
 cmake --build build -j
-ctest --test-dir build --output-on-failure         # 27 Tests (28 mit -DCBEM_BUILD_PYTHON=ON)
+ctest --test-dir build --output-on-failure         # 28 Tests (29 mit -DCBEM_BUILD_PYTHON=ON)
 ```
 
 Python-Anbindung (v0.42, `docs/python.md`): `pip install .` oder `cmake -S . -B build -DCBEM_BUILD_PYTHON=ON` (benötigt
@@ -83,6 +84,7 @@ print(P.solve_plane_wave(d=(0, 0, 1), p=(1, 0, 0)).sigma_ext / cb.pi)   # Q_ext 
 | `test_twoport` | Zweitor: neutrale Schicht, Glasschale d/h = 0,29 und 1,14 gegen Aden–Kerker, chirale Schicht (Symmetrie, CD), Mehrfachschichten (Zerlegung, Oxid + Glas, chirale Schicht auf Abstandshalter), Unterteilung dicker Schichten |
 | `test_thin_layer` | Flächenoperatoren, Formoperator und Laplace–Beltrami auf der Kugel, ohne Schicht = T₁, neutrale Schicht ohne Wirkung, Schichtwirkung erster und zweiter Ordnung gegen Aden–Kerker (auch nach innen), mehrere Körper, chirale Schicht (Spiegelsymmetrie, CD gegen Mie, chiraler Kern = T₁) |
 | `test_linear` | lineare Dichten: Innenintegrale gegen Brute Force, Summenidentität der Einträge in allen Zweigen, Projektion, Plemelj, Kugel gegen die Vorhersage aus Stufe 1, chirale Symmetrie, Mehrkörper |
+| `test_curved` | gekrümmte Elemente: Geometrie (O(h⁴)), ebene Gegenproben der Einträge und des Streuproblems, Plemelj auf der gekrümmten Fläche, Kugel aus Glas und Gold gegen Mie, chirale Symmetrie |
 | `test_python` | Python-Anbindung (nur mit `-DCBEM_BUILD_PYTHON=ON`): Algebra, Netze, Regression und Bausteine bitgleich zu C++, Mie, chirale Medien, Nahfeld, Kräfte, Dipol, Strahlen, Schichten, Fehlerbehandlung, Threads ohne GIL; eigene einfallende Felder bitgleich zum Kern, Überlagerung, Maxwell-Prüfung |
 
 ## Anwendungen
@@ -206,8 +208,8 @@ bindings/python/         pybind11-Modul cliffordbem._cbem, Paket cliffordbem, Te
 ## Offene Punkte
 
 Siehe `docs/ARCHITECTURE.md`. Wichtigste: reflexionsfreier Abschluss an 3D-Kanten im Resonanzfenster,
-Streckung um Spitzen im C++-Kern, Krylov-Recycling für viele rechte Seiten, Substrate, gekrümmte Elemente
-zusammen mit Ansätzen höherer Ordnung (einzeln lohnen beide nicht, `docs/results_curved.md`), parallele Tests auf Mehrkernrechnern, Typ-Stubs für die Python-Anbindung; für beschichtete Körper:
+Streckung um Spitzen im C++-Kern, Krylov-Recycling für viele rechte Seiten, Substrate, für gekrümmte Elemente
+Import quadratischer Gmsh-Netze, Nahfeld und Kräfte sowie eine schnellere Nahquadratur (`docs/results_curved.md`), parallele Tests auf Mehrkernrechnern, Typ-Stubs für die Python-Anbindung; für beschichtete Körper:
 Block-/HODLR-Vorkonditionierung, ein Eindeutigkeitsbeweis für verschachtelte Gebiete; für die Dünnschicht-Näherung
 Stabilität für d ≳ h (nichtlokale Formulierung) und Krümmungssprünge (Übergang von ebenen Seiten zu Rundungen).
 
