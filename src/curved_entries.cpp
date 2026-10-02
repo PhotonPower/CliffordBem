@@ -55,6 +55,14 @@ CurvedKernelEntries::CurvedKernelEntries(const QuadraticMesh& mesh, cplx k, Entr
     : m_(mesh), k_(k), prm_(prm), np_(np), r7_(QuadRule::dunavant7()), q7_(mesh, r7_), S_(curved_psi_matrices(mesh)) {
     for (Adjacency a : {Adjacency::Vertex, Adjacency::Edge, Adjacency::Coincident})
         ss_[static_cast<int>(a)] = PairRule::sauter_schwab(a, prm_.ss_order);
+    psiw_.resize(q7_.w.size());
+    for (std::size_t t = 0; t < m_.size(); ++t)
+        for (int p = 0; p < q7_.q; ++p)
+            for (int a = 0; a < 3; ++a) {
+                real s = 0;
+                for (int k = 0; k < 3; ++k) s += S_[t][a * 3 + k] * q7_.lam[p][k];
+                psiw_[t * q7_.q + p][a] = q7_.weights(t)[p] * s;
+            }
     if (prm_.cache_near) build_near_cache();
 }
 
@@ -126,7 +134,27 @@ CurvedBlock CurvedKernelEntries::block(std::size_t i, std::size_t j) const {
     return to_psi(i, j, lambda_exact(i, j));
 }
 
-CurvedBlock CurvedKernelEntries::block_far(std::size_t i, std::size_t j) const { return to_psi(i, j, lambda_far(i, j)); }
+CurvedBlock CurvedKernelEntries::block_far(std::size_t i, std::size_t j) const {
+    // wie to_psi(lambda_far): Gewichte w psi_a statt w lambda_a, zweistufig kontrahiert (erst ueber y, dann ueber x)
+    CurvedBlock K = zero_block();
+    const int nq = q7_.q;
+    const Vec3* x = q7_.points(i); const auto* gx = &psiw_[i * nq];
+    const Vec3* y = q7_.points(j); const Vec3* ny = q7_.normals(j); const auto* gy = &psiw_[j * nq];
+    for (int p = 0; p < nq; ++p) {
+        std::array<CurvedComp, 3> T;
+        for (auto& t : T) t.fill(cplx(0));
+        for (int q = 0; q < nq; ++q) {
+            const Vec3 z = x[p] - y[q]; const KernelValue kv = dirac_kernel_fast(z, k_);
+            const CurvedComp c = comps7(z, ny[q], kv.s, kv.vcoef);
+            for (int b = 0; b < 3; ++b) { const real g = gy[q][b]; for (int cc = 0; cc < kCurvedComps; ++cc) T[b][cc] += g * c[cc]; }
+        }
+        for (int a = 0; a < 3; ++a) {
+            const real g = gx[p][a];
+            for (int b = 0; b < 3; ++b) { CurvedComp& k = K[a * 3 + b]; for (int cc = 0; cc < kCurvedComps; ++cc) k[cc] += g * T[b][cc]; }
+        }
+    }
+    return K;
+}
 
 CurvedBlock CurvedKernelEntries::lambda_exact(std::size_t i, std::size_t j) const {
     if (!is_near(i, j)) return lambda_far(i, j);
@@ -141,7 +169,7 @@ CurvedBlock CurvedKernelEntries::lambda_far(std::size_t i, std::size_t j) const 
     const Vec3* y = q7_.points(j); const Vec3* ny = q7_.normals(j); const real* wy = q7_.weights(j);
     for (int p = 0; p < q7_.q; ++p)
         for (int q = 0; q < q7_.q; ++q) {
-            const Vec3 z = x[p] - y[q]; const KernelValue kv = dirac_kernel_full(z, k_);
+            const Vec3 z = x[p] - y[q]; const KernelValue kv = dirac_kernel_fast(z, k_);
             acc(K, q7_.lam[p], q7_.lam[q], wx[p] * wy[q], comps7(z, ny[q], kv.s, kv.vcoef));
         }
     return K;
@@ -165,7 +193,7 @@ void CurvedKernelEntries::inner(const Vec3& x, std::size_t j, const Tri& tri, re
         std::array<real, 3> l;
         for (int k = 0; k < 3; ++k) l[k] = r7_.bary[p][0] * tri[0][k] + r7_.bary[p][1] * tri[1][k] + r7_.bary[p][2] * tri[2][k];
         Vec3 n; const real J = m_.jacobian(j, l, &n);
-        const Vec3 z = x - m_.X(j, l); const KernelValue kv = dirac_kernel_full(z, k_);
+        const Vec3 z = x - m_.X(j, l); const KernelValue kv = dirac_kernel_fast(z, k_);
         const CurvedComp cc = comps7(z, n, kv.s, kv.vcoef);
         const real w = r7_.w[p] * aref * J;
         for (int b = 0; b < 3; ++b) for (int q = 0; q < kCurvedComps; ++q) out[b][q] += w * l[b] * cc[q];
@@ -267,7 +295,7 @@ void CurvedKernelEntries::correction_point(const Vec3& x, std::size_t j, const T
                                            std::array<CurvedComp, 3>& out) const {
     const cplx ik = cplx(0, 1) * k_;
     Vec3 n; const real J = m_.jacobian(j, l, &n);
-    const Vec3 z = x - m_.X(j, l); const KernelValue kv = dirac_kernel_full(z, k_);
+    const Vec3 z = x - m_.X(j, l); const KernelValue kv = dirac_kernel_fast(z, k_);
     const CurvedComp full = comps7(z, n, kv.s, kv.vcoef);
     const Vec3 za = x - (T.X0 + T.Xu * l[1] + T.Xv * l[2]);              // Tangentialdreieck, gleicher Parameter
     const real ra = norm(za);
@@ -318,7 +346,7 @@ CurvedBlock CurvedKernelEntries::lambda_sauter_schwab(std::size_t i, std::size_t
         const Vec3 x = m_.X(i, lx), y = m_.X(j, ly), z = x - y;
         const real r = norm(z);
         if (r < 1e-14) continue;
-        const KernelValue kv = dirac_kernel_full(z, k_);
+        const KernelValue kv = dirac_kernel_fast(z, k_);
         const real w = R.w[q] * Jx * Jy;
         if (!coinc) { acc(K, lx, ly, w, comps7(z, ny, kv.s, kv.vcoef)); continue; }
         // Selbstterm: Rest (ohne Phi_0) normal; Phi_0 = z/(4 pi r^3) n(y) = K_a + K_s

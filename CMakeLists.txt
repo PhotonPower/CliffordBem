@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(CliffordBem VERSION 0.49.0 LANGUAGES CXX)
+project(CliffordBem VERSION 0.50.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -60,6 +60,13 @@ if(CBEM_BUILD_PYTHON)
 endif()
 if(CBEM_NATIVE)
   target_compile_options(cbem PUBLIC -march=native)
+endif()
+# MinGW (Windows): Laufzeitbibliotheken (libstdc++, libgcc, libgomp, winpthread) statisch linken; sonst laden die
+# Programme je nach PATH fremde, inkompatible DLLs (z. B. libstdc++-6.dll aus Git for Windows) und stuerzen ab.
+# Statische Archive bevorzugen, damit find_package(OpenMP) libgomp.a statt libgomp.dll.a eintraegt.
+if(MINGW)
+  add_link_options(-static)
+  set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
 endif()
 if(CBEM_OPENMP)
   find_package(OpenMP)

@@ -5,7 +5,7 @@ Clifford-Algebra Cl₃(ℂ). Grundlage ist die Dirac-Formulierung der Maxwell-Gl
 Faraday-Multivektor **F** = √ε **E** + I √μ **H** und der resonanzfreien Transmissionsgleichung
 T₁ = E₂⁺ + E₁⁻ J (Theorie: `docs/papers`).
 
-**Stand 0.49.** Galerkin-BEM mit stückweise konstanten (seit v0.45 auch unstetig linearen) Multivektor-Dichten auf ebenen Dreiecken, seit v0.47 auch auf gekrümmten (quadratischen) Elementen:
+**Stand 0.50.** Galerkin-BEM mit stückweise konstanten (seit v0.45 auch unstetig linearen) Multivektor-Dichten auf ebenen Dreiecken, seit v0.47 auch auf gekrümmten (quadratischen) Elementen:
 H-Matrix-Kompression (ACA), Sauter-Schwab- und halbanalytische Nahfeldquadratur, achirale und chirale Medien,
 mehrere Körper, beschichtete Grenzflächen (Kern-Schale, Mehrfachschichten, dünne Oxidschichten; exakt oder als
 Dünnschicht-Näherung zweiter Ordnung auf einer Fläche, auch chirale Schichten; Zweitor-Formulierung für Mehrfachschichten
@@ -84,7 +84,7 @@ print(P.solve_plane_wave(d=(0, 0, 1), p=(1, 0, 0)).sigma_ext / cb.pi)   # Q_ext 
 | `test_twoport` | Zweitor: neutrale Schicht, Glasschale d/h = 0,29 und 1,14 gegen Aden–Kerker, chirale Schicht (Symmetrie, CD), Mehrfachschichten (Zerlegung, Oxid + Glas, chirale Schicht auf Abstandshalter), Unterteilung dicker Schichten |
 | `test_thin_layer` | Flächenoperatoren, Formoperator und Laplace–Beltrami auf der Kugel, ohne Schicht = T₁, neutrale Schicht ohne Wirkung, Schichtwirkung erster und zweiter Ordnung gegen Aden–Kerker (auch nach innen), mehrere Körper, chirale Schicht (Spiegelsymmetrie, CD gegen Mie, chiraler Kern = T₁) |
 | `test_linear` | lineare Dichten: Innenintegrale gegen Brute Force, Summenidentität der Einträge in allen Zweigen, Projektion, Plemelj, Kugel gegen die Vorhersage aus Stufe 1, chirale Symmetrie, Mehrkörper |
-| `test_curved` | gekrümmte Elemente: Geometrie (O(h⁴)), ebene Gegenproben der Einträge und des Streuproblems, Plemelj auf der gekrümmten Fläche, Kugel aus Glas und Gold gegen Mie, chirale Symmetrie |
+| `test_curved` | gekrümmte Elemente: Geometrie (O(h⁴)), ebene Gegenproben der Einträge und des Streuproblems, Plemelj auf der gekrümmten Fläche, Kugel aus Glas und Gold gegen Mie, chirale Symmetrie, Nahquadratur mit Subtraktion, Fernblöcke in der ψ-Basis und schneller Kern |
 | `test_python` | Python-Anbindung (nur mit `-DCBEM_BUILD_PYTHON=ON`): Algebra, Netze, Regression und Bausteine bitgleich zu C++, Mie, chirale Medien, Nahfeld, Kräfte, Dipol, Strahlen, Schichten, Fehlerbehandlung, Threads ohne GIL; eigene einfallende Felder bitgleich zum Kern, Überlagerung, Maxwell-Prüfung |
 
 ## Anwendungen

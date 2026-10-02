@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -415,3 +415,55 @@ doppelt adaptive Verfahren bleibt als Referenz wählbar (`CurvedNearParams(subtr
 
 **Nächster Engpass.** Bei 1 280 Elementen braucht die H-Matrix mit sieben Komponenten jetzt 23 von 55 s, die
 Nahquadratur 32 s.
+
+## Schnellere H-Matrix mit sieben Komponenten (v0.50)
+
+**Messung** (Gold ε = −11 + 1,2i, ωa = 0,5, 1 280 Elemente, ein Kern, Windows/MinGW g++ 16; je Wellenzahl k = 0,5 bzw.
+k = 0,09 + 1,66i). Die Zahlen gelten für diesen Rechner: Hier braucht die H-Matrix nur 14 von 56 s Aufbau, die
+Nahquadratur 42 s. Die Aufteilung im vorigen Abschnitt („23 von 55 s“) stammt von einem anderen Rechner.
+
+| Anteil je H-Matrix (k = 0,5) | Zeit |
+|---|---:|
+| Fernblöcke in der ACA (1,06 Mio. Elementpaare, davon 0,83 Mio. verschieden) | 4,0 s |
+| dichte Blöcke (281 000 Paare, davon 66 000 nah aus dem Cache) | 0,9 s |
+| Nachkompression | 0,9 s |
+| übrige ACA-Algebra | 1,0 s |
+| gesamt | 6,8 s |
+
+- Die ACA wertet 61 % aller 1,36 Mio. zulässigen Elementpaare aus: Die Blöcke sind klein (im Mittel 16 × 16 Elemente),
+  jede ACA-Zeile kostet eine ganze Elementzeile, und bei Rang 7 sind nach wenigen Schritten fast alle Paare berechnet.
+  Zeilen- und Spaltenzwischenspeicher waren getrennt, 22 % der Paare wurden doppelt berechnet.
+- Ein Fernblock (49 Punktpaare) kostete 3,0 µs: Kern 1,45 µs (komplexes `exp`), Komponenten 0,36 µs, Akkumulation in
+  3 × 3 × 7 Einträge und Umrechnung in die ψ-Basis (`to_psi`) etwa 1,2 µs.
+
+**Änderungen.**
+- Zeilen- und Spaltenzwischenspeicher der ACA lesen Elementpaare, die schon in der anderen Richtung berechnet sind, von
+  dort (`CurvedHMatrix`).
+- `block_far` rechnet direkt in der ψ-Basis: Die Gewichte w ψ_a an den Quadraturpunkten werden je Element einmal
+  berechnet, die Kontraktion läuft zweistufig (erst über y, dann über x; 21 statt 63 Produkte je Punktpaar), `to_psi`
+  entfällt.
+- `dirac_kernel_fast`: e^{ikr} = e^{−Im k r}(cos Re k r + i sin Re k r) in reeller Arithmetik, 22 statt 29 ns je
+  Auswertung, Abweichung ≤ 7·10⁻¹⁶. Nur im gekrümmten Pfad (Fern-, Nah-, Sauter-Schwab-Quadratur); der konstante Pfad
+  behält `dirac_kernel_full` und bleibt bitgleich.
+
+**Ergebnis** (ein Kern):
+
+| Fall | Aufbau v0.49 | Aufbau v0.50 | H-Matrizen v0.49 → v0.50 | Änderung von σ_ext |
+|---|---:|---:|---:|---:|
+| Glas, 320 Elemente | 11,6 s | 10,6 s | | 0 (12 Stellen) |
+| Gold, 320 Elemente | 11,7 s | 10,8 s | | 0 (12 Stellen) |
+| Gold, 1 280 Elemente | 56,1 s | 49,0 s | 14,4 → 10,3 s | 1,3·10⁻⁸ relativ |
+
+Mit 12 Threads braucht der ganze Aufbau bei 1 280 Elementen 9,1 s (H-Matrizen 1,9 s, Nahquadratur 7,3 s).
+
+**Prüfung** (`test_curved`, Teil 6): `block_far` gegen S L Sᵀ der λ-Blöcke 9,5·10⁻¹⁶; `dirac_kernel_fast` gegen
+`dirac_kernel_full` 6,8·10⁻¹⁶. Alle übrigen Werte von `test_curved` und `test_gmsh` unverändert.
+
+**Plattform.** Auf diesem Rechner liefert schon v0.49 bei Gold mit 320 Elementen −0,0065 % gegen Mie statt −0,0069 %
+(Linux). Der Unterschied von 4·10⁻⁶ liegt in der Größenordnung der Nahquadratur.
+
+**Nächste Schritte.** Weiter ließe sich die H-Matrix durch eine ACA auf den Quadraturpunkten beschleunigen (etwa 4-mal
+weniger Kernauswertungen, dann dominiert die ACA-Algebra; geschätzt Faktor 1,5). Der Speicher (475 MB je H-Matrix bei
+1 280 Elementen, davon 280 MB in dichten Blöcken) ist ein eigener Punkt. Auf diesem Rechner ist der größere Hebel die
+Nahquadratur: 39 von 49 s; der schnellere Kern ändert dort fast nichts, die Zeit geht in die analytischen Integrale und
+die Geometrie.

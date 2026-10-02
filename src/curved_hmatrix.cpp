@@ -43,12 +43,19 @@ CurvedHMatrix::CurvedHMatrix(const CurvedKernelEntries& E, HMatrixParams prm)
         const std::size_t m = B.R.size(), n = B.C.size();
         const bool ex = prm_.exact_in_lowrank;
         auto blk = [&](std::size_t ti, std::size_t tj) { return ex ? E.block(ti, tj) : E.block_far(ti, tj); };
+        // Elementpaare, die schon im Zwischenspeicher der anderen Richtung stehen, werden von dort kopiert statt neu berechnet
         std::vector<std::vector<cplx>> rowc(m / 3), colc(n / 3);
         RowFn row = [&](std::size_t i, cplx* out) {
             std::vector<cplx>& rc = rowc[i / 3];
             if (rc.empty()) {
                 rc.assign(3 * C7 * n, cplx(0));
                 for (std::size_t j = 0; j < n; j += 3) {
+                    const std::vector<cplx>& cc = colc[j / 3];
+                    if (!cc.empty()) {
+                        for (int p = 0; p < 3; ++p) for (int q = 0; q < 3; ++q) for (int c = 0; c < C7; ++c)
+                            rc[p * C7 * n + c * n + j + q] = cc[(q * C7 + c) * m + i - i % 3 + p];
+                        continue;
+                    }
                     const CurvedBlock Bk = blk(B.R[i] / 3, B.C[j] / 3);
                     for (int p = 0; p < 3; ++p) for (int q = 0; q < 3; ++q) for (int c = 0; c < C7; ++c)
                         rc[p * C7 * n + c * n + j + q] = Bk[p * 3 + q][c];
@@ -62,6 +69,12 @@ CurvedHMatrix::CurvedHMatrix(const CurvedKernelEntries& E, HMatrixParams prm)
             if (cc.empty()) {
                 cc.assign(3 * C7 * m, cplx(0));
                 for (std::size_t i = 0; i < m; i += 3) {
+                    const std::vector<cplx>& rc = rowc[i / 3];
+                    if (!rc.empty()) {
+                        for (int p = 0; p < 3; ++p) for (int q = 0; q < 3; ++q) for (int c7 = 0; c7 < C7; ++c7)
+                            cc[(q * C7 + c7) * m + i + p] = rc[p * C7 * n + c7 * n + j - j % 3 + q];
+                        continue;
+                    }
                     const CurvedBlock Bk = blk(B.R[i] / 3, B.C[j] / 3);
                     for (int p = 0; p < 3; ++p) for (int q = 0; q < 3; ++q) for (int c7 = 0; c7 < C7; ++c7)
                         cc[(q * C7 + c7) * m + i + p] = Bk[p * 3 + q][c7];

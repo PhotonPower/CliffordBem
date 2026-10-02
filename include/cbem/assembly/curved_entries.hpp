@@ -81,6 +81,7 @@ private:
     CurvedQuadrature q7_;
     PairRule ss_[4];
     std::vector<std::array<real, 9>> S_;
+    std::vector<std::array<real, 3>> psiw_;   // w psi_a an den Punkten von q7_ je Element (block_far)
     std::vector<std::vector<std::pair<std::size_t, CurvedBlock>>> cache_;
     bool cached_ = false;
     std::size_t n_near_ = 0;

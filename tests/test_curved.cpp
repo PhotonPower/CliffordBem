@@ -6,11 +6,13 @@
 //     Selbstterm, etwa ohne den schwach singulaeren Anteil K_s, gibt O(h) und einen 40-fach groesseren Fehler);
 // (4) Streuproblem: ebene Gegenprobe gegen LinearScatteringProblem; Kugel aus Glas und Gold gegen Mie (Fehler bei 320
 //     Elementen unter 0,02 %, heute 5,7 % bzw. 7,3 %); chirale Spiegelsymmetrie;
-// (5) Nahquadratur mit Singularitaetssubtraktion (v0.49) gegen das doppelt adaptive Verfahren als Referenz.
+// (5) Nahquadratur mit Singularitaetssubtraktion (v0.49) gegen das doppelt adaptive Verfahren als Referenz;
+// (6) Fernbloecke direkt in der psi-Basis (v0.50) gegen die Umrechnung der lambda-Bloecke.
 #include <cstdio>
 
 #include "check.hpp"
 #include "cbem/geometry/gmsh_io.hpp"
+#include "cbem/kernel/dirac_kernel.hpp"
 #include "cbem/problems/curved_problem.hpp"
 #include "cbem/problems/linear_problem.hpp"
 #include "cbem/sources/dipole.hpp"
@@ -156,7 +158,40 @@ static void test_subtraction() {
     CHECK(wf < 6e-5, "Subtraktion (schnell) weicht ab: %.2e", wf);
 }
 
+static void test_far_blocks() {
+    // block_far (Gewichte w psi, zweistufig, dirac_kernel_fast; v0.50) gegen die Umrechnung S L S^T der lambda-Bloecke
+    const QuadraticMesh q = quadratic_icosphere(4);
+    EntryParams ep; ep.cache_near = false;
+    CurvedKernelEntries C(q, cplx(0.09, 1.66), ep);
+    double w = 0;
+    for (std::size_t i = 0; i < q.size(); i += 5)
+        for (std::size_t j = 0; j < q.size(); j += 3) {
+            if (C.is_near(i, j)) continue;
+            const CurvedBlock L = C.lambda_far(i, j), F = C.block_far(i, j);
+            const auto& Si = C.S(i); const auto& Sj = C.S(j);
+            double nr = 0, d = 0;
+            for (int k = 0; k < 3; ++k) for (int l = 0; l < 3; ++l) for (int c = 0; c < kCurvedComps; ++c) {
+                cplx r = 0;
+                for (int a = 0; a < 3; ++a) for (int b = 0; b < 3; ++b) r += Si[k * 3 + a] * L[a * 3 + b][c] * Sj[l * 3 + b];
+                nr += std::norm(r); d += std::norm(r - F[k * 3 + l][c]);
+            }
+            w = std::max(w, std::sqrt(d / nr));
+        }
+    double wk = 0;
+    for (int t = 0; t < 2000; ++t) {
+        const Vec3 z(0.001 + 0.004 * t, 0.3 * std::sin(0.1 * t), -0.2);
+        for (cplx k : {cplx(0.5), cplx(0.09, 1.66), cplx(2.0, 0.3)}) {
+            const KernelValue a = dirac_kernel_full(z, k), b = dirac_kernel_fast(z, k);
+            wk = std::max(wk, std::max(std::abs(a.s - b.s) / std::abs(a.s), std::abs(a.vcoef - b.vcoef) / std::abs(a.vcoef)));
+        }
+    }
+    std::printf("(6) Fernbloecke in der psi-Basis gegen S L S^T: %.1e; dirac_kernel_fast gegen dirac_kernel_full: %.1e\n", w, wk);
+    CHECK(w < 1e-13, "block_far weicht von der Umrechnung der lambda-Bloecke ab: %.2e", w);
+    CHECK(wk < 1e-14, "dirac_kernel_fast weicht ab: %.2e", wk);
+}
+
 int main() {
+    test_far_blocks();
     test_subtraction();
     test_geometry();
     test_entries_flat();

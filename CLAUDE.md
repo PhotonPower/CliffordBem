@@ -4,7 +4,7 @@ Koordinatenfreie Galerkin-Randelementmethode (BEM) der Nano-Optik in der komplex
 Streuung, Nahfeld, Dipolemission und optische Kräfte an (auch chiralen, beschichteten, mehreren) Körpern. C++17-Kern ohne
 externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Projekts: **Deutsch**.
 
-**Stand: v0.49** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
+**Stand: v0.50** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
 
 | Dichten / Geometrie | Klasse | seit | Genauigkeit an der Kugel (320 Elemente) |
 |---|---|---|---|
@@ -13,7 +13,7 @@ externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Proj
 | unstetig linear / quadratisch gekrümmt | `CurvedScatteringProblem` | v0.47 | Glas −0,012 %, Gold −0,007 %, etwa O(h⁴) |
 
 Die Herleitung, Messungen und Begründungen der gekrümmten Elemente stehen in `docs/results_curved.md` (Stufen 1, 2a, 1b,
-2b, Gmsh, Nahquadratur) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
+2b, Gmsh, Nahquadratur, H-Matrix) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
 
 ## Bauen und testen
 
@@ -101,6 +101,8 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
 
 - `pkill -f <muster>` trifft auch die eigene Shell, wenn das Muster in der Befehlszeile steht; Prozesse per PID beenden.
 - Lang laufende Befehle (Bau, ctest) mit `setsid nohup … &` in eine Protokolldatei starten und kurz abfragen.
+- Windows/MinGW (MSYS2 ucrt64): Programme werden statisch gelinkt (`-static` in `CMakeLists.txt`). Ohne das luden sie
+  über den PATH die `libstdc++-6.dll` aus Git for Windows, und `test_materials`/`test_gmsh` stürzten in den Dateistreams ab.
 - Textersetzungen in Quelldateien nur mit eindeutigem Anker und Prüfung (`assert a in s`); eine Ersetzung in
   `src/hmatrix.cpp` traf einmal zwei Stellen.
 - Neue Überladungen (z. B. `translated`, `signed_volume` für `QuadraticMesh`) machen `&funktion` in den pybind11-Bindungen
@@ -115,9 +117,10 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
 
 ## Offene Aufgaben (priorisiert)
 
-1. **H-Matrix mit sieben Komponenten beschleunigen** (`src/curved_hmatrix.cpp`): bei 1 280 gekrümmten Elementen 23 von
-   55 s Aufbau. Ansätze: Struktur der Komponenten nutzen (Vektoranteil s·n), ACA-Zeilen/-Spalten billiger
-   (`block_far` je Elementpaar), Speicher.
+1. **Nahquadratur gekrümmter Elemente beschleunigen** (`src/curved_entries.cpp`): auf dem Windows-Rechner (v0.50) 39 von
+   49 s Aufbau bei 1 280 Elementen (Gold, ein Kern); erst profilieren (analytische Integrale, Fußpunkt, Geometrie –
+   der schnellere Kern änderte dort fast nichts). Die H-Matrix (v0.50: 10 s) ließe sich weiter mit einer ACA auf den
+   Quadraturpunkten beschleunigen (geschätzt Faktor 1,5); Speicher 475 MB je H-Matrix, davon 280 MB dichte Blöcke.
 2. **Nahfeld und Kräfte auf gekrümmten Elementen:** Streufeld aus der 24N-Spur (Quadratur mit `CurvedQuadrature`,
    Normale je Punkt), dann `exterior_near_field`- und Kraft-Varianten; Gewinn gegen Mie (`tools/mie_nearfield.py`,
    `tools/mie_force.py`) messen – Feldwerte konvergieren punktweise langsamer als die Extinktion.
