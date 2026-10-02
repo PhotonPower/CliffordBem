@@ -569,6 +569,9 @@ def test_curved_elements():
     npar = cb.CurvedNearParams()
     assert npar.subtract and npar.subtract_outer_ratio == 1.5 and npar.correction_ratio == 1.5
     assert npar.outer_rule == 5 and npar.correction_rule == 5
+    assert [list(o) for o in npar.ss_orders] == [[5, 6, 6, 5], [4, 4, 6, 6], [4, 4, 3, 7]]
+    iso = cb.CurvedNearParams(ss_orders=[[0, 0, 0, 0]] * 3)                  # isotrop mit EntryParams.ss_order
+    assert iso.ss_orders[2][0] == 0
     s_ref = cb.CurvedScatteringProblem(q, cb.Medium(eps=2.25), 1.0, near=cb.CurvedNearParams(subtract=False)).solve_plane_wave(Z, X, so).sigma_ext
     s_fast = cb.CurvedScatteringProblem(q, cb.Medium(eps=2.25), 1.0,
                                         near=cb.CurvedNearParams(subtract_outer_ratio=1.0, correction_ratio=1.0,

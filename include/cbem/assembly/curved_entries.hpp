@@ -50,6 +50,11 @@ struct CurvedNearParams {
     // Regeln an den Blaettern der aeusseren Integration und der Korrektur: 0 = Dunavant 7 (Grad 5), n >= 2 =
     // QuadRule::conical(n) (n x n Punkte, Grad 2n - 2)
     int outer_rule = 5, correction_rule = 5;
+    // Sauter-Schwab je Nachbarschaft [Ecke, Kante, Selbstterm]: Gauss-Punkte je Richtung (xi, eta1, eta2, eta3) (v0.53). Die
+    // Richtungen begrenzen je Typ verschieden (Selbstterm: eta3, Kante: eta2/eta3, Ecke: xi und eta1/eta2); abgestimmt so,
+    // dass die Eintraege bei gleichem Aufwand wie isotrop 5 genauer sind als isotrop 6 (results_curved.md).
+    // Erste Zahl 0: isotrop mit EntryParams::ss_order.
+    std::array<std::array<int, 4>, 3> ss_orders = {{{5, 6, 6, 5}, {4, 4, 6, 6}, {4, 4, 3, 7}}};
 };
 
 class CurvedKernelEntries {

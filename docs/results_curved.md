@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -573,3 +573,56 @@ mit 0,3/0,3 4,7·10⁻⁶ gegen das streng gerechnete doppelt adaptive Verfahren
 
 **Nächster Engpass.** Bei 1 280 Elementen braucht die Nahquadratur 12,7 s; davon entfallen jetzt etwa 5 s auf
 Sauter-Schwab (benachbarte Paare). Die H-Matrizen brauchen 10 s.
+
+## Anisotrope Sauter-Schwab-Regeln (v0.53)
+
+**Messung** (`prototype/curved/ss_orders.cpp`; Einträge benachbarter Paare gegen isotrope Ordnung 12, Gold innen
+k = 0,09 + 1,66i). Nach v0.52 war Sauter-Schwab die größte Fehlerquelle der Quadratur: Bei isotroper Ordnung 5 (bis v0.52)
+lagen die Einträge auf dem Ikosaeder (320 Elemente) bei 2,9·10⁻⁶ (Ecke), 6,0·10⁻⁶ (Kante) und 2,6·10⁻⁵ (Selbstterm), σ_ext
+von Gold um 9,8·10⁻⁷ neben der Ordnung 9 – 20-mal mehr als die Nahquadratur. Die isotrope Ordnung konvergiert etwa eine
+Dekade je Ordnung; auf der Gmsh-Kugel nur etwa Faktor 4, mit Ausreißern bei verzerrten Elementen (längste Kante/Höhe
+1,7–3,1, gleichseitig 1,15): dort Ecke bis 3,9·10⁻⁴, Selbstterm bis 3,5·10⁻⁴ bei Medianen wie auf dem Ikosaeder.
+
+**Welche Richtung begrenzt.** Eine Richtung der Sauter-Schwab-Abbildung (ξ, η₁, η₂, η₃) von 5 auf 8 angehoben:
+
+| Ordnungen (ξ, η₁, η₂, η₃) | Ecke | Kante | Selbstterm |
+|---|---:|---:|---:|
+| 5, 5, 5, 5 | 2,9·10⁻⁶ | 6,0·10⁻⁶ | 2,6·10⁻⁵ |
+| 8, 5, 5, 5 | 2,9·10⁻⁶ | 6,0·10⁻⁶ | 2,6·10⁻⁵ |
+| 5, 8, 5, 5 | 1,8·10⁻⁶ | 6,0·10⁻⁶ | 2,6·10⁻⁵ |
+| 5, 5, 8, 5 | 2,8·10⁻⁶ | 6,1·10⁻⁶ | 2,6·10⁻⁵ |
+| 5, 5, 5, 8 | 2,9·10⁻⁶ | 6,2·10⁻⁶ | **3,9·10⁻⁸** |
+
+Der Selbstterm hängt allein an η₃; die Kante an η₂ und η₃ gemeinsam (4, 5, 7, 7: 3,5·10⁻⁷), die Ecke an η₁ und η₂ (5, 6, 6, 5:
+2,2·10⁻⁷). ξ genügt mit 4 (Kante, Selbstterm) bzw. 5 (Ecke); ξ = 3 ist überall zu wenig. Die Drehung der Ecken des
+Selbstterms (größter Winkel an die Referenzecke) ändert nichts, die Regel ist über ihre sechs Teilsimplizes symmetrisch.
+
+**Änderung.** `PairRule::sauter_schwab(Adjacency, std::array<int, 4>)` mit eigener Ordnung je Richtung;
+`CurvedNearParams::ss_orders` je Nachbarschaft, Voreinstellung Ecke 5, 6, 6, 5 (900 Punkte je Teilgebiet), Kante 4, 4, 6, 6
+(576), Selbstterm 4, 4, 3, 7 (336); erste Zahl 0: isotrop mit `EntryParams::ss_order`. Die Pfade konstanter und linearer
+Dichten bleiben isotrop.
+
+| Typ (Ikosaeder 320) | isotrop 5 | anisotrop | µs je Paar |
+|---|---:|---:|---|
+| Ecke | 2,9·10⁻⁶ | 2,2·10⁻⁷ | 102 → 152 |
+| Kante | 6,0·10⁻⁶ | 6,0·10⁻⁷ | 251 → 230 |
+| Selbstterm | 2,6·10⁻⁵ | 3,8·10⁻⁷ | 683 → 358 |
+
+Auf der Gmsh-Kugel sinkt der größte Fehler des Selbstterms von 3,5·10⁻⁴ auf 1,1·10⁻⁵, der Kante von 1,0·10⁻⁴ auf 2,0·10⁻⁵,
+der Ecke von 3,9·10⁻⁴ auf 9,3·10⁻⁵ (die Ausreißer bleiben, aber seltener und kleiner).
+
+**Wirkung auf die Streurechnung** (σ_ext gegen isotrope Ordnung 9):
+
+| Fall | isotrop 5 (bis v0.52) | anisotrop (v0.53) | isotrop 6 |
+|---|---:|---:|---:|
+| Ikosaeder 320, Gold | 9,8·10⁻⁷ | 2,0·10⁻⁸ | 6,2·10⁻⁸ |
+| Gmsh-Kugel 320, Glas | 9,6·10⁻⁷ | 3,5·10⁻⁸ | 4,8·10⁻⁷ |
+| Gmsh-Kugel 320, Gold | 2,2·10⁻⁵ | 1,4·10⁻⁷ | 5,2·10⁻⁶ |
+
+Die anisotrope Regel ist genauer als isotrop 6 und so teuer wie isotrop 5: Aufbau Gold 1 280 auf einem Kern 22,0 s
+(isotrop 5) gegen 22,1 s. Auf der Gmsh-Kugel war der Sauter-Schwab-Fehler von Gold (2,2·10⁻⁵) bisher größer als alle
+übrigen Quadraturfehler zusammen.
+
+**Prüfung.** `test_curved` (7): anisotrop gegen isotrop 12 auf 180 Elementen: Ecke 1,7·10⁻⁷, Kante 1,2·10⁻⁶,
+Selbstterm 1,0·10⁻⁶ (isotrop 5: 2,5·10⁻⁶, 5,2·10⁻⁶, 2,2·10⁻⁵). Die ebene Gegenprobe (2) gegen `LinearKernelEntries`
+läuft mit der isotropen Regel, damit sie bitgenau bleibt.

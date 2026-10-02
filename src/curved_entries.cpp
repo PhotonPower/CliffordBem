@@ -54,8 +54,10 @@ const Tri kRef = {{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
 CurvedKernelEntries::CurvedKernelEntries(const QuadraticMesh& mesh, cplx k, EntryParams prm, CurvedNearParams np)
     : m_(mesh), k_(k), prm_(prm), np_(np), r7_(QuadRule::dunavant7()), ro_(np.outer_rule >= 2 ? QuadRule::conical(np.outer_rule) : r7_),
       rc_(np.correction_rule >= 2 ? QuadRule::conical(np.correction_rule) : r7_), q7_(mesh, r7_), S_(curved_psi_matrices(mesh)) {
-    for (Adjacency a : {Adjacency::Vertex, Adjacency::Edge, Adjacency::Coincident})
-        ss_[static_cast<int>(a)] = PairRule::sauter_schwab(a, prm_.ss_order);
+    for (Adjacency a : {Adjacency::Vertex, Adjacency::Edge, Adjacency::Coincident}) {
+        const auto& o = np_.ss_orders[static_cast<int>(a) - 1];
+        ss_[static_cast<int>(a)] = o[0] > 0 ? PairRule::sauter_schwab(a, o) : PairRule::sauter_schwab(a, prm_.ss_order);
+    }
     poly_.resize(m_.size());
     for (std::size_t t = 0; t < m_.size(); ++t) {
         // Formfunktionen in u = lambda_1, v = lambda_2 ausmultipliziert (Ecken V, Kantenmitten M01, M12, M20)

@@ -7,7 +7,8 @@
 // (4) Streuproblem: ebene Gegenprobe gegen LinearScatteringProblem; Kugel aus Glas und Gold gegen Mie (Fehler bei 320
 //     Elementen unter 0,02 %, heute 5,7 % bzw. 7,3 %); chirale Spiegelsymmetrie;
 // (5) Nahquadratur mit Singularitaetssubtraktion (v0.49; Gauss-Blattregeln v0.52) gegen das doppelt adaptive Verfahren;
-// (6) Fernbloecke direkt in der psi-Basis (v0.50) gegen die Umrechnung der lambda-Bloecke.
+// (6) Fernbloecke direkt in der psi-Basis (v0.50) gegen die Umrechnung der lambda-Bloecke;
+// (7) anisotrope Sauter-Schwab-Ordnungen (v0.53) gegen eine hohe isotrope Ordnung.
 #include <cstdio>
 
 #include "check.hpp"
@@ -45,7 +46,8 @@ static void test_entries_flat() {
     // Quadratur ist dagegen konvergiert (0,3/0,15 und 0,15/0,08 geben dasselbe).
     EntryParams epl = ep; epl.adapt_ratio = 0.1;
     LinearKernelEntries L(f, cplx(1.3, 0.05), epl);
-    CurvedKernelEntries C(qf, cplx(1.3, 0.05), ep);
+    CurvedNearParams iso; iso.ss_orders = {};   // dieselbe isotrope Sauter-Schwab-Regel wie LinearKernelEntries
+    CurvedKernelEntries C(qf, cplx(1.3, 0.05), ep, iso);
     double worst[5] = {0, 0, 0, 0, 0};
     for (std::size_t i = 0; i < f.size(); i += 3)
         for (std::size_t j = 0; j < f.size(); ++j) {
@@ -197,7 +199,34 @@ static void test_far_blocks() {
     CHECK(wk < 1e-14, "dirac_kernel_fast weicht ab: %.2e", wk);
 }
 
+static void test_sauter_schwab_orders() {
+    // anisotrope Sauter-Schwab-Ordnungen (Voreinstellung v0.53) und isotrop 5 (bis v0.52) gegen isotrop 12
+    const QuadraticMesh q = quadratic_icosphere(3);
+    const cplx k(0.09, 1.66);
+    EntryParams ep; ep.cache_near = false;
+    EntryParams e12 = ep; e12.ss_order = 12;
+    CurvedNearParams iso; iso.ss_orders = {};
+    CurvedKernelEntries R(q, k, e12, iso), A(q, k, ep), I(q, k, ep, iso);
+    double wa[4] = {0, 0, 0, 0}, wi[4] = {0, 0, 0, 0};
+    for (std::size_t i = 0; i < q.size(); i += 5)
+        for (std::size_t j = 0; j < q.size(); ++j) {
+            const Adjacency adj = R.adjacency(i, j);
+            if (adj == Adjacency::None) continue;
+            const int t = static_cast<int>(adj);
+            const CurvedBlock Kr = R.lambda_exact(i, j), Ka = A.lambda_exact(i, j), Ki = I.lambda_exact(i, j);
+            double nr = 0, da = 0, di = 0;
+            for (int p = 0; p < 9; ++p)
+                for (int c = 0; c < kCurvedComps; ++c) { nr += std::norm(Kr[p][c]); da += std::norm(Ka[p][c] - Kr[p][c]); di += std::norm(Ki[p][c] - Kr[p][c]); }
+            wa[t] = std::max(wa[t], std::sqrt(da / nr)); wi[t] = std::max(wi[t], std::sqrt(di / nr));
+        }
+    std::printf("(7) Sauter-Schwab gegen isotrop 12: anisotrop Ecke %.1e, Kante %.1e, Selbstterm %.1e; isotrop 5: %.1e, %.1e, %.1e\n",
+                wa[1], wa[2], wa[3], wi[1], wi[2], wi[3]);
+    CHECK(wa[1] < 1e-6 && wa[2] < 2e-6 && wa[3] < 2e-6, "anisotrope Sauter-Schwab-Regel ungenau: %.2e %.2e %.2e", wa[1], wa[2], wa[3]);
+    CHECK(wi[3] > 10 * wa[3], "Selbstterm: anisotrope Regel nicht genauer als isotrop 5 (%.2e gegen %.2e)", wa[3], wi[3]);
+}
+
 int main() {
+    test_sauter_schwab_orders();
     test_far_blocks();
     test_subtraction();
     test_geometry();

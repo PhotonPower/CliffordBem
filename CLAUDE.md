@@ -4,7 +4,7 @@ Koordinatenfreie Galerkin-Randelementmethode (BEM) der Nano-Optik in der komplex
 Streuung, Nahfeld, Dipolemission und optische Kräfte an (auch chiralen, beschichteten, mehreren) Körpern. C++17-Kern ohne
 externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Projekts: **Deutsch**.
 
-**Stand: v0.52** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
+**Stand: v0.53** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
 
 | Dichten / Geometrie | Klasse | seit | Genauigkeit an der Kugel (320 Elemente) |
 |---|---|---|---|
@@ -13,7 +13,7 @@ externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Proj
 | unstetig linear / quadratisch gekrümmt | `CurvedScatteringProblem` | v0.47 | Glas −0,012 %, Gold −0,007 %, etwa O(h⁴) |
 
 Die Herleitung, Messungen und Begründungen der gekrümmten Elemente stehen in `docs/results_curved.md` (Stufen 1, 2a, 1b,
-2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
+2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
 
 ## Bauen und testen
 
@@ -121,10 +121,11 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
 
 ## Offene Aufgaben (priorisiert)
 
-1. **Aufbau gekrümmter Elemente weiter beschleunigen**: auf dem Windows-Rechner (v0.52) 23 s bei 1 280 Elementen
-   (Gold, ein Kern): Nahquadratur 12,7 s, davon etwa 5 s Sauter-Schwab (benachbarte Paare, ≈ 1 900 Punkte je Paar;
-   Ordnung prüfen, Gauß-Regeln wie in v0.52?), H-Matrizen 10 s. Befund v0.52: der Grad der Blattregel begrenzte, nicht
-   die Singularität – erst messen. Die H-Matrix (v0.50: 10 s) ließe sich weiter mit einer ACA auf den
+1. **Aufbau gekrümmter Elemente weiter beschleunigen**: auf dem Windows-Rechner (v0.53) 22 s bei 1 280 Elementen
+   (Gold, ein Kern): Nahquadratur 12,6 s (Sauter-Schwab etwa 5 s, seit v0.53 anisotrop und genauer, nicht schneller),
+   H-Matrizen 10 s (ACA auf Quadraturpunkten, Speicher). Sauter-Schwab auf verzerrten Elementen (längste Kante/Höhe > 1,7)
+   konvergiert langsam (Ausreißer bis 10⁻⁴ auf Gmsh-Netzen) – Ordnung nach Elementform wählen? Befunde v0.52/v0.53:
+   erst messen, welche Größe begrenzt. Die H-Matrix (v0.50: 10 s) ließe sich weiter mit einer ACA auf den
    Quadraturpunkten beschleunigen (geschätzt Faktor 1,5); Speicher 475 MB je H-Matrix, davon 280 MB dichte Blöcke.
 2. **Nahfeld und Kräfte auf gekrümmten Elementen:** Streufeld aus der 24N-Spur (Quadratur mit `CurvedQuadrature`,
    Normale je Punkt), dann `exterior_near_field`- und Kraft-Varianten; Gewinn gegen Mie (`tools/mie_nearfield.py`,

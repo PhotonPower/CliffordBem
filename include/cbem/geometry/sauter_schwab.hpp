@@ -18,6 +18,8 @@ struct PairRule {
     std::vector<std::array<real, 2>> x, y;   // Test- und Ansatzpunkte (u, v)
     std::vector<real> w;
     static PairRule sauter_schwab(Adjacency a, int order);
+    // anisotrop (v0.53): Gauss-Punkte je Richtung (xi, eta1, eta2, eta3) der Sauter-Schwab-Abbildung
+    static PairRule sauter_schwab(Adjacency a, const std::array<int, 4>& orders);
 };
 
 // Gauss-Legendre auf [0,1]

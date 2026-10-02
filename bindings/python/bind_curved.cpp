@@ -84,6 +84,8 @@ Tangentialdreieck, Gauss 5 x 5 an den Blaettern (outer_rule = correction_rule = 
         .field("correction_ratio", &CurvedNearParams::correction_ratio, "mit Subtraktion: Kriterium fuer den Rest")
         .field("outer_rule", &CurvedNearParams::outer_rule, "mit Subtraktion: Blattregel aussen (0 = Dunavant 7, n = Gauss n x n)")
         .field("correction_rule", &CurvedNearParams::correction_rule, "mit Subtraktion: Blattregel der Korrektur (0 = Dunavant 7, n = Gauss n x n)")
+        .field("ss_orders", &CurvedNearParams::ss_orders,
+               "Sauter-Schwab [Ecke, Kante, Selbstterm] je Richtung (xi, eta1, eta2, eta3); erste Zahl 0: isotrop mit EntryParams.ss_order")
         .field("outer_ratio", &CurvedNearParams::outer_ratio, "doppelt adaptiv: aeusseres Teilstueck, Umkreisradius < outer_ratio * Abstand")
         .field("inner_ratio", &CurvedNearParams::inner_ratio, "doppelt adaptiv: inneres Teilstueck, Umkreisradius < inner_ratio * Abstand")
         .field("outer_depth", &CurvedNearParams::outer_depth, "maximale Halbierungstiefe aussen")

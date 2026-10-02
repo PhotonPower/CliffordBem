@@ -18,14 +18,17 @@ void gauss_legendre01(int n, std::vector<real>& x, std::vector<real>& w) {
     }
 }
 
-PairRule PairRule::sauter_schwab(Adjacency adj, int order) {
-    std::vector<real> g, gw; gauss_legendre01(order, g, gw);
+PairRule PairRule::sauter_schwab(Adjacency adj, int order) { return sauter_schwab(adj, {order, order, order, order}); }
+
+PairRule PairRule::sauter_schwab(Adjacency adj, const std::array<int, 4>& orders) {
+    std::vector<real> g[4], gw[4];
+    for (int d = 0; d < 4; ++d) gauss_legendre01(orders[d], g[d], gw[d]);
     PairRule r;
     // Punkte zunaechst im Referenzdreieck {0 <= x2 <= x1 <= 1}; am Ende u = x1 - x2, v = x2
     auto add = [&](real a1, real a2, real b1, real b2, real w) { r.x.push_back({a1 - a2, a2}); r.y.push_back({b1 - b2, b2}); r.w.push_back(w); };
-    for (int i0 = 0; i0 < order; ++i0) for (int i1 = 0; i1 < order; ++i1) for (int i2 = 0; i2 < order; ++i2) for (int i3 = 0; i3 < order; ++i3) {
-        const real xi = g[i0], e1 = g[i1], e2 = g[i2], e3 = g[i3];
-        const real W = gw[i0] * gw[i1] * gw[i2] * gw[i3];
+    for (int i0 = 0; i0 < orders[0]; ++i0) for (int i1 = 0; i1 < orders[1]; ++i1) for (int i2 = 0; i2 < orders[2]; ++i2) for (int i3 = 0; i3 < orders[3]; ++i3) {
+        const real xi = g[0][i0], e1 = g[1][i1], e2 = g[2][i2], e3 = g[3][i3];
+        const real W = gw[0][i0] * gw[1][i1] * gw[2][i2] * gw[3][i3];
         const real e12 = e1 * e2, e123 = e1 * e2 * e3;
         if (adj == Adjacency::Coincident) {
             const real w = W * xi * xi * xi * e1 * e1 * e2;
