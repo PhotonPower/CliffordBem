@@ -52,7 +52,8 @@ const Tri kRef = {{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
 }  // namespace
 
 CurvedKernelEntries::CurvedKernelEntries(const QuadraticMesh& mesh, cplx k, EntryParams prm, CurvedNearParams np)
-    : m_(mesh), k_(k), prm_(prm), np_(np), r7_(QuadRule::dunavant7()), q7_(mesh, r7_), S_(curved_psi_matrices(mesh)) {
+    : m_(mesh), k_(k), prm_(prm), np_(np), r7_(QuadRule::dunavant7()), ro_(np.outer_rule >= 2 ? QuadRule::conical(np.outer_rule) : r7_),
+      rc_(np.correction_rule >= 2 ? QuadRule::conical(np.correction_rule) : r7_), q7_(mesh, r7_), S_(curved_psi_matrices(mesh)) {
     for (Adjacency a : {Adjacency::Vertex, Adjacency::Edge, Adjacency::Coincident})
         ss_[static_cast<int>(a)] = PairRule::sauter_schwab(a, prm_.ss_order);
     poly_.resize(m_.size());
@@ -227,10 +228,10 @@ void CurvedKernelEntries::outer(std::size_t i, std::size_t j, const Tri& tri, re
         outer(i, j, {M, B, C}, aref / 2, depth + 1, K);
         return;
     }
-    for (std::size_t p = 0; p < r7_.w.size(); ++p) {
+    for (std::size_t p = 0; p < ro_.w.size(); ++p) {
         std::array<real, 3> l;
-        for (int k = 0; k < 3; ++k) l[k] = r7_.bary[p][0] * tri[0][k] + r7_.bary[p][1] * tri[1][k] + r7_.bary[p][2] * tri[2][k];
-        const real w = r7_.w[p] * aref * gJ(i, l);
+        for (int k = 0; k < 3; ++k) l[k] = ro_.bary[p][0] * tri[0][k] + ro_.bary[p][1] * tri[1][k] + ro_.bary[p][2] * tri[2][k];
+        const real w = ro_.w[p] * aref * gJ(i, l);
         std::array<CurvedComp, 3> in; for (auto& v : in) v.fill(cplx(0));
         if (np_.subtract) inner_subtracted(gX(i, l), j, in);
         else inner(gX(i, l), j, kRef, 0.5, 0, in);
@@ -295,10 +296,10 @@ void CurvedKernelEntries::correction(const Vec3& x, std::size_t j, const Tangent
         correction(x, j, T, {M, B, C}, aref / 2, depth + 1, out);
         return;
     }
-    for (std::size_t p = 0; p < r7_.w.size(); ++p) {
+    for (std::size_t p = 0; p < rc_.w.size(); ++p) {
         std::array<real, 3> l;
-        for (int k = 0; k < 3; ++k) l[k] = r7_.bary[p][0] * tri[0][k] + r7_.bary[p][1] * tri[1][k] + r7_.bary[p][2] * tri[2][k];
-        correction_point(x, j, T, l, r7_.w[p] * aref, out);
+        for (int k = 0; k < 3; ++k) l[k] = rc_.bary[p][0] * tri[0][k] + rc_.bary[p][1] * tri[1][k] + rc_.bary[p][2] * tri[2][k];
+        correction_point(x, j, T, l, rc_.w[p] * aref, out);
     }
 }
 

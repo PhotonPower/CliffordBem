@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -509,3 +509,67 @@ Bei der Voreinstellung begrenzt die Korrektur, nicht die äußere Regel: Schon 0
 nach der Subtraktion verhält sich wie 1/r, getragen von zwei Termen gleicher Ordnung (Variation von n J und Krümmung
 X − X_aff). Weniger Korrekturpunkte bei gleicher Genauigkeit verlangen, beide abzuziehen; den Abzug von n J allein hatte
 v0.49 ohne Gewinn versucht.
+
+## Gauß-Regeln in der Nahquadratur (v0.52)
+
+**Frage.** Nach v0.51 begrenzte die Korrektur die Genauigkeit der Nahquadratur. Vermutet war der Rest nach der
+Subtraktion, der sich wie 1/r verhält. Er hat zwei Anteile gleicher Ordnung: die Variation von N = X_u × X_v = J n und
+die Krümmung X − X_aff = q(δ) = Dδu² + Eδuδv + Fδv².
+
+**Prototyp Stufe 2** (`prototype/curved/second_order_subtraction.cpp`, nicht im Kern): zusätzlich abgezogen
+λ_b(u*) [K₀(z_a)(N_u δu + N_v δv) − DK₀(z_a)[q(δ)] N*] mit DK₀(z)[q] = (q − 3(ẑ·q)ẑ)/(4πr³). Der erste Teil folgt aus
+`triangle_integrals_linear`, ∫ δ_k K₀ du = (Ig_k − u*_k ΣIg_b)/(4π J*); der Krümmungsvektor wurde für die Messung fein
+numerisch integriert. Gemessen wurde das Innenintegral an 18 140 Punkten x (320 Elemente, k = 1,3 + 0,05i) gegen eine
+Referenz, die gegen die ungeteilte adaptive Quadratur auf 1,2·10⁻¹⁰ stimmt:
+
+| Blattregel (ohne Unterteilung) | ohne Subtraktion | Stufe 1 (v0.49) | Stufe 2 |
+|---|---:|---:|---:|
+| Dunavant 7 (Grad 5) | 9,9·10⁻⁴ | 1,9·10⁻⁴ | 1,0·10⁻⁴ |
+| Gauß 4 × 4 (16 Punkte) | 9,9·10⁻⁵ | 2,4·10⁻⁵ | 1,4·10⁻⁵ |
+| Gauß 5 × 5 (25 Punkte) | 6,8·10⁻⁶ | 1,7·10⁻⁶ | 1,5·10⁻⁶ |
+| Gauß 6 × 6 (36 Punkte) | 5,1·10⁻⁷ | 1,4·10⁻⁷ | 1,3·10⁻⁷ |
+
+Dunavant 7 mit der Unterteilung 0,3 braucht 30 Punkte für 8,4·10⁻⁶. Der Krümmungsterm bringt nur einen Faktor 1,4: Nicht
+die Singularität am Fußpunkt begrenzt, sondern der Grad der Blattregel. Der Integrand ist auf der Skala des Abstands
+glatt, dort sind Regeln hohen Grades viel wirksamer als Unterteilung. Stufe 2 wurde deshalb nicht eingebaut.
+
+**Änderung.** `QuadRule::conical(n)`: Gauß-Legendre n × n auf dem Quadrat mit Duffy-Abbildung (exakt bis Grad 2n − 2).
+`CurvedNearParams::outer_rule` und `correction_rule` wählen die Blattregel der äußeren Integration und der Korrektur
+(0 = Dunavant 7). Neue Voreinstellung: Gauß 5 × 5, Kriterien 1,5/1,5. Die Adaptivität bleibt, damit sehr nahe Punkte
+(gradierte, unregelmäßige Netze) weiter unterteilt werden.
+
+**Abstimmung** (`prototype/curved/near_rules.cpp`; nahe getrennte Paare gegen Gauß 8 × 8 mit 0,3/0,3; diese Referenz stimmt mit dem streng gerechneten
+doppelt adaptiven Verfahren auf 0,7–1,2·10⁻⁷):
+
+| Einstellung | Ikosaeder 320 | Ikosaeder 1 280 | Gmsh-Kugel 320 | µs je Paar |
+|---|---:|---:|---:|---:|
+| Dunavant 7, 0,3/0,3 (v0.49) | 5,2·10⁻⁶ | 4,8·10⁻⁶ | 9,5·10⁻⁶ | 217–244 |
+| Dunavant 7, 0,5/0,5 (schnell bis v0.51) | 2,3·10⁻⁵ | 3,9·10⁻⁵ | 3,6·10⁻⁵ | 49–53 |
+| **Gauß 5, 1,5/1,5 (Voreinstellung)** | 6,2·10⁻⁷ | 1,1·10⁻⁶ | 2,6·10⁻⁶ | 69–82 |
+| Gauß 4, 1,0/1,0 (schnell) | 2,5·10⁻⁵ | 2,5·10⁻⁵ | 3,7·10⁻⁵ | 50–51 |
+| Gauß 6, 1,5/1,5 | 2,6·10⁻⁸ | | 1,9·10⁻⁷ | 137–174 |
+| Gauß 7, 2,0/2,0 | 5,1·10⁻⁹ | | | 233 |
+
+Größere Kriterien als 1,5 ändern auf den Kugeln fast nichts mehr (dort wird dann kaum noch unterteilt).
+
+**Wirkung auf die Streurechnung** (ein Kern; „streng“: Gauß 7 × 7 mit 1,0/1,0):
+
+| Fall | σ_ext v0.51 gegen streng | v0.52 gegen streng | Aufbau v0.51 → v0.52 |
+|---|---:|---:|---:|
+| Glas, 320 Elemente | 4,6·10⁻⁸ | 2,6·10⁻⁹ | 7,8 → 3,9 s |
+| Gold, 320 Elemente | 2,7·10⁻⁶ | 4,7·10⁻⁸ | 7,8 → 3,8 s |
+| Gold, 1 280 Elemente | 9,5·10⁻⁷ | 1,5·10⁻⁸ | 36,9 → 22,6 s (Nahquadratur 27,6 → 12,7 s) |
+
+Die Voreinstellung ist 20- bis 60-mal genauer und halbiert den Aufbau. Die schnelle Einstellung (Gauß 4) liegt bei
+1,3·10⁻⁶ (Gold 320) und spart gegenüber der Voreinstellung nur noch 10–15 % des Aufbaus.
+
+**Nebenbefund.** Gold mit 320 Elementen gibt jetzt −0,0067 % gegen Mie, mit der strengen Quadratur ebenso. Die früheren
+Werte −0,0069 % (Linux) und −0,0065 % (Windows) unterschieden sich um den Quadraturfehler von v0.49 (2,7·10⁻⁶), der auf
+beiden Plattformen verschieden ausfiel.
+
+**Prüfung.** `test_curved` (5): Voreinstellung 6,1·10⁻⁷ (Schwelle 3·10⁻⁶, vorher 1·10⁻⁵), schnell 1,9·10⁻⁵, Dunavant 7
+mit 0,3/0,3 4,7·10⁻⁶ gegen das streng gerechnete doppelt adaptive Verfahren. Python: Felder `outer_rule`,
+`correction_rule`, Voreinstellung und schnelle Einstellung gegen doppelt adaptiv.
+
+**Nächster Engpass.** Bei 1 280 Elementen braucht die Nahquadratur 12,7 s; davon entfallen jetzt etwa 5 s auf
+Sauter-Schwab (benachbarte Paare). Die H-Matrizen brauchen 10 s.

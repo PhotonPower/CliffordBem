@@ -39,12 +39,17 @@ struct CurvedNearParams {
     // Singularitaetssubtraktion (v0.49): vom Innenintegral wird der singulaere Kern ueber dem Tangentialdreieck am Fusspunkt
     // u* des aeusseren Punktes analytisch abgezogen (triangle_integrals_linear, Normale n(u*), Jacobi-Determinante J(u*));
     // der Rest verhaelt sich bei u* wie 1/r statt 1/r^3 und wird mit dem groeberen Kriterium correction_ratio integriert.
-    // Voreinstellung 0,3/0,3: Fehler wie das doppelt adaptive Verfahren (5e-6), 2,4-mal schneller; 0,5/0,5: 11-mal
-    // schneller, Fehler 2-3e-5 (wie die analytische Nahquadratur ebener Elemente). Begrenzend ist die aeussere Integration.
+    // Begrenzend war der Grad der Blattregel, nicht die Singularitaet (v0.52): Der Rest ist auf der Skala des Abstands glatt,
+    // eine Regel hohen Grades mit lockerem Kriterium ist genauer und billiger als Dunavant 7 mit feiner Unterteilung.
+    // Voreinstellung (v0.52) Gauss 5 x 5, Kriterien 1,5/1,5: Fehler 0,6-2,6e-6 (v0.49 mit Dunavant 7 und 0,3/0,3: 5-10e-6),
+    // 3-mal schneller. Schnell: Gauss 4 x 4, 1,0/1,0 (Fehler 2,5-4e-5 wie v0.49 mit 0,5/0,5, gleich schnell).
     // false: doppelt adaptiv wie in v0.47 (Referenz, outer_ratio/inner_ratio).
     bool subtract = true;
-    real subtract_outer_ratio = 0.3;
-    real correction_ratio = 0.3;
+    real subtract_outer_ratio = 1.5;
+    real correction_ratio = 1.5;
+    // Regeln an den Blaettern der aeusseren Integration und der Korrektur: 0 = Dunavant 7 (Grad 5), n >= 2 =
+    // QuadRule::conical(n) (n x n Punkte, Grad 2n - 2)
+    int outer_rule = 5, correction_rule = 5;
 };
 
 class CurvedKernelEntries {
@@ -77,7 +82,7 @@ private:
     cplx k_;
     EntryParams prm_;
     CurvedNearParams np_;
-    QuadRule r7_;
+    QuadRule r7_, ro_, rc_;   // Dunavant 7; Blattregeln der aeusseren Integration und der Korrektur
     CurvedQuadrature q7_;
     PairRule ss_[4];
     std::vector<std::array<real, 9>> S_;

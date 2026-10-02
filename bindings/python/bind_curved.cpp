@@ -74,14 +74,16 @@ make_quadratic_sphere oder make_quadratic(mesh, project) mit einer Funktion, die
     m.def("write_gmsh22_quadratic", &write_gmsh22_quadratic, "path"_a, "bodies"_a, "Gmsh 2.2 zweiter Ordnung, physikalische Gruppen 1, 2, ...");
 
     ParamClass<CurvedNearParams>(m, "CurvedNearParams", R"doc(
-Nahquadratur gekruemmter Elemente fuer nahe, getrennte Paare. Voreinstellung (v0.49): Singularitaetssubtraktion am
-Tangentialdreieck, Kriterien 0,3/0,3 (Fehler etwa 5e-6, 2,4-mal schneller als doppelt adaptiv). Schnell:
-subtract_outer_ratio = correction_ratio = 0.5 (11-mal schneller, Fehler 2-3e-5). subtract = False: doppelt adaptiv
-(outer_ratio, inner_ratio) als Referenz.
+Nahquadratur gekruemmter Elemente fuer nahe, getrennte Paare. Voreinstellung (v0.52): Singularitaetssubtraktion am
+Tangentialdreieck, Gauss 5 x 5 an den Blaettern (outer_rule = correction_rule = 5), Kriterien 1,5/1,5 (Fehler 0,6-2,6e-6,
+3-mal schneller als v0.49). Schnell: Regeln 4, Kriterien 1.0 (Fehler 2,5-4e-5). outer_rule/correction_rule = 0: Dunavant 7
+(v0.49 mit 0,3/0,3). subtract = False: doppelt adaptiv (outer_ratio, inner_ratio) als Referenz.
 )doc")
         .field("subtract", &CurvedNearParams::subtract, "Singularitaetssubtraktion am Tangentialdreieck (sonst doppelt adaptiv)")
         .field("subtract_outer_ratio", &CurvedNearParams::subtract_outer_ratio, "mit Subtraktion: aeusseres Kriterium")
         .field("correction_ratio", &CurvedNearParams::correction_ratio, "mit Subtraktion: Kriterium fuer den Rest")
+        .field("outer_rule", &CurvedNearParams::outer_rule, "mit Subtraktion: Blattregel aussen (0 = Dunavant 7, n = Gauss n x n)")
+        .field("correction_rule", &CurvedNearParams::correction_rule, "mit Subtraktion: Blattregel der Korrektur (0 = Dunavant 7, n = Gauss n x n)")
         .field("outer_ratio", &CurvedNearParams::outer_ratio, "doppelt adaptiv: aeusseres Teilstueck, Umkreisradius < outer_ratio * Abstand")
         .field("inner_ratio", &CurvedNearParams::inner_ratio, "doppelt adaptiv: inneres Teilstueck, Umkreisradius < inner_ratio * Abstand")
         .field("outer_depth", &CurvedNearParams::outer_depth, "maximale Halbierungstiefe aussen")

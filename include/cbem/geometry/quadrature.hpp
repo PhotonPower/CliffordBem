@@ -10,6 +10,7 @@ struct QuadRule {                      // Regel auf dem Referenzdreieck (baryzen
     std::vector<real> w;               // Summe der Gewichte = 1
     static QuadRule dunavant7();
     static QuadRule subdivided(int sub);   // sub^2 Teildreiecke mit je 7 Punkten
+    static QuadRule conical(int n);        // Gauss-Legendre n x n auf dem Quadrat, Duffy-Abbildung (exakt bis Grad 2n - 2; v0.52)
 };
 
 // Quadraturpunkte aller Dreiecke eines Netzes (Gewichte inkl. Flaeche), flach gespeichert.

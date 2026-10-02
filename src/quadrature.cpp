@@ -1,4 +1,5 @@
 #include "cbem/geometry/quadrature.hpp"
+#include "cbem/geometry/sauter_schwab.hpp"
 
 namespace cbem {
 
@@ -9,6 +10,18 @@ QuadRule QuadRule::dunavant7() {
     QuadRule r;
     r.bary = {{1. / 3, 1. / 3, 1. / 3}, {a1, b1, b1}, {b1, a1, b1}, {b1, b1, a1}, {a2, b2, b2}, {b2, a2, b2}, {b2, b2, a2}};
     r.w = {0.225, w1, w1, w1, w2, w2, w2};
+    return r;
+}
+
+QuadRule QuadRule::conical(int n) {
+    // lambda_1 = s, lambda_2 = t (1 - s), dA = (1 - s) ds dt; Gewichte auf Summe 1 (Referenzflaeche 1/2)
+    std::vector<real> g, gw; gauss_legendre01(n, g, gw);
+    QuadRule r;
+    for (int a = 0; a < n; ++a)
+        for (int b = 0; b < n; ++b) {
+            const real l1 = g[a], l2 = g[b] * (1 - g[a]);
+            r.bary.push_back({1 - l1 - l2, l1, l2}); r.w.push_back(2 * gw[a] * gw[b] * (1 - g[a]));
+        }
     return r;
 }
 

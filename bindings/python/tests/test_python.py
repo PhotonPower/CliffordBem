@@ -565,12 +565,14 @@ def test_curved_elements():
     assert np.isclose(cb.extinction_cross_section_curved(q, r.h - b, 1.0, 1.0, Z, X), r.sigma_ext)
     assert np.allclose(P.solve_rhs(b, so).h, r.h)
     assert raises(ValueError, P.solve_rhs, np.zeros(8 * len(q)))
-    # Nahquadratur (v0.49): Singularitaetssubtraktion (Voreinstellung) gegen doppelt adaptiv und schnelle Einstellung
+    # Nahquadratur (v0.49, Regeln v0.52): Singularitaetssubtraktion (Voreinstellung) gegen doppelt adaptiv und schnelle Einstellung
     npar = cb.CurvedNearParams()
-    assert npar.subtract and npar.subtract_outer_ratio == 0.3 and npar.correction_ratio == 0.3
+    assert npar.subtract and npar.subtract_outer_ratio == 1.5 and npar.correction_ratio == 1.5
+    assert npar.outer_rule == 5 and npar.correction_rule == 5
     s_ref = cb.CurvedScatteringProblem(q, cb.Medium(eps=2.25), 1.0, near=cb.CurvedNearParams(subtract=False)).solve_plane_wave(Z, X, so).sigma_ext
     s_fast = cb.CurvedScatteringProblem(q, cb.Medium(eps=2.25), 1.0,
-                                        near=cb.CurvedNearParams(subtract_outer_ratio=0.5, correction_ratio=0.5)).solve_plane_wave(Z, X, so).sigma_ext
+                                        near=cb.CurvedNearParams(subtract_outer_ratio=1.0, correction_ratio=1.0,
+                                                                 outer_rule=4, correction_rule=4)).solve_plane_wave(Z, X, so).sigma_ext
     assert abs(r.sigma_ext / s_ref - 1) < 1e-6 and abs(s_fast / s_ref - 1) < 1e-5, (r.sigma_ext / s_ref - 1, s_fast / s_ref - 1)
     E = cb.CurvedKernelEntries(q, 1.0)
     assert E.block(0, 0).shape == (3, 3, 7)
