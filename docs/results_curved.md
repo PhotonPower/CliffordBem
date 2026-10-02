@@ -898,3 +898,25 @@ rechten Seiten, über Recycling und Deflation.
 Die Voreinstellung 10⁻⁶ hält σ_ext auf 4·10⁻⁷, weit unter dem Diskretisierungsfehler (gegen Mie etwa 7·10⁻⁵ bei
 1 280 Elementen). Für Vergleiche auf Quadraturgenauigkeit (≈ 3·10⁻⁸) genügt 10⁻⁷; 10⁻¹⁰ (Tests, Messungen) kostet fast
 die doppelte Zahl an Iterationen.
+
+## Messung: Krylov-Recycling gekrümmter Elemente (nach v0.60)
+
+`prototype/curved/recycling_rhs.cpp`: zwölf rechte Seiten wie bei der Orientierungsmittelung (sechs Einfallsrichtungen, je
+zwei Polarisationen), nacheinander gelöst mit GMRES, `RecyclingGmres` (bis 120 Richtungen) und `GcroDr` (k = 20, m = 80);
+Kugel, ωa = 0,5. Iterationen gesamt und Zeit (12 Threads):
+
+| Fall | Elemente, tol | GMRES | Recycling 120 | GCRO-DR 20/80 |
+|---|---|---:|---:|---:|
+| Gold (ε = −11 + 1,2i) | 320, 10⁻⁶ | 312 It., 6,8 s | 288 It., 7,5 s | 299 It., 7,2 s |
+| Gold | 320, 10⁻¹⁰ | 552 It., 11,9 s | 575 It., 14,6 s | 554 It., 12,9 s |
+| Gold | 1 280, 10⁻⁶ | 276 It., 38,5 s | 273 It., 40,6 s | 289 It., 39,9 s |
+| nahe Dipolresonanz (ε = −2,3 + 0,2i) | 320, 10⁻⁶ | 396 It., 8,6 s | 382 It., 10,2 s | 348 It., 8,4 s |
+| nahe Dipolresonanz | 320, 10⁻¹⁰ | 763 It., 16,1 s | 811 It., 19,6 s | 641 It., 15,0 s |
+| nahe Dipolresonanz | 1 280, 10⁻⁶ | 348 It., 46,2 s | 384 It., 57,3 s | 356 It., 49,0 s |
+
+Recycling spart höchstens 16 % der Iterationen (GCRO-DR, Resonanz, 10⁻¹⁰) und kaum Zeit, weil die Orthogonalisierung gegen
+die gespeicherten Richtungen hinzukommt; oft braucht es sogar mehr Iterationen als GMRES. Das folgt aus dem Spektrum (Messung
+oben): Die Eigenwerte liegen breit auf den vier Ästen des Hauptsymbols, ohne einzelne Ausreißer, die ein kleiner Unterraum
+abfangen könnte; die Dipolresonanz der Kugel hebt sich bei diesem Materialkontrast nicht genug ab. Im ebenen Pfad waren es
+10 % bei ε = −11 und 30–40 % nahe einer Resonanz (`results_dipole.md`), bei groberen Netzen mit stärkeren Ausreißern.
+`CurvedScatteringProblem` bekommt daher kein `use_recycling`; die Lösungen stimmen auf tol überein (Abweichung ≤ 2·10⁻⁶).

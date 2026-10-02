@@ -138,9 +138,9 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
    heute direkte Summation, 0,1 µs je Punkt und Element mit 12 Threads, 5- bis 10-mal langsamer als eben mit H-Matrix;
    Umbau der Fernsumme brachte nichts, v0.60); Kraft aus Randspuren und Fernfeld nur als zusätzliche Gegenprobe.
 3. Gekrümmte Elemente: Vorkonditionierung gemessen (results_curved.md): Iterationen durch das Hauptsymbol (Materialkontrast)
-   festgelegt, lokale Vorkonditionierer (Block, HODLR) wirkungslos; nächster Schritt Krylov-Recycling über mehrere rechte
-   Seiten (`RecyclingGmres` wie im ebenen Pfad, für Spektren und Orientierungsmittelung). Geschichtete Körper für
-   lineare/gekrümmte Elemente.
+   festgelegt, lokale Vorkonditionierer (Block, HODLR) wirkungslos; Krylov-Recycling über mehrere rechte Seiten
+   ebenfalls gemessen und ohne Nutzen (≤ 16 % Iterationen, keine Zeit; breites Spektrum ohne Ausreißer). Offen nur noch
+   Calderón-Vorkonditionierung (jede Iteration etwa doppelt so teuer). Geschichtete Körper für lineare/gekrümmte Elemente.
 4. Typ-Stubs (`.pyi`) für die Python-Anbindung; Wheels für weitere Plattformen.
 5. Ältere offene Punkte aus `README.md`/`docs/ARCHITECTURE.md`: reflexionsfreier Abschluss an 3D-Kanten, Streckung um
    Spitzen im C++-Kern, Substrate, parallele Tests auf Mehrkernrechnern, Stabilität der Dünnschicht-Näherung für d ≳ h.
