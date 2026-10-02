@@ -4,7 +4,7 @@ Koordinatenfreie Galerkin-Randelementmethode (BEM) der Nano-Optik in der komplex
 Streuung, Nahfeld, Dipolemission und optische Kräfte an (auch chiralen, beschichteten, mehreren) Körpern. C++17-Kern ohne
 externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Projekts: **Deutsch**.
 
-**Stand: v0.59** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
+**Stand: v0.60** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
 
 | Dichten / Geometrie | Klasse | seit | Genauigkeit an der Kugel (320 Elemente) |
 |---|---|---|---|
@@ -13,7 +13,7 @@ externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Proj
 | unstetig linear / quadratisch gekrümmt | `CurvedScatteringProblem` | v0.47 | Glas −0,012 %, Gold −0,007 %, etwa O(h⁴) |
 
 Die Herleitung, Messungen und Begründungen der gekrümmten Elemente stehen in `docs/results_curved.md` (Stufen 1, 2a, 1b,
-2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt, Aufbau, Nahfeld und Kräfte, chirales Außenmedium) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
+2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt, Aufbau, Nahfeld und Kräfte, chirales Außenmedium, Python-Felder) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
 
 ## Bauen und testen
 
@@ -134,9 +134,9 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
    6,5 s, Sauter-Schwab ≈ 4,6 s (seit v0.57 gepaart). Kein großer Einzelhebel mehr (results_curved.md).
    Sauter-Schwab auf verzerrten Elementen (längste Kante/Höhe > 1,7) konvergiert langsam (Ausreißer bis 10⁻⁴ auf
    Gmsh-Netzen) – Ordnung nach Elementform wählen? Lösen kostet so viel wie der Aufbau. Immer erst messen.
-2. **Nahfeld und Kräfte auf gekrümmten Elementen (v0.58, Rest):** Kraft aus Randspuren und Fernfeld
-   (`force_from_traces`, `force_from_far_field`), H-Matrix für viele Auswertepunkte (wie `NearFieldOperator`; heute
-   direkte Summation), einfallende Felder aus Python (`fields(x)`) für `exterior_near_field_curved`.
+2. **Nahfeld und Kräfte auf gekrümmten Elementen (Rest):** H-Matrix für viele Auswertepunkte (wie `NearFieldOperator`;
+   heute direkte Summation, 0,1 µs je Punkt und Element mit 12 Threads, 5- bis 10-mal langsamer als eben mit H-Matrix;
+   Umbau der Fernsumme brachte nichts, v0.60); Kraft aus Randspuren und Fernfeld nur als zusätzliche Gegenprobe.
 3. Block-/HODLR-Vorkonditionierung und geschichtete Körper für lineare/gekrümmte Elemente.
 4. Typ-Stubs (`.pyi`) für die Python-Anbindung; Wheels für weitere Plattformen.
 5. Ältere offene Punkte aus `README.md`/`docs/ARCHITECTURE.md`: reflexionsfreier Abschluss an 3D-Kanten, Streckung um

@@ -10,15 +10,19 @@
 
 namespace cbem {
 
-std::vector<cplx> project_incident_curved(const QuadraticMesh& m, const IncidentField& inc, const Medium& med, int sub) {
+std::vector<Vec3> projection_points_curved(const QuadraticMesh& m, int sub) { return CurvedQuadrature(m, QuadRule::subdivided(sub)).x; }
+
+std::vector<cplx> project_samples_curved(const QuadraticMesh& m, const std::vector<CVec3>& Es, const std::vector<CVec3>& Hs, const Medium& med,
+                                         int sub) {
     CurvedQuadrature Q(m, QuadRule::subdivided(sub));
+    if (Es.size() != Q.x.size() || Hs.size() != Q.x.size()) throw std::invalid_argument("project_samples_curved: je Quadraturpunkt E und H");
     const auto S = curved_psi_matrices(m);
     const cplx se = std::sqrt(med.eps), sm = std::sqrt(med.mu);
     std::vector<cplx> h(24 * m.size(), cplx(0));
     CBEM_OMP(omp parallel for schedule(dynamic, 16))
     for (long t = 0; t < static_cast<long>(m.size()); ++t) {
         for (int q = 0; q < Q.q; ++q) {
-            CVec3 E, H; inc.eval(Q.points(t)[q], E, H);
+            const CVec3& E = Es[t * Q.q + q]; const CVec3& H = Hs[t * Q.q + q];
             const Multivector F = Multivector::vector(E) * se + Multivector::blade(7) * Multivector::vector(H) * sm;
             const real w = Q.weights(t)[q];
             for (int a = 0; a < 3; ++a) {
@@ -28,6 +32,14 @@ std::vector<cplx> project_incident_curved(const QuadraticMesh& m, const Incident
         }
     }
     return h;
+}
+
+std::vector<cplx> project_incident_curved(const QuadraticMesh& m, const IncidentField& inc, const Medium& med, int sub) {
+    const std::vector<Vec3> x = projection_points_curved(m, sub);
+    std::vector<CVec3> E(x.size()), H(x.size());
+    CBEM_OMP(omp parallel for schedule(static))
+    for (long i = 0; i < static_cast<long>(x.size()); ++i) inc.eval(x[i], E[i], H[i]);
+    return project_samples_curved(m, E, H, med, sub);
 }
 
 std::vector<Multivector> scattered_field_curved(const QuadraticMesh& m, const std::vector<cplx>& hs, cplx k, const std::vector<Vec3>& pts) {

@@ -606,6 +606,28 @@ def test_curved_elements():
     del q4, rg                                                          # der Auswerter haelt Netz und Spur selbst
     F = cb.force_on_sphere(ev, water, (0, 0, 0), 1.5)
     assert abs(F[2] / 10.629788036 - 1) < 3e-3 and abs(F[0]) + abs(F[1]) < 1e-6 * F[2], F
+    # einfallendes Feld aus Python auf gekruemmten Elementen (v0.60): gleich der ebenen Welle des Kerns
+    q4 = cb.quadratic_icosphere(4)
+    rg = Pg.solve_plane_wave(d=Z, p=X, options=so)
+
+    class Counting(cb.PythonPlaneWave):
+        calls = 0
+
+        def fields(self, x):
+            Counting.calls += 1
+            return super().fields(x)
+
+    pyw = Counting(water, 0.5, Z, X)
+    bp = pyw.project(q4, water)
+    assert Counting.calls == 1 and np.allclose(bp, bg, rtol=0, atol=1e-13)
+    x = np.array([[1.05, 0.0, 0.0], [0.0, 0.0, 1.2]])
+    n_core = cb.exterior_near_field_curved(q4, rg.h, bg, water, 0.5, inc, x)
+    n_py = cb.exterior_near_field_curved(q4, rg.h, bp, water, 0.5, pyw, x)
+    assert Counting.calls == 2 and np.allclose(n_py["E"], n_core["E"], rtol=1e-12) and np.allclose(n_py["enhancement"], n_core["enhancement"], rtol=1e-12)
+    evp = cb.near_field_evaluator_curved(q4, rg.h, bp, water, 0.5, pyw)
+    Fp = cb.force_on_sphere(evp, water, (0, 0, 0), 1.5)
+    assert np.allclose(Fp, F, rtol=1e-10, atol=1e-12), (Fp, F)
+    assert raises(TypeError, cb.near_field_evaluator_curved, q4, rg.h, bp, water, 0.5, object())
 
 
 def test_gmsh_second_order():

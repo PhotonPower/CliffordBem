@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53), schnelleres H-Matrix-Produkt (v0.54), ACA-Toleranz (v0.56), gepaartes Sauter-Schwab und H-Matrix (v0.57), Nahfeld und Kräfte (v0.58), chirales Außenmedium (v0.59)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53), schnelleres H-Matrix-Produkt (v0.54), ACA-Toleranz (v0.56), gepaartes Sauter-Schwab und H-Matrix (v0.57), Nahfeld und Kräfte (v0.58), chirales Außenmedium (v0.59), Nahfeldkosten und Python-Felder (v0.60)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -827,3 +827,38 @@ dominiert, wie in Stufe 2a), wohl aber den CD um den Faktor 1,7.
 unsichtbar (σ = 8·10⁻¹⁷ bzw. 10⁻¹⁷), lineare Polarisation abgelehnt, Grenzfall χ = 10⁻⁹ gegen achiral (gekrümmt
 1,8·10⁻¹⁰, linear 3,2·10⁻⁸, Nahfeld 4,5·10⁻⁹), Spiegelsymmetrie σ₊(χ) = σ₋(−χ) (gekrümmt 7·10⁻⁹ mit ε = 10⁻⁶,
 linear 1,6·10⁻⁶ mit ε = 10⁻⁴).
+
+## Nahfeld: Kosten großer Karten und einfallende Felder aus Python (v0.60)
+
+**Kosten** (`prototype/curved/near_field_cost.cpp`; Goldkugel in Wasser, Karte in der Ebene y = 0, 12 Threads): Die
+direkte Summation kostet etwa 0,1 µs je Punkt und Element (ein Kern etwa 0,7–0,9 µs).
+
+| Elemente | Punkte | gekrümmt, direkt | eben (ab 2 000 Punkten H-Matrix) |
+|---|---:|---:|---:|
+| 1 280 | 9 800 | 1,6 s | 0,43 s |
+| 5 120 | 10 000 | 6,6 s | 0,88 s |
+| 5 120 | 40 000 | 27,4 s | 2,7 s |
+
+Die Kraft über die Kugel (32 × 64 Punkte) braucht 0,4 s (1 280 Elemente) bzw. 1,5 s (5 120 Elemente). Da 1 280
+gekrümmte Elemente genauer sind als 5 120 ebene, kostet eine Karte mit 40 000 Punkten bei gleicher Genauigkeit etwa 7 s
+statt 2,7 s.
+
+**Aufteilung** (ein Kern, 1 280 Elemente, 2 868 Punkte): nahe Paare (Singularitätssubtraktion) 13 800 mit zusammen
+0,04 s; ferne Paare 3,7 Mio. zu je 0,47 µs für die Integrale (davon die 7 Kernauswertungen etwa die Hälfte), dazu das
+Produkt mit der Dichte.
+
+**Was nicht geholfen hat.**
+- Die Dichte je Quadraturpunkt vorab einzurechnen (D_{τ,p,c} = Σ_a w ψ_a(y_p) e_c u_{τ,a}) und je Punkt und Element nur
+  noch Kern, Komponenten und Produkte zu rechnen: 7 × 7 × 8 = 392 komplexe Produkte je Paar statt 7 × 3 × 7 + 3 × 7 × 8 =
+  315, also mehr Arbeit (es gibt 7 Quadraturpunkte, aber nur 3 Basisfunktionen); ein Kern 0,9 statt 0,7 µs je Paar.
+- Kachelung (Blöcke von 64 Punkten je Element) gegen den Speicherverkehr: keine Änderung, der Speicher begrenzt nicht.
+
+Beides wurde zurückgenommen. Wesentlich schneller wird die Karte nur mit einer H-Matrix für die Auswertepunkte (wie
+`NearFieldOperator` im ebenen Pfad).
+
+**Einfallende Felder aus Python.** `CustomField.project` wählt für ein `QuadraticMesh` die Projektion auf die gekrümmte
+Spur (`projection_points_curved`, `project_samples_curved`: dieselbe Regel wie `project_incident_curved`, ein
+vektorisierter Aufruf von `fields(x)`); `exterior_near_field_curved` und `near_field_evaluator_curved` nehmen Python-Felder
+wie der ebene Pfad (Streufeld ohne GIL, `fields(x)` einmal je Auswertung). Prüfung (Python `test_curved_elements`): eine
+ebene Welle als Python-Feld gibt dieselbe Spur (10⁻¹³), dasselbe Nahfeld (10⁻¹²) und dieselbe Kraft (10⁻¹⁰) wie die des
+Kerns.

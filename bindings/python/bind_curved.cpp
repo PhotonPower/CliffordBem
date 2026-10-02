@@ -162,6 +162,52 @@ exterior_near_field (E, H, inside, too_close, enhancement, chirality). Goldkugel
           }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a,
           "Feldauswerter fuer Kraefte und Gradienten (force_on_sphere, force_on_offset, fields_with_gradients) auf gekruemmten Elementen");
 
+    // einfallende Felder aus Python (v0.60): Projektion in zwei Schritten (CustomField.project waehlt sie fuer QuadraticMesh),
+    // Nahfeld und Feldauswerter wie im ebenen Pfad (Streufeld ohne GIL, fields(x) ein vektorisierter Aufruf je Auswertung)
+    m.def("_quadrature_points_curved", [](const QuadraticMesh& q, int sub) {
+              if (sub < 1) throw py::value_error("sub >= 1");
+              return points_to_numpy(projection_points_curved(q, sub));
+          }, "mesh"_a, "sub"_a = 2, "Quadraturpunkte der Projektion auf gekruemmte Elemente (N q, 3), elementweise");
+    m.def("_project_samples_curved", [](const QuadraticMesh& q, const CArr& Ea, const CArr& Ha, const Medium& md, int sub) {
+              if (sub < 1) throw py::value_error("sub >= 1");
+              const std::size_t M = projection_points_curved(q, sub).size();
+              auto take = [&](const CArr& a, const char* what) {
+                  if (a.ndim() != 2 || static_cast<std::size_t>(a.shape(0)) != M || a.shape(1) != 3)
+                      throw py::value_error(std::string(what) + ": Form (" + std::to_string(M) + ", 3) erwartet");
+                  std::vector<CVec3> v(M); const cplx* d = a.data();
+                  for (std::size_t i = 0; i < M; ++i) v[i] = CVec3{d[3 * i], d[3 * i + 1], d[3 * i + 2]};
+                  return v;
+              };
+              auto E = take(Ea, "E"), H = take(Ha, "H");
+              return to_numpy(nogil([&] { return project_samples_curved(q, E, H, md, sub); }));
+          }, "mesh"_a, "E"_a, "H"_a, "medium"_a, "sub"_a = 2, "Spur (24 N) aus Feldwerten an den Quadraturpunkten");
+    m.def("exterior_near_field_curved", [](const QuadraticMesh& q, const CArr& h, const CArr& b, const Medium& md, real omega,
+                                           py::object incident, const RArr& pts) {
+              check_python_field(incident);
+              auto hv = to_trace24(h, q.size(), "h");
+              auto bv = to_trace24(b, q.size(), "b");
+              auto x = to_points(pts);
+              return near_field_to_dict(nogil([&] {
+                  return add_python_incident(exterior_near_field_curved(q, hv, bv, md, omega, ZeroField(), x), incident, x);
+              }));
+          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a, "points"_a,
+          "einfallendes Feld aus Python (Objekt mit fields(x) -> (E, H), z. B. CustomField); b = incident.project(outer, medium)");
+    m.def("near_field_evaluator_curved", [](const QuadraticMesh& q, const CArr& h, const CArr& b, const Medium& md, real omega,
+                                            py::object incident) {
+              check_python_field(incident);
+              struct Data { QuadraticMesh q; std::vector<cplx> h, b; };
+              auto data = std::make_shared<const Data>(Data{q, to_trace24(h, q.size(), "h"), to_trace24(b, q.size(), "b")});
+              auto field = hold_python_object(incident);
+              PyNearFieldEval e;
+              e.owner = data;
+              // wird von den Kraftfunktionen ohne GIL aufgerufen, je Auswertung einmal mit allen Punkten
+              e.f = [data, md, omega, field](const std::vector<Vec3>& pts) {
+                  return add_python_incident(exterior_near_field_curved(data->q, data->h, data->b, md, omega, ZeroField(), pts), *field, pts);
+              };
+              return e;
+          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a,
+          "Feldauswerter fuer ein einfallendes Feld aus Python auf gekruemmten Elementen");
+
     py::class_<CurvedScatteringProblem>(m, "CurvedScatteringProblem", R"doc(
 Streuproblem auf quadratischen (gekruemmten) Elementen mit unstetig linearen Dichten (24 Unbekannte je Element): ein oder
 mehrere Koerper (auch chiral), achirales Aussenmedium. Kugel mit 320 Elementen: Fehler gegen Mie etwa 0,01 % (eben,

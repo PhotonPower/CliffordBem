@@ -198,6 +198,14 @@ struct PyNearFieldEval {
 };
 // Nahfeldpunkte als Woerterbuch von Arrays (bind_sources.cpp)
 py::dict near_field_to_dict(const std::vector<NearFieldPoint>& v);
+// einfallende Felder aus Python (bind_sources.cpp; v0.60 auch fuer gekruemmte Elemente): Pruefung auf fields(x), Halter, der
+// den GIL beim Freigeben holt, und Nahfeld = Streufeld (mit ZeroField gerechnet) + Python-Feld mit dessen Bezugsgroessen
+// (ohne GIL aufrufen; ein vektorisierter Aufruf von fields(x))
+void check_python_field(const py::object& f);
+std::shared_ptr<py::object> hold_python_object(py::object o);
+std::vector<NearFieldPoint> add_python_incident(std::vector<NearFieldPoint> out, const py::object& field, const std::vector<Vec3>& pts);
+// Feldwerte eines Python-Feldes an Punkten (GIL muss gehalten werden)
+void python_field_values(const py::object& f, const std::vector<Vec3>& pts, std::vector<CVec3>& E, std::vector<CVec3>& H);
 
 // Teilmodule
 void init_core(py::module_& m);

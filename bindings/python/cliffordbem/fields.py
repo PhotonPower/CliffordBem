@@ -79,7 +79,14 @@ class CustomField:
         return (E[0], H[0]) if x.ndim == 1 else (E, H)
 
     def project(self, mesh, medium, sub: int = 2):
-        """Spur sqrt(eps) E + I sqrt(mu) H auf dem Netz (rechte Seite fuer solve_rhs); dieselbe Regel wie im Kern."""
+        """Spur sqrt(eps) E + I sqrt(mu) H auf dem Netz (rechte Seite fuer solve_rhs); dieselbe Regel wie im Kern.
+
+        Ebenes Netz (TriangleMesh): 8 Koeffizienten je Dreieck; gekruemmtes Netz (QuadraticMesh, v0.60): 24 je Element in der
+        psi-Basis (wie project_incident_curved)."""
+        if isinstance(mesh, _cbem.QuadraticMesh):
+            pts = _cbem._quadrature_points_curved(mesh, sub)
+            E, H = _evaluate(self, pts)
+            return _cbem._project_samples_curved(mesh, E, H, medium, sub)
         pts = _cbem._quadrature_points(mesh, sub)
         E, H = _evaluate(self, pts)
         return _cbem._project_samples(mesh, E, H, medium, sub)

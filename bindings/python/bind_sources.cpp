@@ -83,7 +83,22 @@ real attr_or(const py::object& f, const char* name, real dflt) {
 std::vector<NearFieldPoint> python_field_near_field(const TriangleMesh& outer, const std::vector<cplx>& h, const std::vector<cplx>& b,
                                                     const Medium& m, real omega, const py::object& field, const std::vector<Vec3>& pts,
                                                     const NearFieldOptions& o) {
-    auto out = exterior_near_field(outer, h, b, m, omega, ZeroField(), pts, o);
+    return add_python_incident(exterior_near_field(outer, h, b, m, omega, ZeroField(), pts, o), field, pts);
+}
+
+py::array_t<cplx> mat33(const CVec3 (&d)[3]) {
+    py::array_t<cplx> a({py::ssize_t(3), py::ssize_t(3)});
+    for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) a.mutable_data()[3 * i + j] = d[i][j];
+    return a;
+}
+
+}  // namespace
+
+void check_python_field(const py::object& f) { require_python_field(f); }
+std::shared_ptr<py::object> hold_python_object(py::object o) { return hold(std::move(o)); }
+void python_field_values(const py::object& f, const std::vector<Vec3>& pts, std::vector<CVec3>& E, std::vector<CVec3>& H) { call_fields(f, pts, E, H); }
+
+std::vector<NearFieldPoint> add_python_incident(std::vector<NearFieldPoint> out, const py::object& field, const std::vector<Vec3>& pts) {
     std::vector<CVec3> Ei, Hi;
     real p2 = 1, C0 = 1;
     {
@@ -102,14 +117,6 @@ std::vector<NearFieldPoint> python_field_near_field(const TriangleMesh& outer, c
     }
     return out;
 }
-
-py::array_t<cplx> mat33(const CVec3 (&d)[3]) {
-    py::array_t<cplx> a({py::ssize_t(3), py::ssize_t(3)});
-    for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) a.mutable_data()[3 * i + j] = d[i][j];
-    return a;
-}
-
-}  // namespace
 
 void init_sources(py::module_& m) {
     // --- ebene Wellen, Fernfeld, Extinktion -------------------------------------------------------------------------------------

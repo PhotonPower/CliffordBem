@@ -25,6 +25,11 @@ namespace cbem {
 // Spur eines beliebigen einfallenden Feldes F = sqrt(eps) E + I sqrt(mu) H in der psi-Basis (24 je Element; unterteilte
 // 7-Punkt-Regel mit sub^2 Teildreiecken auf der gekruemmten Flaeche; sub = 2 wie project_plane_wave_curved im Loeser)
 std::vector<cplx> project_incident_curved(const QuadraticMesh& m, const IncidentField& inc, const Medium& med, int sub = 2);
+// dieselbe Projektion in zwei Schritten (v0.60, fuer Felder aus Python): Quadraturpunkte (elementweise, N q) und Spur aus den
+// Feldwerten E, H an diesen Punkten
+std::vector<Vec3> projection_points_curved(const QuadraticMesh& m, int sub = 2);
+std::vector<cplx> project_samples_curved(const QuadraticMesh& m, const std::vector<CVec3>& E, const std::vector<CVec3>& H, const Medium& med,
+                                         int sub = 2);
 
 // Streufeld F_s an Punkten (Multivektor), Streuspur hs auf der gekruemmten Flaeche m, Wellenzahl k
 std::vector<Multivector> scattered_field_curved(const QuadraticMesh& m, const std::vector<cplx>& hs, cplx k, const std::vector<Vec3>& pts);
