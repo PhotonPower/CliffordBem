@@ -1,10 +1,51 @@
 // Gmsh-Ein-/Ausgabe: Rundreise 2.2, Lesen einer 4.1-Datei, Orientierung, gleiche Streuloesung.
+// Zweite Ordnung (v0.48): eine echte Gmsh-Datei (CAD-Kugel, Mesh.ElementOrder 2, mit Punkten, Linien zweiter Ordnung und
+// parametrischen Koordinaten; data/meshes), Kantenmitten auf der Kugel, Orientierung, Volumen, Rundreise mit umgedrehter
+// Flaeche, Ablehnung erster Ordnung, Streuung auf gekruemmten Elementen gegen Mie.
 #include "cbem/geometry/gmsh_io.hpp"
+#include "cbem/problems/curved_problem.hpp"
 #include "cbem/problems/scattering_problem.hpp"
 #include <cstdio>
 #include <fstream>
 #include "check.hpp"
 using namespace cbem;
+static void test_second_order() {
+    const std::string f = std::string(CBEM_MESH_DIR) + "/sphere_r1_order2_gmsh41.msh";
+    auto qb = read_gmsh_quadratic(f);
+    auto fb = read_gmsh(f);                                              // dieselbe Datei, nur die Ecken
+    CHECK(qb.size() == 1 && fb.size() == 1 && qb[0].mesh.size() == 320 && fb[0].mesh.size() == 320, "Gmsh 2. Ordnung: Elementzahl");
+    const QuadraticMesh& q = qb[0].mesh;
+    double dm = 0, out = 1e9;
+    for (std::size_t t = 0; t < q.size(); ++t) {
+        for (const auto& M : q.mid[t]) dm = std::max(dm, std::abs(norm(M) - 1));
+        out = std::min(out, dot(q.flat.normal[t], q.flat.centroid[t]));
+    }
+    const double vq = signed_volume(q) / (4 * pi / 3) - 1, vf = signed_volume(q.flat) / (4 * pi / 3) - 1;
+    std::printf("  Gmsh 2. Ordnung: %zu Elemente, Kantenmitten |M| - 1 = %.1e, Volumen quadratisch %+.2e, eben %+.2e\n", q.size(), dm, vq, vf);
+    CHECK(dm < 1e-12, "Kantenmitten liegen nicht auf der CAD-Kugel");
+    CHECK(out > 0, "nicht nach aussen orientiert");
+    CHECK(std::abs(vq) < 2e-4 && std::abs(vf) > 100 * std::abs(vq), "Volumen der quadratischen Elemente");
+    // Rundreise mit zwei Koerpern, der zweite absichtlich innen orientiert (Mitten muessen mitgetauscht werden)
+    QuadraticMesh a = quadratic_icosphere(3), b = translated(quadratic_icosphere(2), Vec3(4, 0, 0), 0.5), bf = b;
+    for (std::size_t t = 0; t < bf.size(); ++t) { std::swap(bf.flat.T[t][1], bf.flat.T[t][2]); auto& M = bf.mid[t]; M = {M[2], M[1], M[0]}; }
+    bf.flat.compute_geometry(); bf.compute_geometry();
+    write_gmsh22_quadratic("/tmp/cbem_test_o2.msh", {a, bf});
+    auto rb = read_gmsh_quadratic("/tmp/cbem_test_o2.msh");
+    double dmid = 0, dvol = std::abs(signed_volume(rb[1].mesh) - signed_volume(b));
+    for (std::size_t t = 0; t < a.size(); ++t) for (int e = 0; e < 3; ++e) dmid = std::max(dmid, norm(rb[0].mesh.mid[t][e] - a.mid[t][e]));
+    std::printf("  Rundreise 2. Ordnung: Mitten %.1e, Volumen des umgedrehten Koerpers %.1e\n", dmid, dvol);
+    CHECK(rb.size() == 2 && dmid < 1e-15 && dvol < 1e-13 && signed_volume(rb[1].mesh) > 0, "Rundreise zweiter Ordnung");
+    bool rejected = false;
+    try { read_gmsh_quadratic("/tmp/cbem_test.msh"); } catch (const std::runtime_error&) { rejected = true; }
+    CHECK(rejected, "Netz erster Ordnung als quadratisch angenommen");
+    // Streuung: Glas auf der Gmsh-Kugel (heute -5,83 % mit den Ecken derselben Datei)
+    SolveOptions so; so.tol = 1e-9;
+    CurvedScatteringProblem C({q}, {Medium{2.25}}, 1.0);
+    const real e = C.solve_plane_wave(Vec3(0, 0, 1), CVec3{1, 0, 0}, so).sigma_ext / pi / 0.2150978 - 1;
+    std::printf("  Glas auf der Gmsh-Kugel (320 gekruemmte Elemente): %+.4f %% gegen Mie\n", 100 * e);
+    CHECK(std::abs(e) < 3e-4, "Streuung auf dem Gmsh-Netz zweiter Ordnung: %.5f", e);
+}
+
 int main() {
     TriangleMesh a = make_icosphere(3), b = translated(make_cube_uniform(3), Vec3(4, 0, 0), 0.8);
     // absichtlich eine Flaeche falsch orientieren: der Leser muss sie umdrehen
@@ -30,5 +71,6 @@ int main() {
     real s1 = ScatteringProblem({bodies[0].mesh}, {g}, 1.0, {}, hp).solve_plane_wave(Vec3(0, 0, 1), CVec3{1.0, 0.0, 0.0}, so).sigma_ext;
     std::printf("  sigma_ext: erzeugt %.10f, eingelesen %.10f\n", s0, s1);
     CHECK(std::abs(s0 - s1) < 1e-9 * s0, "eingelesenes Netz liefert andere Loesung");
+    test_second_order();
     REPORT();
 }

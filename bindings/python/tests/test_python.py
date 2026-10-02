@@ -572,6 +572,27 @@ def test_curved_elements():
     assert np.linalg.norm(C.apply(b) - b) < 5e-3 * np.linalg.norm(b)    # Plemelj E b = b (innere Loesung)
 
 
+def test_gmsh_second_order():
+    """Gmsh-Netze zweiter Ordnung: echte Gmsh-Datei (CAD-Kugel), Kantenmitten auf der Kugel, gleiche Ecken wie read_gmsh,
+    Rundreise, Ablehnung erster Ordnung."""
+    path = os.path.join(_here, "..", "..", "..", "data", "meshes", "sphere_r1_order2_gmsh41.msh")
+    bodies = cb.read_gmsh_quadratic(path)
+    assert len(bodies) == 1 and bodies[0][0] == 1
+    q = bodies[0][1]
+    assert len(q) == 320 and abs(np.linalg.norm(q.midpoints, axis=2) - 1).max() < 1e-12
+    flat = cb.read_gmsh(path)[0][1]
+    assert np.allclose(flat.points, q.flat.points) and np.array_equal(flat.triangles, q.flat.triangles)
+    assert abs(q.volume() / (4 * np.pi / 3) - 1) < 2e-4 < abs(cb.signed_volume(flat) / (4 * np.pi / 3) - 1)
+    with tempfile.TemporaryDirectory() as tmp:
+        f = os.path.join(tmp, "o2.msh")
+        cb.write_gmsh22_quadratic(f, [q, cb.translated(cb.quadratic_icosphere(2), (4, 0, 0), 0.5)])
+        rb = cb.read_gmsh_quadratic(f)
+        assert [t for t, _ in rb] == [1, 2] and np.allclose(rb[0][1].midpoints, q.midpoints, atol=1e-15)
+        f1 = os.path.join(tmp, "o1.msh")
+        cb.write_gmsh22(f1, [cb.make_icosphere(2)])
+        assert raises(RuntimeError, cb.read_gmsh_quadratic, f1)
+
+
 def main():
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = 0

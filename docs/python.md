@@ -81,7 +81,7 @@ Medien und Multivektoren lassen sich kopieren und mit `pickle` speichern.
 | Bausteine | `KernelEntries`, `KernelHMatrix` (`stats` → `HStats`), `CauchyOperator`, `ChiralCauchyOperator`, `TransmissionOperator`, `gmres` (C++-Operator oder Python-Funktion, Vorkonditionierer als Python-Funktion), `group_by_clusters`, `group_by_features`, `FeatureSet` |
 | eigene Felder (v0.43) | `CustomField` (Methode `fields(x)`), `SuperposedField` (auch `+`, `-`, `*` mit Kernfeldern), `PythonPlaneWave`, `AngularSpectrumField` (`bessel`), `as_field_function`, `maxwell_residual`; angenommen von `exterior_near_field`, `near_field_evaluator` (und damit allen Kraft- und Gradientenfunktionen) |
 | lineare Dichten (v0.45) | `LinearScatteringProblem` (24 Unbekannte je Dreieck, Spur `reshape(-1, 3, 8)`), `LinearKernelEntries` (`block`, `lambda_block`, `S`), `linear_hmatrix`, `LinearCauchyOperator`, `plane_wave_trace_linear`, `project_plane_wave_linear`, `far_field_linear`, `extinction_cross_section_linear`, `forward_amplitude_linear`, `linear_to_constant`, `linear_trace_value` |
-| gekrümmte Elemente (v0.47) | `QuadraticMesh` (`flat`, `midpoints`, `areas`, `volume`, `point`, `normal`), `quadratic_icosphere`, `make_quadratic_sphere`, `make_quadratic(mesh, project)` (Kantenmitten über eine Python-Funktion), `CurvedScatteringProblem`, `CurvedNearParams`, `CurvedKernelEntries`, `CurvedHMatrix`, `CurvedCauchyOperator`, `plane_wave_trace_curved`, `extinction_cross_section_curved`, `far_field_curved` |
+| gekrümmte Elemente (v0.47) | `QuadraticMesh` (`flat`, `midpoints`, `areas`, `volume`, `point`, `normal`), `quadratic_icosphere`, `make_quadratic_sphere`, `make_quadratic(mesh, project)` (Kantenmitten über eine Python-Funktion), `read_gmsh_quadratic`, `write_gmsh22_quadratic` (v0.48), `CurvedScatteringProblem`, `CurvedNearParams`, `CurvedKernelEntries`, `CurvedHMatrix`, `CurvedCauchyOperator`, `plane_wave_trace_curved`, `extinction_cross_section_curved`, `far_field_curved` |
 | Komfort | `spectrum` (wie die App, homogene Körper), `omega_from_wavelength`, `wavelength_from_omega`, `polarization_basis`, `trace_blocks`, `set_num_threads`, `omp_threads` |
 
 Die Docstrings (`help(cb.ScatteringProblem)`) beschreiben Argumente und Rückgaben; die Bedeutung der Größen ist in den
@@ -172,6 +172,7 @@ kleiner als die Wellenlänge) wächst der Differenzenfehler wie (Schritt/L)⁴: 
 | `examples/python/spectrum_gold_sphere.py` | Spektrum einer Goldkugel in Wasser gegen Mie, CSV und Abbildung |
 | `examples/python/nearfield_dimer.py` | Nahfeldkarte eines Gold-Dimers, Kräfte je Kugel gegen die Impulsbilanz im Fernfeld |
 | `examples/python/custom_field.py` | eigene Felder: Stehwelle (F_z = B sin 2ks exakt), Bessel-Strahl mit Querkraft, Recycling über viele rechte Seiten |
+| `examples/python/gmsh_curved.py` | Gold-Nanostäbchen aus Gmsh zweiter Ordnung: ebene gegen gekrümmte Elemente (benötigt das Paket gmsh, sonst die mitgelieferte Kugel) |
 | `examples/python/custom_formulation.py` | T₁ in NumPy aus den Cauchy-Operatoren des Kerns, Plemelj-Spurtrennung, GMRES mit Python-Vorkonditionierer |
 
 Mit n = 4 (Dimer: 640 Dreiecke, 41 × 21 Punkte) laufen die Beispiele in wenigen Sekunden; das Dimer ergibt Kräfte
@@ -201,9 +202,10 @@ Die von Hand zusammengesetzte T₁ stimmt mit dem Operator des Kerns auf allen S
 | `test_custom_field_errors` | falsche Formen, fehlende Methode, Ausnahmen aus `fields` durch den Lauf ohne GIL |
 | `test_linear_densities` | lineare Dichten: Summenidentität, Orthonormalität der Basis, Projektion, Streuung wie die Vorhersage aus Stufe 1, Plemelj genauer als konstant, Fehler, Lebensdauer |
 | `test_curved_elements` | gekrümmte Elemente: Geometrie O(h⁴), eigene Projektion der Kantenmitten, ebene Gegenprobe, Kugel gegen Mie, Plemelj, Fehler, Lebensdauer |
+| `test_gmsh_second_order` | echte Gmsh-Datei zweiter Ordnung, Mitten auf der CAD-Kugel, gleiche Ecken wie `read_gmsh`, Rundreise, Ablehnung erster Ordnung |
 | `test_threads_release_gil` | zwei Lösungen parallel in Python-Threads, gleiche Ergebnisse, GIL frei während der Rechnung |
 
-20 Tests, Laufzeit etwa zwei Minuten auf einem Kern.
+21 Tests, Laufzeit etwa zwei Minuten auf einem Kern.
 
 ## Grenzen
 

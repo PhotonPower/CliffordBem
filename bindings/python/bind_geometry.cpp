@@ -79,7 +79,7 @@ Stelle veraendert, sondern neu erzeugt (z. B. ``TriangleMesh(2 * m.points, m.tri
           "Ikosaederkugel, konform zum Pol verdichtet (Elementgroesse am Pol etwa lam h)");
     m.def("make_cube_uniform", &make_cube_uniform, "n"_a, "Wuerfel [-1,1]^3, gleichmaessig, 12 n^2 Dreiecke");
     m.def("make_cube_graded", &make_cube_graded, "L"_a, "Wuerfel [-1,1]^3, zu den Kanten gradiert, 48 (L+1)^2 Dreiecke");
-    m.def("translated", &translated, "mesh"_a, "shift"_a, "scale"_a = 1.0, "x -> scale x + shift");
+    m.def("translated", static_cast<TriangleMesh (*)(const TriangleMesh&, const Vec3&, real)>(&translated), "mesh"_a, "shift"_a, "scale"_a = 1.0, "x -> scale x + shift");
     m.def("offset_surface", [](const TriangleMesh& me, real d) { return nogil([&] { return offset_surface(me, d); }); }, "mesh"_a, "d"_a,
           "Parallelflaeche im Abstand d (d > 0 nach aussen); RuntimeError bei Faltung oder Durchdringung");
     m.def("distance_to_surface", [](const TriangleMesh& me, const RArr& q, real rmax) {
@@ -94,7 +94,7 @@ Stelle veraendert, sondern neu erzeugt (z. B. ``TriangleMesh(2 * m.points, m.tri
               if (single_point(x)) return py::float_(w[0]);
               return to_numpy(w);
           }, "mesh"_a, "x"_a, "Windungszahl: 1 innen, 0 aussen (Punkt oder Punkte (M, 3))");
-    m.def("signed_volume", &signed_volume, "mesh"_a, "Volumen mit Vorzeichen (> 0: nach aussen orientiert)");
+    m.def("signed_volume", static_cast<real (*)(const TriangleMesh&)>(&signed_volume), "mesh"_a, "Volumen mit Vorzeichen (> 0: nach aussen orientiert)");
     m.def("require_separated", &require_separated, "a"_a, "b"_a, "extra"_a = 0.0, "what"_a = std::string("Koerper"),
           "RuntimeError, wenn sich die Flaechen beruehren oder durchdringen");
 

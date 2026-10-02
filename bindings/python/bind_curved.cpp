@@ -2,6 +2,7 @@
 // Spuren: 24 Koeffizienten je Element wie bei den linearen Dichten (h.reshape(-1, 3, 8)).
 #include "common.hpp"
 
+#include "cbem/geometry/gmsh_io.hpp"
 #include "cbem/problems/curved_problem.hpp"
 
 namespace cbem::py_bind {
@@ -63,6 +64,14 @@ make_quadratic_sphere oder make_quadratic(mesh, project) mit einer Funktion, die
               return make_quadratic(flat, [&](const Vec3& p) { return project(p).cast<Vec3>(); });
           }, "mesh"_a, "project"_a, "Kantenmitten = project(Sehnenmitte), project: Funktion (3,) -> (3,)");
     m.def("translated", [](const QuadraticMesh& q, const Vec3& s, real f) { return translated(q, s, f); }, "mesh"_a, "shift"_a, "scale"_a = 1.0);
+    m.def("read_gmsh_quadratic", [](const std::string& path, real scale) {
+              auto bodies = read_gmsh_quadratic(path, scale);
+              py::list out;
+              for (auto& b : bodies) out.append(py::make_tuple(b.tag, std::move(b.mesh)));
+              return out;
+          }, "path"_a, "scale"_a = 1.0,
+          "Gmsh 2.2/4.1 zweiter Ordnung (6-Knoten-Dreiecke, Mesh.ElementOrder = 2): Liste von (tag, QuadraticMesh), nach aussen orientiert");
+    m.def("write_gmsh22_quadratic", &write_gmsh22_quadratic, "path"_a, "bodies"_a, "Gmsh 2.2 zweiter Ordnung, physikalische Gruppen 1, 2, ...");
 
     ParamClass<CurvedNearParams>(m, "CurvedNearParams", "Nahquadratur gekruemmter Elemente (doppelt adaptiv)")
         .field("outer_ratio", &CurvedNearParams::outer_ratio, "aeusseres Teilstueck: Umkreisradius < outer_ratio * Abstand")

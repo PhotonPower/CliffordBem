@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -307,6 +307,57 @@ Singularitätssubtraktion mit den analytischen Integralen des Sehnendreiecks.
 
 **Umfang von 2b.** Wie in 2a: ein oder mehrere Körper (auch chiral), achirales Außenmedium, ebene Wellen und beliebige
 rechte Seiten, Extinktion, Vorwärtsamplitude und Fernfeld, jeweils auch in Python. Noch nicht unterstützt: das chirale
-Außenmedium, Nahfeld und Kräfte, der Import quadratischer Gmsh-Netze (`ElementOrder 2`), Block- und
-HODLR-Vorkonditionierung sowie geschichtete Körper. Netze mit Kanten und Ecken (Würfel) profitieren an den ebenen Seiten
+Außenmedium, Nahfeld und Kräfte, Block- und HODLR-Vorkonditionierung sowie geschichtete Körper. Gmsh-Netze zweiter
+Ordnung liest v0.48 (unten). Netze mit Kanten und Ecken (Würfel) profitieren an den ebenen Seiten
 nicht.
+
+## Gmsh-Netze zweiter Ordnung (v0.48)
+
+`read_gmsh_quadratic` liest 6-Knoten-Dreiecke (Gmsh-Elementtyp 9) aus MSH 2.2 und 4.1 (ASCII) als `QuadraticMesh`. Die
+Kantenmitten liegen dann auf der CAD-Fläche, nicht auf einer nachträglichen Projektion. Körper werden wie bisher nach
+physikalischer Gruppe bzw. Entität getrennt und über das Vorzeichen des Volumens nach außen orientiert. Beim Umdrehen
+(v₀, v₂, v₁) werden die Kantenmitten zu (M₂₀, M₁₂, M₀₁) mitgetauscht. Andere Elementtypen (Punkte, Linien und
+Volumenelemente, auch zweiter Ordnung) werden übersprungen, parametrische Knotenkoordinaten (`Mesh.SaveParametric`)
+gelesen und verworfen. `read_gmsh` liest aus denselben Dateien die Ecken; bisher brach es bei Typ 9 im Format 4.1 ab.
+`write_gmsh22_quadratic` schreibt konforme Netze zweiter Ordnung (eine Mitte je Kante). Netze erster Ordnung lehnt
+`read_gmsh_quadratic` mit einem Hinweis ab (mit `Mesh.ElementOrder = 2` vernetzen oder `make_quadratic` verwenden).
+
+**Prüfungen** (`test_gmsh`, Python `test_gmsh_second_order`) an einer echten Gmsh-Datei (`data/meshes/sphere_r1_order2_gmsh41.msh`:
+CAD-Kugel aus OpenCASCADE, Gmsh 4.15.2, 320 Elemente, mit Punkten, Linien zweiter Ordnung und parametrischen Koordinaten):
+
+| Prüfung | Ergebnis |
+|---|---|
+| Kantenmitten auf der Kugel | \|M\| − 1 = 2·10⁻¹⁶ (CAD-genau) |
+| Formate 2.2 und 4.1, mit und ohne physikalische Gruppen | gleiche Netze |
+| Volumen, quadratisch / eben | −1,54·10⁻⁴ / −3,50·10⁻²; von 254 auf 540 Elemente fällt der quadratische Fehler um 4,5 = (540/254)², also O(h⁴) |
+| Rundreise mit zwei Körpern, einer absichtlich innen orientiert | Mitten und Volumen exakt |
+| Netz erster Ordnung | abgelehnt |
+
+**Streuung auf echten Gmsh-Netzen** (Fehler gegen Mie; „eben/konstant“ aus den Ecken derselben Datei):
+
+| Fall | Elemente | gekrümmt | eben/konstant |
+|---|---:|---:|---:|
+| Glas, ωa = 1 | 254 | −0,017 % | −7,26 % |
+| Glas | 320 | −0,010 % | −5,83 % |
+| Glas | 540 | −0,0044 % | −3,53 % |
+| Gold, ε = −11 + 1,2i, ωa = 0,5 | 254 | −0,028 % | +10,31 % |
+| Gold | 540 | −0,0023 % | +4,57 % |
+
+**Ein empfindlicher Fall.** Eine Goldkugel mit 20 nm Durchmesser in Wasser bei 700 nm (ωa = 0,09, fern der Resonanz)
+hat eine winzige Extinktion (Q = 0,018), die fast reine Absorption ∝ Im α ist. Mit |Re ε|/Im ε = 15,5 verstärken sich
+relative Fehler der Polarisierbarkeit etwa um diesen Faktor:
+
+| Elemente (Ikosaederkugel) | gekrümmt | eben/konstant |
+|---:|---:|---:|
+| 320 | +0,72 % | +72 % |
+| 720 | +0,145 % | +32 % |
+| 2 880 | – | +8,0 % |
+
+Gekrümmt fällt der Fehler um den Faktor 5,0 bei vorhergesagten (720/320)² = 5,06, also O(h⁴); eben fällt er mit O(h²).
+Fern der Resonanz absorbierende Metallteilchen sind damit ein Fall, in dem die gekrümmten Elemente den Unterschied
+zwischen brauchbar und unbrauchbar ausmachen.
+
+**Beispiel** `examples/python/gmsh_curved.py`: ein Gold-Nanostäbchen (Zylinder mit Halbkugelkappen, 50 × 20 nm) in Wasser
+bei 700 nm, longitudinal angeregt, mit Gmsh vernetzt. Bei 196 bzw. 366 Elementen liegen ebene Elemente 29 % bzw. 15 % über
+dem feinsten gekrümmten Wert, gekrümmte ändern sich nur um 0,3 %. Ohne das Python-Paket gmsh rechnet das Skript die
+mitgelieferte Kugel.

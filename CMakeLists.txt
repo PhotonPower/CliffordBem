@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(CliffordBem VERSION 0.47.0 LANGUAGES CXX)
+project(CliffordBem VERSION 0.48.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -104,6 +104,7 @@ if(CBEM_BUILD_TESTS)
     add_test(NAME ${t} COMMAND ${t})
   endforeach()
   target_compile_definitions(test_materials PRIVATE CBEM_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/materials")
+  target_compile_definitions(test_gmsh PRIVATE CBEM_MESH_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/meshes")
   # GLMT-Referenz (v0.39): Selbstpruefung des Python-Werkzeugs, falls Python 3 mit numpy und scipy vorhanden ist
   find_package(Python3 COMPONENTS Interpreter)
   if(Python3_FOUND)
