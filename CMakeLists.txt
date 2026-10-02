@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(CliffordBem VERSION 0.61.0 LANGUAGES CXX)
+project(CliffordBem VERSION 0.62.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -53,7 +53,8 @@ add_library(cbem
   src/recycling_gmres.cpp
   src/optical_force.cpp
   src/incident_field.cpp
-  src/curved_near_field.cpp)
+  src/curved_near_field.cpp
+  src/curved_layered_problem.cpp)
 target_include_directories(cbem PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(cbem PRIVATE -Wall -Wextra)
 # Komplexe Multiplikation ohne NaN-Pruefung mit __muldc3-Rueckfall (C99 Anhang G): fuer endliche Zahlen dieselbe Rechnung,
@@ -116,7 +117,7 @@ endif()
 
 if(CBEM_BUILD_TESTS)
   enable_testing()
-  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh test_materials test_hodlr test_layered test_thin_layer test_twoport test_chiral_host test_near_field test_dipole test_recycling test_optical_force test_beams test_linear test_curved test_curved_near_field)
+  foreach(t test_multivector test_triangle_integrals test_dense test_aca test_hmatrix test_plemelj test_gmres test_scattering test_block_precond test_sauter_schwab test_nearfield test_chiral test_multibody test_gmsh test_materials test_hodlr test_layered test_thin_layer test_twoport test_chiral_host test_near_field test_dipole test_recycling test_optical_force test_beams test_linear test_curved test_curved_near_field test_curved_layered)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE cbem)
     add_test(NAME ${t} COMMAND ${t})

@@ -55,6 +55,13 @@ struct CurvedNearParams {
     // dass die Eintraege bei gleichem Aufwand wie isotrop 5 genauer sind als isotrop 6 (results_curved.md).
     // Erste Zahl 0: isotrop mit EntryParams::ss_order.
     std::array<std::array<int, 4>, 3> ss_orders = {{{5, 6, 6, 5}, {4, 4, 6, 6}, {4, 4, 3, 7}}};
+    // Nahe Paare ueber eine duenne Schicht (Flaechen im Abstand d << h): Liegt ein aeusseres Teilstueck ganz auf einer Seite
+    // der Flaeche des inneren Elements (Hoehen der Ecken ueber ihren Fusspunkten mit gleichem Vorzeichen), ist das Innenintegral
+    // dort tangential glatt und nur ueber dem Rand des inneren Elements singulaer; dann zaehlt der Abstand zum Rand (wie
+    // EntryParams::adapt_to_boundary im ebenen Pfad). Ohne das wird das aeussere Element flaechig auf die Groesse d verfeinert.
+    // Abstaende dann zur gekruemmten Flaeche statt zum Sehnendreieck minus Woelbung (die Woelbung ist bei duennen Schichten so
+    // gross wie d).
+    bool adapt_to_boundary = false;
 };
 
 class CurvedKernelEntries {
@@ -133,6 +140,9 @@ private:
                           std::array<CurvedComp, 3>& acc) const;
     void outer(std::size_t i, std::size_t j, const std::array<std::array<real, 3>, 3>& tri, real aref, int depth, CurvedBlock& K) const;
     real distance_to_element(const Vec3& x, std::size_t j) const;
+    // Abstaende zur gekruemmten Flaeche (adapt_to_boundary): Fusspunkt (tangent_at) bzw. quadratische Randkurven
+    real distance_to_curved(const Vec3& x, std::size_t j) const;
+    real distance_to_boundary(const Vec3& x, std::size_t j) const;
     void build_near_cache();
 };
 

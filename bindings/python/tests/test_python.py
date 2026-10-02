@@ -644,6 +644,34 @@ def test_curved_elements():
     assert np.abs(nh["E"] - nd["E"]).max() < 2e-6 * np.abs(nd["E"]).max()
 
 
+def test_curved_layered():
+    """Geschichtete Koerper auf gekruemmten Elementen (v0.62): ohne Schicht wie CurvedScatteringProblem, Goldkern mit
+    Glasschale gegen Aden-Kerker (grobes Netz), Parallelflaeche, Geometrie und Fehlerbehandlung."""
+    gold, glass = cb.Medium(eps=-11 + 1.2j), cb.Medium(eps=2.25)
+    so = cb.SolveOptions()
+    so.tol = 1e-10
+    q2 = cb.quadratic_icosphere(2)
+    g = cb.CurvedLayeredGeometry()
+    assert g.add_body(q2, gold) == 1 and g.elements == len(q2)
+    a = cb.CurvedLayeredScatteringProblem(g, 0.5, near=cb.CurvedNearParams()).solve_plane_wave(d=Z, p=X, options=so)
+    b = cb.CurvedScatteringProblem(q2, gold, 0.5).solve_plane_wave(d=Z, p=X, options=so)
+    assert abs(a.sigma_ext / b.sigma_ext - 1) < 1e-10 and abs(a.forward - b.forward) < 1e-10 * abs(b.forward)
+    assert cb.curved_layered_near_params().adapt_to_boundary and not cb.CurvedNearParams().adapt_to_boundary
+    # Parallelflaeche der Kugel: Radius 1,2 an den Knoten
+    o = cb.offset_surface(q2, 0.2)
+    assert abs(np.linalg.norm(o.midpoints, axis=2) - 1.2).max() < 1e-4
+    # Goldkern mit Glasschale bis 1,2 (2 x 80 Elemente): Aden-Kerker Q_ext = 0,95996079 (tools/mie_coated.py)
+    g = cb.CurvedLayeredGeometry()
+    assert g.add_coated_body(q2, gold, [cb.Coating(0.2, glass)]) == [1, 2]
+    assert g.inside == [1, 2] and g.outside == [0, 1] and len(g.surfaces) == 2
+    P = cb.CurvedLayeredScatteringProblem(g, 0.5)
+    assert len(P.T) == P.unknowns == 24 * 160 and P.surface_begin(1) == 80
+    r = P.solve_plane_wave(d=Z, p=X, options=so)
+    assert abs(r.sigma_ext / (np.pi * 1.44) / 0.95996079 - 1) < 2e-3, r
+    assert len(r.h) == 24 * 160 and r.iterations > 0
+    assert raises(ValueError, g.add_layered_body, [q2], [gold, glass])
+
+
 def test_gmsh_second_order():
     """Gmsh-Netze zweiter Ordnung: echte Gmsh-Datei (CAD-Kugel), Kantenmitten auf der Kugel, gleiche Ecken wie read_gmsh,
     Rundreise, Ablehnung erster Ordnung."""

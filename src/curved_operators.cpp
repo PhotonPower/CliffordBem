@@ -21,18 +21,17 @@ void CurvedCauchyOperator::apply(const std::vector<cplx>& x, std::vector<cplx>& 
     for (auto& v : y) v *= -2.0;
 }
 
-CurvedTransmissionOperator::CurvedTransmissionOperator(const QuadraticMesh& m, const std::vector<std::array<real, 9>>& S,
-                                                       const BoundaryOperator& E1, const BoundaryOperator& E2,
-                                                       const std::vector<Medium>& in, const Medium& out)
-    : N_(m.size()), E1_(E1), E2_(E2) {
-    if (in.size() != N_ || S.size() != N_) throw std::invalid_argument("CurvedTransmissionOperator: je Element ein Medium und eine Basis");
+void curved_transmission_blocks(const QuadraticMesh& m, const std::vector<std::array<real, 9>>& S, const std::vector<Medium>& in,
+                                const std::vector<Medium>& out, std::vector<std::vector<cplx>>& JG, std::vector<std::vector<cplx>>& P) {
+    const std::size_t N = m.size();
+    if (in.size() != N || out.size() != N || S.size() != N) throw std::invalid_argument("curved_transmission_blocks: je Element Medien und eine Basis");
     CurvedQuadrature Q(m, QuadRule::subdivided(2));
-    JG_.assign(N_, std::vector<cplx>(576, cplx(0)));
-    P_.assign(N_, std::vector<cplx>(576, cplx(0)));
-    for (std::size_t t = 0; t < N_; ++t) {
-        std::vector<cplx>& G = JG_[t];
+    JG.assign(N, std::vector<cplx>(576, cplx(0)));
+    P.assign(N, std::vector<cplx>(576, cplx(0)));
+    for (std::size_t t = 0; t < N; ++t) {
+        std::vector<cplx>& G = JG[t];
         for (int p = 0; p < Q.q; ++p) {
-            const Mat8 J = transmission_map(Q.normals(t)[p], in[t], out);
+            const Mat8 J = transmission_map(Q.normals(t)[p], in[t], out[t]);
             real psi[3];
             for (int a = 0; a < 3; ++a) { psi[a] = 0; for (int k = 0; k < 3; ++k) psi[a] += S[t][a * 3 + k] * Q.lam[p][k]; }
             const real w = Q.weights(t)[p];
@@ -48,24 +47,30 @@ CurvedTransmissionOperator::CurvedTransmissionOperator(const QuadraticMesh& m, c
         for (int c = 0; c < 24; ++c) {
             std::vector<cplx> e(24, cplx(0)); e[c] = 2.0;
             lu_solve(A, piv, e.data());
-            for (int r = 0; r < 24; ++r) P_[t][r * 24 + c] = e[r];
+            for (int r = 0; r < 24; ++r) P[t][r * 24 + c] = e[r];
         }
     }
 }
 
-namespace {
-void block_apply(const std::vector<std::vector<cplx>>& B, const std::vector<cplx>& x, std::vector<cplx>& y) {
+CurvedTransmissionOperator::CurvedTransmissionOperator(const QuadraticMesh& m, const std::vector<std::array<real, 9>>& S,
+                                                       const BoundaryOperator& E1, const BoundaryOperator& E2,
+                                                       const std::vector<Medium>& in, const Medium& out)
+    : N_(m.size()), E1_(E1), E2_(E2) {
+    if (in.size() != N_ || S.size() != N_) throw std::invalid_argument("CurvedTransmissionOperator: je Element ein Medium und eine Basis");
+    curved_transmission_blocks(m, S, in, std::vector<Medium>(N_, out), JG_, P_);
+}
+
+void curved_block_apply(const std::vector<std::vector<cplx>>& B, const std::vector<cplx>& x, std::vector<cplx>& y) {
     y.assign(x.size(), cplx(0));
     for (std::size_t t = 0; t < B.size(); ++t) {
         const cplx* xi = &x[24 * t]; cplx* yi = &y[24 * t]; const std::vector<cplx>& M = B[t];
         for (int r = 0; r < 24; ++r) { cplx s = 0; for (int c = 0; c < 24; ++c) s += M[r * 24 + c] * xi[c]; yi[r] = s; }
     }
 }
-}  // namespace
 
-void CurvedTransmissionOperator::apply_J(const std::vector<cplx>& x, std::vector<cplx>& y) const { block_apply(JG_, x, y); }
+void CurvedTransmissionOperator::apply_J(const std::vector<cplx>& x, std::vector<cplx>& y) const { curved_block_apply(JG_, x, y); }
 
-void CurvedTransmissionOperator::precondition(const std::vector<cplx>& x, std::vector<cplx>& y) const { block_apply(P_, x, y); }
+void CurvedTransmissionOperator::precondition(const std::vector<cplx>& x, std::vector<cplx>& y) const { curved_block_apply(P_, x, y); }
 
 void CurvedTransmissionOperator::apply(const std::vector<cplx>& x, std::vector<cplx>& y) const {
     std::vector<cplx> e2, jx, e1;

@@ -3,6 +3,7 @@
 #include "common.hpp"
 
 #include "cbem/geometry/gmsh_io.hpp"
+#include "cbem/problems/curved_layered_problem.hpp"
 #include "cbem/problems/curved_problem.hpp"
 #include "cbem/sources/chiral_incidence.hpp"
 #include "cbem/sources/curved_near_field.hpp"
@@ -23,6 +24,15 @@ py::array_t<double> mids_to_numpy(const QuadraticMesh& m) {
     for (std::size_t t = 0; t < m.size(); ++t)
         for (int e = 0; e < 3; ++e) { d[9 * t + 3 * e] = m.mid[t][e].x; d[9 * t + 3 * e + 1] = m.mid[t][e].y; d[9 * t + 3 * e + 2] = m.mid[t][e].z; }
     return a;
+}
+
+template <class F> py::array_t<cplx> apply_checked(std::size_t n, const CArr& x, F&& f) {
+    if (static_cast<std::size_t>(x.size()) != n)
+        throw py::value_error("x: Laenge " + std::to_string(n) + " erwartet, erhalten " + std::to_string(x.size()));
+    auto xv = to_cvec(x);
+    std::vector<cplx> y;
+    nogil([&] { f(xv, y); });
+    return to_numpy(y);
 }
 
 }  // namespace
@@ -91,7 +101,9 @@ Tangentialdreieck, Gauss 5 x 5 an den Blaettern (outer_rule = correction_rule = 
         .field("outer_ratio", &CurvedNearParams::outer_ratio, "doppelt adaptiv: aeusseres Teilstueck, Umkreisradius < outer_ratio * Abstand")
         .field("inner_ratio", &CurvedNearParams::inner_ratio, "doppelt adaptiv: inneres Teilstueck, Umkreisradius < inner_ratio * Abstand")
         .field("outer_depth", &CurvedNearParams::outer_depth, "maximale Halbierungstiefe aussen")
-        .field("inner_depth", &CurvedNearParams::inner_depth, "maximale Halbierungstiefe innen");
+        .field("inner_depth", &CurvedNearParams::inner_depth, "maximale Halbierungstiefe innen")
+        .field("adapt_to_boundary", &CurvedNearParams::adapt_to_boundary,
+               "duenne Schichten (v0.62): Randabstand fuer Teilstuecke auf einer Seite der Flaeche, Abstaende zur gekruemmten Flaeche");
 
     py::class_<CurvedKernelEntries>(m, "CurvedKernelEntries", "Eintraege gekruemmter Elemente: je Elementpaar (3, 3, 7), Komponenten [1, e1, e2, e3, e12, e13, e23]")
         .def(py::init<const QuadraticMesh&, cplx, EntryParams, CurvedNearParams>(), "mesh"_a, "k"_a, "params"_a = EntryParams{},
@@ -251,6 +263,63 @@ konstant: 5,7 % bei Glas, 7,3 % bei Gold); Konvergenz etwa O(h^4) (docs/results_
         .def_property_readonly("unknowns", &CurvedScatteringProblem::unknowns)
         .def_property_readonly("hmatrix_bytes", &CurvedScatteringProblem::hmatrix_bytes)
         .def_property_readonly("near_seconds", &CurvedScatteringProblem::near_seconds);
+
+    // geschichtete Koerper (v0.62)
+    m.def("offset_surface", [](const QuadraticMesh& q, real d) { return nogil([&] { return offset_surface(q, d); }); }, "mesh"_a, "d"_a,
+          "Parallelflaeche eines quadratischen Netzes (glatte Flaechen; Ecken und Kantenmitten entlang der gemittelten Normalen)");
+    m.def("curved_layered_near_params", &curved_layered_near_params,
+          "Nahquadratur fuer geschichtete Koerper auf gekruemmten Elementen (adapt_to_boundary = True)");
+    py::class_<CurvedLayeredGeometry>(m, "CurvedLayeredGeometry", R"doc(
+Grenzflaechengraph aus quadratischen Flaechen (wie LayeredGeometry): geschlossene Flaechen, je mit Innen- und Aussengebiet;
+Gebiet 0 ist der Aussenraum.
+)doc")
+        .def(py::init<Medium>(), "exterior"_a = Medium{})
+        .def("add_region", &CurvedLayeredGeometry::add_region, "medium"_a, "neues Gebiet; gibt seinen Index zurueck")
+        .def("add_surface", &CurvedLayeredGeometry::add_surface, "mesh"_a, "inside"_a, "outside"_a, "Flaeche zwischen zwei Gebieten")
+        .def("add_body", [](CurvedLayeredGeometry& g, const QuadraticMesh& s, const Medium& in, int parent) { return add_body(g, s, in, parent); },
+             "surface"_a, "inner"_a, "parent"_a = 0, "homogener Koerper; gibt sein Gebiet zurueck")
+        .def("add_layered_body", [](CurvedLayeredGeometry& g, const std::vector<QuadraticMesh>& s, const std::vector<Medium>& media, int parent) {
+                 if (s.size() != media.size()) throw py::value_error("je Flaeche ein Medium erwartet");
+                 return add_layered_body(g, s, media, parent);
+             }, "surfaces_outer_first"_a, "media"_a, "parent"_a = 0, "verschachtelte Flaechen von aussen nach innen")
+        .def("add_coated_body", [](CurvedLayeredGeometry& g, const QuadraticMesh& s, const Medium& core, const std::vector<Coating>& c, bool outward,
+                                   int parent) { return nogil([&] { return add_coated_body(g, s, core, c, outward, parent); }); },
+             "surface"_a, "core"_a, "coatings"_a, "outward"_a = true, "parent"_a = 0,
+             "beschichteter Koerper, Schichten von innen nach aussen (Parallelflaechen, offset_surface)")
+        // Vektorfelder als Kopien (Referenzen in die Vektoren wuerden nach add_surface ungueltig)
+        .def_property_readonly("surfaces", [](const CurvedLayeredGeometry& g) { return g.surfaces; })
+        .def_property_readonly("inside", [](const CurvedLayeredGeometry& g) { return g.inside; })
+        .def_property_readonly("outside", [](const CurvedLayeredGeometry& g) { return g.outside; })
+        .def_property_readonly("region_medium", [](const CurvedLayeredGeometry& g) { return g.region_medium; })
+        .def_property_readonly("elements", &CurvedLayeredGeometry::elements);
+
+    py::class_<CurvedLayeredTransmissionOperator>(m, "CurvedLayeredTransmissionOperator")
+        .def("apply", [](const CurvedLayeredTransmissionOperator& T, const CArr& x) {
+            return apply_checked(T.size(), x, [&](const std::vector<cplx>& a, std::vector<cplx>& y) { T.apply(a, y); });
+        }, "x"_a)
+        .def("precondition", [](const CurvedLayeredTransmissionOperator& T, const CArr& x) {
+            return apply_checked(T.size(), x, [&](const std::vector<cplx>& a, std::vector<cplx>& y) { T.precondition(a, y); });
+        }, "x"_a)
+        .def("__len__", &CurvedLayeredTransmissionOperator::size);
+
+    py::class_<CurvedLayeredScatteringProblem>(m, "CurvedLayeredScatteringProblem", R"doc(
+Geschichtete und beschichtete Koerper auf gekruemmten Elementen (v0.62). Goldkern mit Glasschale, 2 x 1280 Elemente: sigma_ext
+gegen Aden-Kerker 2e-6 (d = 0,2) bis 2,5e-5 (duenne Schichten bis d = 0,01), die Wirkung der Schicht direkt gegen die Rechnung
+ohne Schicht auf 2e-4 (konstante Dichten 0,3-0,9 % bzw. 1-2 % gegen eine neutrale Vergleichsrechnung). Duenne Schichten
+kosten Aufbauzeit (d = 0,01: etwa 440 s mit 12 Threads).
+)doc")
+        .def(py::init([](const CurvedLayeredGeometry& g, real omega, const HMatrixParams& hp, const EntryParams& ep, const CurvedNearParams& np) {
+                 return nogil([&] { return std::make_unique<CurvedLayeredScatteringProblem>(g, omega, hp, ep, np); });
+             }),
+             "geometry"_a, "omega"_a, "hmatrix"_a = curved_hmatrix_params(), "entries"_a = EntryParams{}, "near"_a = curved_layered_near_params())
+        .def("solve_plane_wave", &CurvedLayeredScatteringProblem::solve_plane_wave, "d"_a, "p"_a, "options"_a = SolveOptions{},
+             py::call_guard<py::gil_scoped_release>())
+        .def_property_readonly("mesh", &CurvedLayeredScatteringProblem::mesh, py::return_value_policy::reference_internal, "alle Flaechen")
+        .def("surface_begin", &CurvedLayeredScatteringProblem::surface_begin, "s"_a)
+        .def_property_readonly("T", &CurvedLayeredScatteringProblem::T, py::return_value_policy::reference_internal)
+        .def_property_readonly("unknowns", &CurvedLayeredScatteringProblem::unknowns)
+        .def_property_readonly("hmatrix_bytes", &CurvedLayeredScatteringProblem::hmatrix_bytes)
+        .def_property_readonly("near_seconds", &CurvedLayeredScatteringProblem::near_seconds);
 }
 
 }  // namespace cbem::py_bind

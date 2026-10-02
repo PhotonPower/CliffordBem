@@ -131,6 +131,29 @@ real CurvedKernelEntries::distance_to_element(const Vec3& x, std::size_t j) cons
     return point_triangle_distance(x, m_.flat.vertices(j)) - 4.0 / 3.0 * m_.bulge[j];
 }
 
+real CurvedKernelEntries::distance_to_boundary(const Vec3& x, std::size_t j) const {
+    // je Kante die quadratische Randkurve X(t) (t in [0, 1]), Minimum von |x - X(t)| per Goldenem Schnitt (auf der kurzen,
+    // schwach gekruemmten Kurve unimodal)
+    real dmin = 1e300;
+    for (int e = 0; e < 3; ++e) {
+        auto at = [&](real t) { std::array<real, 3> l{0, 0, 0}; l[e] = 1 - t; l[(e + 1) % 3] = t; return norm(x - gX(j, l)); };
+        const real g = 0.5 * (std::sqrt(5.0) - 1);
+        real a = 0, b = 1, c = b - g * (b - a), d = a + g * (b - a), fc = at(c), fd = at(d);
+        for (int it = 0; it < 30; ++it) {
+            if (fc < fd) { b = d; d = c; fd = fc; c = b - g * (b - a); fc = at(c); }
+            else { a = c; c = d; fc = fd; d = a + g * (b - a); fd = at(d); }
+        }
+        dmin = std::min({dmin, fc, fd, at(0.0), at(1.0)});
+    }
+    return dmin;
+}
+
+real CurvedKernelEntries::distance_to_curved(const Vec3& x, std::size_t j) const {
+    const Tangent T = tangent_at(x, j);
+    if (std::min({T.lam[0], T.lam[1], T.lam[2]}) > 1e-12) return norm(x - gX(j, T.lam));   // Fusspunkt im Inneren
+    return distance_to_boundary(x, j);
+}
+
 CurvedBlock CurvedKernelEntries::to_psi(std::size_t i, std::size_t j, const CurvedBlock& L) const {
     const auto& Si = S_[i]; const auto& Sj = S_[j];
     CurvedBlock T = zero_block(), R = zero_block();
@@ -264,7 +287,20 @@ void CurvedKernelEntries::outer(std::size_t i, std::size_t j, const Tri& tri, re
     const Vec3 c0 = gX(i, tri[0]), c1 = gX(i, tri[1]), c2 = gX(i, tri[2]);
     const Vec3 c = (c0 + c1 + c2) / 3.0;
     const real rho = std::max(norm(c0 - c), std::max(norm(c1 - c), norm(c2 - c)));
-    const real d = distance_to_element(c, j) - rho;
+    real d;
+    if (np_.adapt_to_boundary) {
+        // Abstand zur gekruemmten Flaeche; Hoehen der Ecken ueber ihren Fusspunkten mit gleichem Vorzeichen: Teilstueck auf
+        // einer Seite, dann Abstand zum Rand des inneren Elements
+        d = distance_to_curved(c, j) - rho;
+        real wmin = 1e300, wmax = -1e300;
+        for (const Vec3* p : {&c0, &c1, &c2}) {
+            const Tangent T = tangent_at(*p, j);
+            const real w = dot(*p - gX(j, T.lam), T.n);
+            wmin = std::min(wmin, w); wmax = std::max(wmax, w);
+        }
+        const real tolw = 1e-12 * m_.flat.hmax[j];
+        if (wmin > tolw || wmax < -tolw) d = std::max(d, distance_to_boundary(c, j) - rho);
+    } else d = distance_to_element(c, j) - rho;
     const real ratio = np_.subtract ? np_.subtract_outer_ratio : np_.outer_ratio;
     if (depth < np_.outer_depth && !(rho < ratio * d)) {
         const real l01 = norm(c1 - c0), l12 = norm(c2 - c1), l20 = norm(c0 - c2);

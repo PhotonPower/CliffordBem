@@ -1,7 +1,10 @@
 #include "cbem/geometry/quadratic_mesh.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <map>
 #include <stdexcept>
+#include <string>
 
 namespace cbem {
 
@@ -82,6 +85,45 @@ CurvedQuadrature::CurvedQuadrature(const QuadraticMesh& m, const QuadRule& r) : 
             x[t * q + p] = m.X(t, lam[p]);
             w[t * q + p] = 0.5 * r.w[p] * m.jacobian(t, lam[p], &n[t * q + p]);
         }
+}
+
+QuadraticMesh offset_surface(const QuadraticMesh& m0, real d) {
+    QuadraticMesh m = m0;
+    const std::size_t N = m0.size();
+    std::vector<Vec3> nv(m0.flat.P.size(), Vec3{});
+    std::map<std::pair<int, int>, Vec3> nm;                       // Kantenmitten, Schluessel (kleinere, groessere Ecke)
+    auto key = [&](std::size_t t, int e) { const int a = m0.flat.T[t][e], b = m0.flat.T[t][(e + 1) % 3]; return std::make_pair(std::min(a, b), std::max(a, b)); };
+    for (std::size_t t = 0; t < N; ++t)
+        for (int e = 0; e < 3; ++e) {
+            std::array<real, 3> l{0, 0, 0}; l[e] = 1;
+            Vec3 n; m0.jacobian(t, l, &n); nv[m0.flat.T[t][e]] += n;
+            l = {0, 0, 0}; l[e] = 0.5; l[(e + 1) % 3] = 0.5;
+            m0.jacobian(t, l, &n); nm[key(t, e)] += n;
+        }
+    for (std::size_t v = 0; v < nv.size(); ++v) { const real a = norm(nv[v]); if (a > 0) m.flat.P[v] += nv[v] * (d / a); }
+    for (std::size_t t = 0; t < N; ++t)
+        for (int e = 0; e < 3; ++e) { const Vec3& n = nm[key(t, e)]; m.mid[t][e] = m0.mid[t][e] + n * (d / norm(n)); }
+    m.flat.compute_geometry();
+    m.compute_geometry();
+    for (std::size_t t = 0; t < N; ++t) {
+        const std::array<real, 3> c{1.0 / 3, 1.0 / 3, 1.0 / 3};
+        Vec3 n0, n1; m0.jacobian(t, c, &n0); m.jacobian(t, c, &n1);
+        if (!(dot(n0, n1) > 0.5) || !(m.area[t] > 1e-3 * m0.area[t]))
+            throw std::runtime_error("offset_surface: Element " + std::to_string(t) + " klappt um oder entartet (|d| zu gross)");
+    }
+    if (!(signed_volume(m) * signed_volume(m0) > 0)) throw std::runtime_error("offset_surface: Flaeche stuelpt sich um (|d| zu gross)");
+    // Faltung oder Durchdringung (wie im ebenen Fall): Knoten naeher als 0,8 |d| an einem anderen Teil der Originalflaeche;
+    // Abstaende zum Sehnennetz, daher um die groesste Woelbung verringert
+    real bmax = 0; for (real b : m0.bulge) bmax = std::max(bmax, b);
+    const real lim = 0.8 * std::abs(d) - 4.0 / 3.0 * bmax;
+    if (d != 0.0 && lim > 0) {
+        std::vector<Vec3> q = m.flat.P; for (auto& M : m.mid) for (auto& p : M) q.push_back(p);
+        const std::vector<real> dist = distance_to_surface(m0.flat, q, lim);
+        for (std::size_t i = 0; i < q.size(); ++i)
+            if (dist[i] < lim * (1 - 1e-9))
+                throw std::runtime_error("offset_surface: Parallelflaeche faltet oder durchdringt sich (Knoten " + std::to_string(i) + ")");
+    }
+    return m;
 }
 
 real signed_volume(const QuadraticMesh& m, int sub) {

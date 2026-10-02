@@ -39,6 +39,10 @@ QuadraticMesh translated(const QuadraticMesh& m, const Vec3& shift, real scale =
 QuadraticMesh merge_quadratic(const std::vector<QuadraticMesh>& parts, std::vector<std::size_t>* body_begin = nullptr);
 // Volumen mit Vorzeichen (Gauss, int x.n dS / 3)
 real signed_volume(const QuadraticMesh& m, int sub = 3);
+// Parallelflaeche im Abstand d (v0.62; d > 0 nach aussen) fuer glatte Flaechen: Ecken und Kantenmitten entlang der
+// gemittelten Normalen der angrenzenden gekruemmten Elemente an diesem Knoten verschoben (Kugel: Radiusfehler etwa d h^2).
+// Wirft wie offset_surface(TriangleMesh), wenn Elemente umklappen, die Flaeche sich umstuelpt oder faltet.
+QuadraticMesh offset_surface(const QuadraticMesh& m, real d);
 
 // Quadraturpunkte aller Elemente in Parameterkoordinaten (Gewichte inkl. |X_u x X_v| und Referenzflaeche 1/2)
 struct CurvedQuadrature {

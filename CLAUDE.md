@@ -4,7 +4,7 @@ Koordinatenfreie Galerkin-Randelementmethode (BEM) der Nano-Optik in der komplex
 Streuung, Nahfeld, Dipolemission und optische Kräfte an (auch chiralen, beschichteten, mehreren) Körpern. C++17-Kern ohne
 externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Projekts: **Deutsch**.
 
-**Stand: v0.61** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
+**Stand: v0.62** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
 
 | Dichten / Geometrie | Klasse | seit | Genauigkeit an der Kugel (320 Elemente) |
 |---|---|---|---|
@@ -13,14 +13,14 @@ externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Proj
 | unstetig linear / quadratisch gekrümmt | `CurvedScatteringProblem` | v0.47 | Glas −0,012 %, Gold −0,007 %, etwa O(h⁴) |
 
 Die Herleitung, Messungen und Begründungen der gekrümmten Elemente stehen in `docs/results_curved.md` (Stufen 1, 2a, 1b,
-2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt, Aufbau, Nahfeld und Kräfte, chirales Außenmedium, Python-Felder, Nahfeld-H-Matrix) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
+2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt, Aufbau, Nahfeld und Kräfte, chirales Außenmedium, Python-Felder, Nahfeld-H-Matrix, geschichtete Körper) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
 
 ## Bauen und testen
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCBEM_BUILD_PYTHON=ON   # Python optional (pip install pybind11 numpy scipy)
 cmake --build build -j
-ctest --test-dir build --output-on-failure                              # 30 Tests mit Python, 29 ohne
+ctest --test-dir build --output-on-failure                              # 31 Tests mit Python, 30 ohne
 ctest --test-dir build -R "test_curved|test_linear" --output-on-failure # Teilmenge
 PYTHONPATH=build/python python3 -c "import cliffordbem as cb; print(cb.__version__)"
 pip install .                                                           # Python-Paket über scikit-build-core
@@ -117,6 +117,9 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
 - Prototypen mit eigenen `CBEM_OMP`-Schleifen mit `-DCBEM_USE_OPENMP` bauen (sonst laufen nur die Bibliotheksschleifen
   parallel; v0.61 sah die H-Matrix deshalb zunächst fünfmal zu langsam aus). Laufzeiten mit Threads über die Summe der
   Blockzeiten gegen die Wandzeit prüfen.
+- Abstände zu gekrümmten Elementen: Sehnendreieck minus 4/3 der Wölbung ist eine sichere untere Schranke, bei dünnen
+  Schichten (d etwa so groß wie die Wölbung) aber fast null; die adaptive Nahquadratur verfeinert dann bis in die Tiefe
+  (v0.62: echte Abstände über Fußpunkt und Randkurven, `adapt_to_boundary`).
 - Textersetzungen in Quelldateien nur mit eindeutigem Anker und Prüfung (`assert a in s`); eine Ersetzung in
   `src/hmatrix.cpp` traf einmal zwei Stellen.
 - Neue Überladungen (z. B. `translated`, `signed_volume` für `QuadraticMesh`) machen `&funktion` in den pybind11-Bindungen
@@ -143,7 +146,10 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
 3. Gekrümmte Elemente: Vorkonditionierung gemessen (results_curved.md): Iterationen durch das Hauptsymbol (Materialkontrast)
    festgelegt, lokale Vorkonditionierer (Block, HODLR) wirkungslos; Krylov-Recycling über mehrere rechte Seiten
    ebenfalls gemessen und ohne Nutzen (≤ 16 % Iterationen, keine Zeit; breites Spektrum ohne Ausreißer). Offen nur noch
-   Calderón-Vorkonditionierung (jede Iteration etwa doppelt so teuer). Geschichtete Körper für lineare/gekrümmte Elemente.
+   Calderón-Vorkonditionierung (jede Iteration etwa doppelt so teuer).
+   Geschichtete Körper gekrümmt seit v0.62 (lineare Elemente bringen an glatten Körpern nichts); offen: Aufbau dünner
+   Schichten (d = 0,01: 320–440 s; Band der Breite d um die Kanten übereinanderliegender Elemente, gradierte äußere Regel?),
+   Nahfeld und Kräfte für geschichtete gekrümmte Körper, Dünnschicht-Näherung/Zweitor auf gekrümmten Elementen.
 4. Typ-Stubs (`.pyi`) für die Python-Anbindung; Wheels für weitere Plattformen.
 5. Ältere offene Punkte aus `README.md`/`docs/ARCHITECTURE.md`: reflexionsfreier Abschluss an 3D-Kanten, Streckung um
    Spitzen im C++-Kern, Substrate, parallele Tests auf Mehrkernrechnern, Stabilität der Dünnschicht-Näherung für d ≳ h.

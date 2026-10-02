@@ -991,3 +991,78 @@ gleicher Genauigkeit jetzt 1,4 s statt 2,9 s eben (vorher gekrümmt 7 s).
 **Prüfung** (`test_curved_near_field`, Teil 7; 320 Elemente, 4 140 Punkte bis 0,01 Radien vor der Kugel): eps 10⁻⁶ Fehler
 1,5·10⁻⁷, eps 10⁻⁴ 2,1·10⁻⁵, Gesamtfeld im chiralen Außenmedium (zwei Helizitäten, χ = 0,05) 1,2·10⁻⁷; Python
 (`test_curved_elements`): H-Matrix gegen direkte Summation und `options`.
+
+## Geschichtete Körper auf gekrümmten Elementen (v0.62)
+
+**Formulierung** wie `LayeredScatteringProblem` (`results_coated.md`): je Fläche die Außenspur (24 Unbekannte je Element),
+je Gebiet ein `CurvedCauchyOperator` auf seinem Rand (Flächen mit ihren eigenen Außennormalen, Vorzeichen in der Dichte),
+je Fläche die Galerkin-Projektion J_G der Transmissionsabbildung für ihr Mediumpaar (`curved_transmission_blocks`, aus
+`CurvedTransmissionOperator` herausgezogen, bitgleich). Für einen homogenen Körper ist das System T₁ von
+`CurvedScatteringProblem`.
+
+**Messung vor dem Einbau** (`prototype/curved/layered.cpp`, System aus den Bausteinen zusammengesetzt; Goldkern ε = −11 + 1,2i
+mit Radius 1, Glasschale ε = 2,25 der Dicke d, ωa = 0,5, gegen Aden-Kerker `tools/mie_coated.py`; konstante Dichten mit
+`LayeredScatteringProblem` auf denselben Ikosaedernetzen; n = 8: 1 280 Elemente je Fläche; 12 Threads):
+
+| d | n | gekrümmt: σ_ext | Schichtwirkung gegen ohne Schicht | konstant: σ_ext | Schichtwirkung gegen neutral | Aufbau gekrümmt |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0,2 | 4 | +8·10⁻⁶ | +1·10⁻⁵ | +1,36 % | −2,6 % | 3,1 s |
+| | 8 | +2·10⁻⁶ | < 10⁻⁵ | +0,32 % | −0,71 % | 17 s |
+| 0,05 | 4 | +1,7·10⁻⁴ | +0,08 % | +2,23 % | −4,5 % | 24 s |
+| | 8 | +2,5·10⁻⁵ | +0,012 % | +0,90 % | −1,3 % | 44 s |
+| 0,02 | 4 | +4·10⁻⁵ | +0,05 % | −0,07 % | −4,4 % | 104 s |
+| | 8 | +1,6·10⁻⁵ | +0,017 % | +0,48 % | −2,2 % | 135 s |
+| 0,01 | 4 | −2·10⁻⁶ | −0,004 % | −1,91 % | +2,5 % | 323 s |
+| | 8 | +8·10⁻⁶ | +0,017 % | −0,04 % | −1,5 % | 443 s |
+
+(Exakt: σ_ext = 4,3428, 2,3366, 2,0368, 1,9436; ohne Schicht 1,8536.) Lösen: 2,5 s (n = 4) bzw. 15 s (n = 8), 37–44
+Iterationen wie konstant.
+
+- **Genauigkeit:** Gekrümmte Elemente sind 100- bis 1 000-mal genauer.
+- **Kein neutraler Vergleich nötig:** Der Konsistenzfehler dünner Schichten im konstanten Pfad (neutrale Schale bis 6,7 %
+  daneben) ist gekrümmt höchstens 0,08 %. Die Wirkung der Schicht stimmt direkt gegen die Rechnung ohne Schicht auf etwa
+  2·10⁻⁴, auch bei d/h = 0,03. Die Differenz zur neutralen Rechnung ist gekrümmt sogar ungenauer (bis 1,5 % bei n = 4,
+  d = 0,01): Die beschichtete Rechnung ist genauer als die neutrale, deren Fehler sich dann nicht mehr heraushebt, sondern
+  hinzukommt.
+- **Zufällige Treffer im konstanten Pfad:** Einzelwerte wie −0,04 % (n = 8, d = 0,01) sind Fehlerausgleich; die Schichtwirkung
+  ist dort um 1,5 % falsch.
+
+**Nahquadratur über die Schicht.** Ohne Anpassung wächst der Aufbau mit abnehmendem d stark: n = 4, d = 0,05: 76 s; d = 0,02:
+mehr als 10 Minuten (abgebrochen). Die äußere Integration verfeinert das Element, bis jedes Teilstück klein gegen seinen
+Abstand zum inneren Element ist, bei parallelen Flächen also flächig auf die Größe d. Zwei Änderungen
+(`CurvedNearParams::adapt_to_boundary`, Voreinstellung für geschichtete Körper `curved_layered_near_params()`; sonst aus,
+bestehende Rechnungen bitgleich):
+1. **Randabstand** wie im ebenen Pfad (`results_coated.md`): Liegt ein Teilstück ganz auf einer Seite der Fläche des inneren
+   Elements (Höhen der Ecken über ihren Fußpunkten mit gleichem Vorzeichen), ist das Innenintegral tangential glatt und nur über
+   dem Rand des inneren Elements singulär; dann zählt der Abstand zum Rand.
+2. **Abstände zur gekrümmten Fläche** statt zum Sehnendreieck minus 4/3 der Wölbung: über den Fußpunkt (`tangent_at`) bzw. die
+   quadratischen Randkurven (Goldener Schnitt). Bei n = 4 ist die Wölbung (etwa 0,011) so groß wie die Schicht; die
+   Sehnenschätzung ließ den Abstand dann auf fast null schrumpfen.
+
+Kosten je Element der Schale gegen alle nahen Elemente des Kerns (`prototype/curved/layered_pairs.cpp`, n = 4, etwa 50 Paare,
+ein Thread; in Klammern das übereinanderliegende Paar):
+
+| d (d/h) | Voreinstellung | nur Randabstand | Randabstand und gekrümmte Abstände |
+|---|---:|---:|---:|
+| 0,2 (0,56) | 0,008 s (1 ms) | 0,008 s | 0,007 s (1 ms) |
+| 0,05 (0,16) | 0,18 s (86 ms) | 0,16 s | 0,135 s (54 ms) |
+| 0,02 (0,07) | 2,5 s (1,65 s) | 1,7 s | 0,63 s (0,36 s) |
+| 0,01 (0,03) | – | 7,0 s | 2,0 s (1,15 s) |
+
+Die Einträge ändern sich um höchstens 1,7·10⁻⁸ (bezogen auf den größten Eintrag). Lockerere Kriterien sparen weitere 30–35 %
+(äußeres Kriterium 3: Abweichung 3·10⁻⁸ bis 1·10⁻⁷; Korrektur 3: 1–7·10⁻⁶), sind aber nicht eingestellt. Die verbleibenden
+Kosten wachsen etwa wie (h/d)^1,5, die Hälfte trägt das übereinanderliegende Paar: Dort verfeinert die äußere Integration ein
+Band der Breite d um die Kanten, über denen die Kanten des inneren Elements liegen. Weniger würde eine zu den Kanten hin
+gradierte äußere Regel kosten (offen).
+
+**Umsetzung** (`CurvedLayeredScatteringProblem`, `curved_layered_problem.hpp`): `CurvedLayeredGeometry` mit `add_body`,
+`add_layered_body`, `add_coated_body` (Parallelflächen über `offset_surface(QuadraticMesh)`: Ecken und Kantenmitten entlang der
+gemittelten Normalen der angrenzenden gekrümmten Elemente; Kugel n = 4, d = 0,1: Radiusfehler der Knoten 4·10⁻⁹), auch
+mehrere Körper und chirale Schichten oder Außenmedien. **Prüfung** (`test_curved_layered`, n = 4):
+- ohne Schicht wie `CurvedScatteringProblem` (ein und zwei Körper, gleiche Nahquadratur: σ auf 12 Stellen gleich);
+- gegen Aden-Kerker: Schale 0,2: Q_ext 8·10⁻⁶; Schale 0,1: 2·10⁻⁴ (auch über `add_coated_body`); Doppelschale (Glas bis 1,1,
+  ε = 4 bis 1,2): 5·10⁻⁴; S(0) jeweils 4–6·10⁻⁴ (der Imaginärteil ist schon für die homogene Kugel bei 320 Elementen auf 1·10⁻³
+  genau, bei 1 280 auf 7·10⁻⁵); optisches Theorem;
+- chirale Glasschale (χ = 0,1) gegen `tools/mie_chiral_layered.py`: σ₊ 2·10⁻⁶, σ₋ 2·10⁻⁵, Zirkulardichroismus auf 1 %,
+  Spiegelsymmetrie σ_s(χ) = σ_{−s}(−χ) auf 2·10⁻⁹;
+- Nahquadratur mit Randabstand gegen die Voreinstellung über eine Schicht d = 0,05: 1,7·10⁻⁸.

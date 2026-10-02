@@ -28,6 +28,13 @@ private:
     Mat8 Lb_[kCurvedComps];
 };
 
+// J_G = Galerkin-Projektion der Transmissionsabbildung (24 x 24 je Element, zeilenweise) und P = 2 (1 + J_G)^{-1} fuer
+// Innen- und Aussenmedium je Element (v0.62; auch fuer geschichtete Koerper, deren Flaechen verschiedene Mediumpaare haben)
+void curved_transmission_blocks(const QuadraticMesh& m, const std::vector<std::array<real, 9>>& S, const std::vector<Medium>& inner,
+                                const std::vector<Medium>& outer, std::vector<std::vector<cplx>>& JG, std::vector<std::vector<cplx>>& P);
+// y = B x mit 24 x 24-Bloecken je Element
+void curved_block_apply(const std::vector<std::vector<cplx>>& B, const std::vector<cplx>& x, std::vector<cplx>& y);
+
 class CurvedTransmissionOperator {
 public:
     CurvedTransmissionOperator(const QuadraticMesh& mesh, const std::vector<std::array<real, 9>>& S, const BoundaryOperator& E_inner,
