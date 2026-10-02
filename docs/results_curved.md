@@ -862,3 +862,39 @@ vektorisierter Aufruf von `fields(x)`); `exterior_near_field_curved` und `near_f
 wie der ebene Pfad (Streufeld ohne GIL, `fields(x)` einmal je Auswertung). Prüfung (Python `test_curved_elements`): eine
 ebene Welle als Python-Feld gibt dieselbe Spur (10⁻¹³), dasselbe Nahfeld (10⁻¹²) und dieselbe Kraft (10⁻¹⁰) wie die des
 Kerns.
+
+## Messung: Vorkonditionierung gekrümmter Elemente (nach v0.60)
+
+**Iterationen** (`prototype/curved/precond_baseline.cpp`; Kugel, ebene Welle; Vorkonditionierer 2(1 + J_G)⁻¹ je Element):
+
+| Fall | Elemente | tol 10⁻⁶ mit / ohne | tol 10⁻¹⁰ mit / ohne |
+|---|---:|---:|---:|
+| Glas (ε = 2,25, ωa = 1) | 320 / 1 280 | 10 / 11 | 15 / 16 |
+| Gold (ε = −11 + 1,2i, ωa = 0,5) | 320 | 26 / 28 | 46 / 48 |
+| Gold | 1 280 | 23 / 27 | 43 / 47 |
+| Gold in Wasser | 320 / 1 280 | 27 / 28, 25 / 27 | 49 / 50, 45 / 48 |
+
+Die Iterationszahl hängt nicht vom Netz ab. Der elementweise Vorkonditionierer ändert sie kaum. Je Iteration kostet fast
+nur der Operator (1 280 Elemente, 12 Threads: 0,12 s; Vorkonditionierer 0,001 s, GMRES-Verwaltung 0,01 s).
+
+**Spektrum** (`prototype/curved/precond_spectrum.cpp`; Arnoldi mit 100 Schritten auf T M, 320 Elemente): Bei Gold liegen
+die Ritz-Werte breit zwischen etwa 0,15 − 0,52i … 0,20 − 0,65i und 1,83 + 0,51i … 1,92 + 0,55i, ohne einzelne
+Ausreißer. Das sind die Eigenwerte des Hauptsymbols von 2(1 + J)⁻¹T₁, die AP 1 für ε = −11 + 1,2i angibt
+(0,19 − 0,54i; 0,47 + 0,81i; 1,54 − 0,81i; 1,81 + 0,54i). Die Iterationszahl ist also durch den Materialkontrast
+festgelegt, nicht durch Netz oder Geometrie. Lokale Vorkonditionierer (Blöcke, HODLR) können daran nichts ändern; das
+entspricht dem Befund für glatte plasmonische Körper im ebenen Pfad (`results_preconditioning.md`). Ändern ließe es sich
+nur über den Operator selbst (Vorkonditionierung vom Calderón-Typ, jede Iteration etwa doppelt so teuer) oder, bei vielen
+rechten Seiten, über Recycling und Deflation.
+
+**Toleranz** (Fehler von σ_ext gegen tol 10⁻¹², 1 280 Elemente):
+
+| tol | Glas | Gold | Gold in Wasser |
+|---|---|---|---|
+| 10⁻⁴ | 7 It., 2,4·10⁻⁴ | 16 It., 7,5·10⁻⁶ | 18 It., 2,4·10⁻⁶ |
+| 10⁻⁶ (Voreinstellung) | 10 It., 2,6·10⁻⁷ | 23 It., 4,0·10⁻⁷ | 25 It., 1,0·10⁻⁷ |
+| 10⁻⁷ | 11 It., 7,3·10⁻⁸ | 27 It., 9,3·10⁻⁹ | 30 It., 5,0·10⁻⁹ |
+| 10⁻⁸ | 12 It., 1,7·10⁻⁹ | 32 It., 7,3·10⁻¹⁰ | 35 It., 2,1·10⁻¹⁰ |
+
+Die Voreinstellung 10⁻⁶ hält σ_ext auf 4·10⁻⁷, weit unter dem Diskretisierungsfehler (gegen Mie etwa 7·10⁻⁵ bei
+1 280 Elementen). Für Vergleiche auf Quadraturgenauigkeit (≈ 3·10⁻⁸) genügt 10⁻⁷; 10⁻¹⁰ (Tests, Messungen) kostet fast
+die doppelte Zahl an Iterationen.
