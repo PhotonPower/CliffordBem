@@ -158,6 +158,9 @@ if(CBEM_BUILD_PYTHON)
   endif()
   if(CBEM_BUILD_TESTS)
     add_test(NAME test_python COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/bindings/python/tests/test_python.py)
-    set_tests_properties(test_python PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_BINARY_DIR}/python;CBEM_TOOLS_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tools")
+    # OMP_NUM_THREADS=1: die Tests vergleichen Wege bitgenau (np.array_equal); mit mehreren Threads summiert die H-Matrix in
+    # nicht festgelegter Reihenfolge
+    set_tests_properties(test_python PROPERTIES ENVIRONMENT
+      "PYTHONPATH=${CMAKE_BINARY_DIR}/python;CBEM_TOOLS_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tools;OMP_NUM_THREADS=1")
   endif()
 endif()

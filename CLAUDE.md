@@ -32,7 +32,11 @@ pip install .                                                           # Python
   Bei Änderungen nur die betroffenen Tests laufen lassen; vor Versionen, die gemeinsam genutzten Code ändern, den vollen
   Lauf. Lange Läufe im Hintergrund mit Protokolldatei starten.
 - Python-Tests: `bindings/python/tests/test_python.py` (eigener Runner, pytest-kompatibel, `test_*`-Funktionen), braucht
-  `CBEM_TOOLS_DIR=tools` für die Mie-Referenzen; in ctest als `test_python`.
+  `CBEM_TOOLS_DIR=tools` für die Mie-Referenzen; in ctest als `test_python`, immer mit `OMP_NUM_THREADS=1` (vergleicht Wege
+  bitgenau, die H-Matrix summiert mit mehreren Threads in nicht festgelegter Reihenfolge).
+- Windows: MinGW-g++ aus MSYS2 ucrt64; Python-Anbindung nur gegen das MSYS2-Python (`pacman -S
+  mingw-w64-ucrt-x86_64-pybind11 mingw-w64-ucrt-x86_64-python-numpy mingw-w64-ucrt-x86_64-python-scipy`, dann
+  `-DPython_EXECUTABLE=C:/msys64/ucrt64/bin/python.exe`), nicht gegen das python.org-Python (MSVC-ABI).
 - Optional: `pip install gmsh` (benötigt `libglu1-mesa libxcursor1 libxinerama1 libxft2`) für `examples/python/gmsh_curved.py`.
 
 ## Aufbau
