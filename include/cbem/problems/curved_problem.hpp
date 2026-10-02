@@ -22,7 +22,7 @@ cplx forward_amplitude_curved(const QuadraticMesh& m, const std::vector<cplx>& h
 class CurvedScatteringProblem {
 public:
     CurvedScatteringProblem(const std::vector<QuadraticMesh>& bodies, const std::vector<Medium>& media, real omega, Medium outer = {},
-                            HMatrixParams hp = {}, EntryParams ep = {}, CurvedNearParams np = {});
+                            HMatrixParams hp = curved_hmatrix_params(), EntryParams ep = {}, CurvedNearParams np = {});
     PlaneWaveResult solve_plane_wave(const Vec3& d, const CVec3& p, const SolveOptions& o = {}) const;
     PlaneWaveResult solve_rhs(const std::vector<cplx>& b, const SolveOptions& o = {}) const;
     const QuadraticMesh& mesh() const { return all_; }

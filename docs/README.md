@@ -18,7 +18,7 @@
 | `results_roundcube.md` | abgerundete Würfel im Fenster, Silberwürfel-Spektren |
 | `results_beams.md` | Strahlanregung (Gaußstrahl, fokussiert), Kräfte bei Dipolanregung, optische Pinzette |
 | `results_force.md` | Optische Kräfte über den Spannungstensor: Strahlungsdruck, optische Bindung am Dimer |
-| `results_performance.md` | Rechenzeit auf einem Kern: komplexe Arithmetik ohne `__muldc3` (v0.54, v0.55), `-march=native` |
+| `results_performance.md` | Rechenzeit und Speicher auf einem Kern: komplexe Arithmetik ohne `__muldc3` (v0.54, v0.55), `-march=native`, H-Matrix in einfacher Genauigkeit (v0.56) |
 | `results_parallel.md` | Parallelisierung mit OpenMP: was parallel läuft, Korrektheit unter mehreren Threads, Anteil paralleler Rechenzeit |
 | `results_dipole.md` | Dipolanregung, Zerfallsraten und Quantenausbeute von Emittern, Netzanforderungen |
 | `results_nearfield.md` | Nahfeld: Validierung gegen Mie, Spaltfeld und optische Chiralität des Gold-Dimers |

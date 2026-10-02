@@ -12,15 +12,21 @@
 
 namespace cbem {
 
+// Voreinstellung fuer gekruemmte Elemente (v0.56): ACA-Toleranz 1e-5 statt 1e-4. Seit den genaueren Quadraturen (v0.52,
+// v0.53) dominierte eps = 1e-4 den Fehler (sigma_ext Gold 1280: 1,5e-6, mit 1e-5 1,6e-7) bei etwa 5 % mehr Zeit und 15 %
+// mehr Speicher (results_curved.md).
+inline HMatrixParams curved_hmatrix_params() { HMatrixParams p; p.eps = 1e-5; return p; }
+
 class CurvedHMatrix {
 public:
-    CurvedHMatrix(const CurvedKernelEntries& entries, HMatrixParams prm = {});
+    CurvedHMatrix(const CurvedKernelEntries& entries, HMatrixParams prm = curved_hmatrix_params());
     std::size_t size() const { return N_; }
     void apply(const std::vector<cplx>& Z, std::vector<cplx>& Y) const;
     const HStats& stats() const { return st_; }
 private:
-    struct Dense { std::vector<std::size_t> R, C; std::vector<CurvedComp> K; };
-    struct LR { std::vector<std::size_t> R, C; LowRank f; };   // V: (7 n) x r, komponentenweise gestapelt
+    // Eintraege in double (K, f) oder nach dem Aufbau in einfacher Genauigkeit (Kf, Uf, Vf; HMatrixParams::single_precision)
+    struct Dense { std::vector<std::size_t> R, C; std::vector<CurvedComp> K; std::vector<std::complex<float>> Kf; };
+    struct LR { std::vector<std::size_t> R, C; LowRank f; std::size_t r = 0; std::vector<std::complex<float>> Uf, Vf; };   // V: (7 n) x r
     std::size_t N_;
     HMatrixParams prm_;
     ClusterTree tree_;

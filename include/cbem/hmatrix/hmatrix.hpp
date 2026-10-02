@@ -28,6 +28,9 @@ struct HMatrixParams {
                                     // erlaubt sep_factor = 0 bei gestreckten Elementen
     real max_kdiam = 20.0;       // |k| diam <= max_kdiam
     AcaMode mode = AcaMode::Joint;
+    bool single_precision = true;  // Eintraege nach dem Aufbau als complex<float> gespeichert (v0.56): halber Speicher; Fehler
+                                   // auf sigma_ext 1e-12 bis 2e-8, 30- bis 2400-mal kleiner als die ACA-Kompression mit eps = 1e-4.
+                                   // Aufbau und Produkt rechnen weiter in double (nur KernelHMatrix/CurvedHMatrix, nicht Multivector)
     bool aca_plus = true;        // ACA+ statt teilpivotisierter ACA (Modi Joint und Separate, Nahfeld; v0.30): gleiche Raenge,
                                  // etwa 10 % genauer, 2-6 % mehr Aufbauzeit, robust gegen unbemerkt zu kleinen Rang
 };
@@ -37,7 +40,8 @@ struct HStats {
     std::size_t entries_dense = 0, entries_lowrank = 0;   // gespeicherte komplexe Zahlen
     double mean_rank = 0; std::size_t max_rank = 0;
     double seconds = 0;
-    double bytes() const { return 16.0 * (entries_dense + entries_lowrank); }
+    double entry_bytes = 16;                                // 8 bei single_precision
+    double bytes() const { return entry_bytes * (entries_dense + entries_lowrank); }
 };
 
 class KernelHMatrix {
@@ -50,8 +54,11 @@ public:
     const HStats& stats() const { return st_; }
     std::size_t size() const { return N_; }
 private:
-    struct Dense { std::vector<std::size_t> R, C; std::vector<KernelComp> K; };
+    // Eintraege in double (K, f) oder nach dem Aufbau in einfacher Genauigkeit (Kf, ff; HMatrixParams::single_precision)
+    struct FloatFactor { std::size_t r = 0; std::vector<std::complex<float>> U, V; };
+    struct Dense { std::vector<std::size_t> R, C; std::vector<KernelComp> K; std::vector<std::complex<float>> Kf; };
     struct LR { std::vector<std::size_t> R, C; std::vector<LowRank> f;       // Joint: f.size()==1 (V: 4C x r)
+                std::vector<FloatFactor> ff;                                  // wie f in einfacher Genauigkeit
                 std::vector<Multivector> mu, mw; std::size_t mrank = 0; };     // Multivector: u (|R| x r), w (|C| x r), spaltenweise
     void partition(int t, int s, std::vector<std::pair<int, int>>& adm, std::vector<std::pair<int, int>>& inadm) const;
     template <class E> void build(const E& entries);

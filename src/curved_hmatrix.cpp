@@ -8,6 +8,51 @@ namespace cbem {
 
 namespace {
 constexpr int C7 = kCurvedComps;
+
+// Y += K Z fuer einen dichten Block; K: |R| x |C| Eintraege zu je 7 Komponenten (T = cplx oder complex<float>)
+template <class T>
+void dense_apply(const std::vector<std::size_t>& R, const std::vector<std::size_t>& C, const T* K, const std::vector<cplx>& Z, std::vector<cplx>& Yo) {
+    const std::size_t nc = C.size();
+    std::vector<cplx> buf;
+    for (std::size_t a = 0; a < R.size(); ++a) {
+        cplx* y = &Yo[R[a] * 8];
+        real acc[16]; load8(acc, y);
+        const cplx* row = row_as_double(K + a * nc * C7, nc * C7, buf);
+        for (std::size_t c = 0; c < nc; ++c) {
+            const cplx* k = row + c * C7;
+            const cplx* z = &Z[C[c] * C7 * 8];
+            for (int q = 0; q < C7; ++q) axpy8(acc, k[q], z + q * 8);
+        }
+        store8(y, acc);
+    }
+}
+
+// Y += U V^T Z fuer einen niedrigrangigen Block; U: m x r, V: (7 n) x r, spaltenweise
+template <class T>
+void lr_apply(const std::vector<std::size_t>& R, const std::vector<std::size_t>& C, std::size_t r, const T* U, const T* V,
+              const std::vector<cplx>& Z, std::vector<cplx>& Yo, std::vector<cplx>& tmp) {
+    const std::size_t m = R.size(), n = C.size();
+    tmp.assign(r * 8, cplx(0));
+    for (std::size_t k = 0; k < r; ++k) {
+        const T* v = V + k * C7 * n;
+        real acc[16]; load8(acc, &tmp[k * 8]);
+        for (int c = 0; c < C7; ++c)
+            for (std::size_t j = 0; j < n; ++j) axpy8(acc, v[c * n + j], &Z[C[j] * C7 * 8 + c * 8]);
+        store8(&tmp[k * 8], acc);
+    }
+    for (std::size_t a = 0; a < m; ++a) {
+        cplx* y = &Yo[R[a] * 8];
+        real acc[16]; load8(acc, y);
+        for (std::size_t k = 0; k < r; ++k) axpy8(acc, U[k * m + a], &tmp[k * 8]);
+        store8(y, acc);
+    }
+}
+
+std::vector<std::complex<float>> to_float(const cplx* p, std::size_t n) {
+    std::vector<std::complex<float>> f(n);
+    for (std::size_t i = 0; i < n; ++i) f[i] = std::complex<float>(static_cast<float>(p[i].real()), static_cast<float>(p[i].imag()));
+    return f;
+}
 }
 
 CurvedHMatrix::CurvedHMatrix(const CurvedKernelEntries& E, HMatrixParams prm)
@@ -91,6 +136,12 @@ CurvedHMatrix::CurvedHMatrix(const CurvedKernelEntries& E, HMatrixParams prm)
     for (auto& D : dense_) st_.entries_dense += C7 * D.K.size();
     for (auto& B : lr_) { st_.entries_lowrank += B.f.storage(); rsum += B.f.rank(); st_.max_rank = std::max(st_.max_rank, B.f.rank()); }
     st_.mean_rank = lr_.empty() ? 0 : double(rsum) / lr_.size();
+    for (auto& B : lr_) B.r = B.f.rank();
+    if (prm_.single_precision) {                                          // einfache Genauigkeit; double-Speicher freigeben
+        for (auto& D : dense_) { D.Kf = to_float(D.K.empty() ? nullptr : D.K[0].data(), C7 * D.K.size()); std::vector<CurvedComp>().swap(D.K); }
+        for (auto& B : lr_) { B.Uf = to_float(B.f.U.a.data(), B.f.U.a.size()); B.Vf = to_float(B.f.V.a.data(), B.f.V.a.size()); B.f = LowRank{}; }
+        st_.entry_bytes = 8;
+    }
     st_.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
 }
 
@@ -105,35 +156,14 @@ void CurvedHMatrix::partition(int t, int s, std::vector<std::pair<int, int>>& ad
 }
 
 void CurvedHMatrix::apply(const std::vector<cplx>& Z, std::vector<cplx>& Y) const {
+    const bool sp = prm_.single_precision;
     auto dense_block = [&](const Dense& D, std::vector<cplx>& Yo) {
-        const std::size_t nc = D.C.size();
-        for (std::size_t a = 0; a < D.R.size(); ++a) {
-            cplx* y = &Yo[D.R[a] * 8];
-            real acc[16]; load8(acc, y);
-            for (std::size_t c = 0; c < nc; ++c) {
-                const CurvedComp& K = D.K[a * nc + c];
-                const cplx* z = &Z[D.C[c] * C7 * 8];
-                for (int q = 0; q < C7; ++q) axpy8(acc, K[q], z + q * 8);
-            }
-            store8(y, acc);
-        }
+        if (sp) dense_apply(D.R, D.C, D.Kf.data(), Z, Yo);
+        else if (!D.K.empty()) dense_apply(D.R, D.C, D.K[0].data(), Z, Yo);
     };
     auto lr_block = [&](const LR& B, std::vector<cplx>& Yo, std::vector<cplx>& tmp) {
-        const std::size_t m = B.R.size(), n = B.C.size(), r = B.f.rank();
-        tmp.assign(r * 8, cplx(0));
-        for (std::size_t k = 0; k < r; ++k) {
-            const cplx* v = B.f.V.col(k);
-            real acc[16]; load8(acc, &tmp[k * 8]);
-            for (int c = 0; c < C7; ++c)
-                for (std::size_t j = 0; j < n; ++j) axpy8(acc, v[c * n + j], &Z[B.C[j] * C7 * 8 + c * 8]);
-            store8(&tmp[k * 8], acc);
-        }
-        for (std::size_t a = 0; a < m; ++a) {
-            cplx* y = &Yo[B.R[a] * 8];
-            real acc[16]; load8(acc, y);
-            for (std::size_t k = 0; k < r; ++k) axpy8(acc, B.f.U(a, k), &tmp[k * 8]);
-            store8(y, acc);
-        }
+        if (sp) lr_apply(B.R, B.C, B.r, B.Uf.data(), B.Vf.data(), Z, Yo, tmp);
+        else lr_apply(B.R, B.C, B.r, B.f.U.a.data(), B.f.V.a.data(), Z, Yo, tmp);
     };
     const long nd = static_cast<long>(dense_.size()), nb = nd + static_cast<long>(lr_.size());
     if (omp_threads() == 1) {

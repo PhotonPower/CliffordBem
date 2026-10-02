@@ -103,7 +103,7 @@ Tangentialdreieck, Gauss 5 x 5 an den Blaettern (outer_rule = correction_rule = 
         .def_property_readonly("near_pairs", &CurvedKernelEntries::near_pairs)
         .def_property_readonly("near_seconds", &CurvedKernelEntries::near_seconds);
     py::class_<CurvedHMatrix>(m, "CurvedHMatrix")
-        .def(py::init<const CurvedKernelEntries&, HMatrixParams>(), "entries"_a, "params"_a = HMatrixParams{}, py::keep_alive<1, 2>(),
+        .def(py::init<const CurvedKernelEntries&, HMatrixParams>(), "entries"_a, "params"_a = curved_hmatrix_params(), py::keep_alive<1, 2>(),
              py::call_guard<py::gil_scoped_release>())
         .def_property_readonly("stats", &CurvedHMatrix::stats);
     py::class_<CurvedCauchyOperator, BoundaryOperator>(m, "CurvedCauchyOperator")
@@ -132,7 +132,7 @@ konstant: 5,7 % bei Glas, 7,3 % bei Gold); Konvergenz etwa O(h^4) (docs/results_
                  if (bodies.empty() || bodies.size() != media.size()) throw py::value_error("je Koerper ein Medium erwartet");
                  return nogil([&] { return std::make_unique<CurvedScatteringProblem>(bodies, media, omega, outer, hp, ep, np); });
              }),
-             "bodies"_a, "media"_a, "omega"_a, "outer"_a = Medium{}, "hmatrix"_a = HMatrixParams{}, "entries"_a = EntryParams{},
+             "bodies"_a, "media"_a, "omega"_a, "outer"_a = Medium{}, "hmatrix"_a = curved_hmatrix_params(), "entries"_a = EntryParams{},
              "near"_a = CurvedNearParams{})
         .def(py::init([](const QuadraticMesh& body, const Medium& medium, real omega, const Medium& outer, const HMatrixParams& hp,
                          const EntryParams& ep, const CurvedNearParams& np) {
@@ -140,7 +140,7 @@ konstant: 5,7 % bei Glas, 7,3 % bei Gold); Konvergenz etwa O(h^4) (docs/results_
                      return std::make_unique<CurvedScatteringProblem>(std::vector<QuadraticMesh>{body}, std::vector<Medium>{medium}, omega, outer, hp, ep, np);
                  });
              }),
-             "body"_a, "medium"_a, "omega"_a, "outer"_a = Medium{}, "hmatrix"_a = HMatrixParams{}, "entries"_a = EntryParams{},
+             "body"_a, "medium"_a, "omega"_a, "outer"_a = Medium{}, "hmatrix"_a = curved_hmatrix_params(), "entries"_a = EntryParams{},
              "near"_a = CurvedNearParams{})
         .def("solve_plane_wave", &CurvedScatteringProblem::solve_plane_wave, "d"_a, "p"_a, "options"_a = SolveOptions{},
              py::call_guard<py::gil_scoped_release>())

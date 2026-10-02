@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53), schnelleres H-Matrix-Produkt (v0.54)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53), schnelleres H-Matrix-Produkt (v0.54), ACA-Toleranz (v0.56)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -672,3 +672,19 @@ für alle Pfade; die Voreinstellung bleibt deshalb.
 `__muldc3`), HODLR (23) und dichte Blöcke (34) – bitgleich, also ohne Änderung der Ergebnisse. Danach Speicherung in
 einfacher Genauigkeit (complex64): halbiert den Speicher und, weil die dichten Blöcke mit `-march=native` an der
 Bandbreite liegen, etwa auch das Produkt.
+
+## ACA-Toleranz 10⁻⁵ für gekrümmte Elemente (v0.56)
+
+Seit v0.52/v0.53 liegen die Quadraturfehler bei etwa 2·10⁻⁸ auf σ_ext; der Kompressionsfehler der ACA mit ε = 10⁻⁴
+(1,5·10⁻⁶) dominierte. Messung (ein Kern, H-Matrix in einfacher Genauigkeit, Fehler gegen ε = 10⁻⁷):
+
+| Gold 1 280 | Fehler σ_ext | Aufbau | Speicher | Lösen (tol 10⁻¹⁰) |
+|---|---:|---:|---:|---:|
+| ε = 10⁻⁴ | 1,5·10⁻⁶ | 21,6 s | 477 MB | 45 It. × 0,499 s = 22,5 s |
+| ε = 10⁻⁵ | 1,6·10⁻⁷ | 22,8 s | 549 MB | 43 It. × 0,551 s = 23,7 s |
+| ε = 10⁻⁶ | 1,7·10⁻¹⁰ | 25,5 s | 626 MB | 43 It. × 0,651 s = 28,0 s |
+
+Bei 320 Elementen: 1,7·10⁻⁶ (10⁻⁴), 4,4·10⁻⁸ (10⁻⁵), 2,7·10⁻⁹ (10⁻⁶) bei gleicher Zeit. Voreinstellung für gekrümmte
+Elemente jetzt 10⁻⁵ (`curved_hmatrix_params()`, Standardwert von `CurvedHMatrix`, `CurvedScatteringProblem` und der
+Python-Anbindung); 10–40-mal genauer für etwa 5 % Zeit und 15 % Speicher. Die übrigen Pfade bleiben bei 10⁻⁴. Gold mit
+320 Elementen gibt jetzt −0,0068 % gegen Mie (40 statt 47 Iterationen).

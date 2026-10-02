@@ -11,6 +11,55 @@
 
 namespace cbem {
 
+namespace {
+// Y += K Z fuer einen dichten Block; K: |R| x |C| Eintraege zu je 4 Komponenten (T = cplx oder complex<float>)
+template <class T>
+void dense_apply4(const std::vector<std::size_t>& R, const std::vector<std::size_t>& C, const T* K, const std::vector<cplx>& Z, std::vector<cplx>& Yo) {
+    const std::size_t n = C.size();
+    std::vector<cplx> buf;
+    for (std::size_t a = 0; a < R.size(); ++a) {
+        cplx* y = &Yo[R[a] * 8];
+        real acc[16]; load8(acc, y);                                      // reell, in Registern, bitgleich (v0.55)
+        const cplx* row = row_as_double(K + a * n * 4, n * 4, buf);
+        for (std::size_t c = 0; c < n; ++c) {
+            const cplx* k = row + c * 4; const cplx* z = &Z[C[c] * 32];
+            for (int q = 0; q < 4; ++q) axpy8(acc, k[q], z + q * 8);
+        }
+        store8(y, acc);
+    }
+}
+
+// Y += U V^T zs fuer einen Faktor; zs: Zeilen (c, j) bei Joint (nf = 1, V: 4 n x r), (j) bei Componentwise mit c = fi
+template <class T>
+void factor_apply(const std::vector<std::size_t>& R, const std::vector<std::size_t>& C, std::size_t r, const T* U, const T* V, std::size_t nf,
+                  std::size_t fi, const std::vector<cplx>& Z, std::vector<cplx>& Yo, std::vector<cplx>& tmp) {
+    const std::size_t m = R.size(), n = C.size(), rows = nf == 1 ? 4 * n : n;
+    tmp.assign(r * 8, cplx(0));
+    for (std::size_t k = 0; k < r; ++k) {
+        const T* v = V + k * rows;
+        real acc[16]; load8(acc, &tmp[k * 8]);
+        if (nf == 1) {
+            for (int c = 0; c < 4; ++c) for (std::size_t j = 0; j < n; ++j) axpy8(acc, v[c * n + j], &Z[C[j] * 32 + c * 8]);
+        } else {
+            for (std::size_t j = 0; j < n; ++j) axpy8(acc, v[j], &Z[C[j] * 32 + fi * 8]);
+        }
+        store8(&tmp[k * 8], acc);
+    }
+    for (std::size_t a = 0; a < m; ++a) {
+        cplx* y = &Yo[R[a] * 8];
+        real acc[16]; load8(acc, y);
+        for (std::size_t k = 0; k < r; ++k) axpy8(acc, U[k * m + a], &tmp[k * 8]);
+        store8(y, acc);
+    }
+}
+
+std::vector<std::complex<float>> to_float(const cplx* p, std::size_t n) {
+    std::vector<std::complex<float>> f(n);
+    for (std::size_t i = 0; i < n; ++i) f[i] = std::complex<float>(static_cast<float>(p[i].real()), static_cast<float>(p[i].imag()));
+    return f;
+}
+}  // namespace
+
 KernelHMatrix::KernelHMatrix(const KernelEntries& E, HMatrixParams prm)
     : N_(E.mesh().size()), prm_(prm), tree_(E.mesh(), prm.leaf), k_(E.wavenumber()) {
     build(E);
@@ -154,6 +203,14 @@ void KernelHMatrix::build(const EntriesT& E) {
         if (prm_.mode == AcaMode::Multivector) { st_.entries_lowrank += 8 * (B.mu.size() + B.mw.size()); rsum += B.mrank; ++rcnt; st_.max_rank = std::max(st_.max_rank, B.mrank); }
     }
     st_.mean_rank = rcnt ? double(rsum) / rcnt : 0;
+    if (prm_.single_precision) {                                          // einfache Genauigkeit; double-Speicher freigeben (v0.56)
+        for (auto& D : dense_) { D.Kf = to_float(D.K.empty() ? nullptr : D.K[0].data(), 4 * D.K.size()); std::vector<KernelComp>().swap(D.K); }
+        for (auto& B : lr_) {
+            for (auto& f : B.f) B.ff.push_back({f.rank(), to_float(f.U.a.data(), f.U.a.size()), to_float(f.V.a.data(), f.V.a.size())});
+            B.f.clear(); B.f.shrink_to_fit();
+        }
+        if (prm_.mode != AcaMode::Multivector) st_.entry_bytes = 8;      // Multivector-Faktoren bleiben in double
+    }
     st_.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
 }
 
@@ -170,17 +227,10 @@ void KernelHMatrix::partition(int t, int s, std::vector<std::pair<int, int>>& ad
 void KernelHMatrix::apply(const std::vector<cplx>& Z, std::vector<cplx>& Y) const {
     // Parallel ueber Bloecke (v0.31): mehrere Bloecke schreiben in dieselben Zeilen, daher je Thread ein eigener Ausgabepuffer,
     // am Ende aufsummiert; bei einem Thread direkt in Y (keine Aenderung gegenueber der seriellen Rechnung)
+    const bool sp = prm_.single_precision;
     auto dense_block = [&](const Dense& D, std::vector<cplx>& Yo) {
-        const std::size_t n = D.C.size();
-        for (std::size_t a = 0; a < D.R.size(); ++a) {
-            cplx* y = &Yo[D.R[a] * 8];
-            real acc[16]; load8(acc, y);                                  // reell, in Registern, bitgleich (v0.55)
-            for (std::size_t c = 0; c < n; ++c) {
-                const KernelComp& K = D.K[a * n + c]; const cplx* z = &Z[D.C[c] * 32];
-                for (int q = 0; q < 4; ++q) axpy8(acc, K[q], z + q * 8);
-            }
-            store8(y, acc);
-        }
+        if (sp) dense_apply4(D.R, D.C, D.Kf.data(), Z, Yo);
+        else if (!D.K.empty()) dense_apply4(D.R, D.C, D.K[0].data(), Z, Yo);
     };
     auto lr_block = [&](const LR& B, std::vector<cplx>& Yo, std::vector<cplx>& tmp) {
         if (!B.mu.empty() || (prm_.mode == AcaMode::Multivector)) {
@@ -193,27 +243,12 @@ void KernelHMatrix::apply(const std::vector<cplx>& Z, std::vector<cplx>& Y) cons
             }
             return;
         }
-        const std::size_t m = B.R.size(), n = B.C.size();
-        for (std::size_t fi = 0; fi < B.f.size(); ++fi) {
-            const LowRank& f = B.f[fi]; const std::size_t r = f.rank();
-            tmp.assign(r * 8, cplx(0));
-            // tmp = V^T zs,  zs: Zeilen (c, j) bei Joint, (j) bei Componentwise mit c = fi
-            for (std::size_t k = 0; k < r; ++k) {
-                const cplx* v = f.V.col(k);
-                real acc[16]; load8(acc, &tmp[k * 8]);
-                if (B.f.size() == 1) {
-                    for (int c = 0; c < 4; ++c) for (std::size_t j = 0; j < n; ++j) axpy8(acc, v[c * n + j], &Z[B.C[j] * 32 + c * 8]);
-                } else {
-                    for (std::size_t j = 0; j < n; ++j) axpy8(acc, v[j], &Z[B.C[j] * 32 + fi * 8]);
-                }
-                store8(&tmp[k * 8], acc);
-            }
-            for (std::size_t a = 0; a < m; ++a) {
-                cplx* y = &Yo[B.R[a] * 8];
-                real acc[16]; load8(acc, y);
-                for (std::size_t k = 0; k < r; ++k) axpy8(acc, f.U(a, k), &tmp[k * 8]);
-                store8(y, acc);
-            }
+        if (sp) {
+            for (std::size_t fi = 0; fi < B.ff.size(); ++fi)
+                factor_apply(B.R, B.C, B.ff[fi].r, B.ff[fi].U.data(), B.ff[fi].V.data(), B.ff.size(), fi, Z, Yo, tmp);
+        } else {
+            for (std::size_t fi = 0; fi < B.f.size(); ++fi)
+                factor_apply(B.R, B.C, B.f[fi].rank(), B.f[fi].U.a.data(), B.f[fi].V.a.data(), B.f.size(), fi, Z, Yo, tmp);
         }
     };
     const long nd = static_cast<long>(dense_.size()), nb = nd + static_cast<long>(lr_.size());

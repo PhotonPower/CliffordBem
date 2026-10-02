@@ -8,7 +8,8 @@
 //     Elementen unter 0,02 %, heute 5,7 % bzw. 7,3 %); chirale Spiegelsymmetrie;
 // (5) Nahquadratur mit Singularitaetssubtraktion (v0.49; Gauss-Blattregeln v0.52) gegen das doppelt adaptive Verfahren;
 // (6) Fernbloecke direkt in der psi-Basis (v0.50) gegen die Umrechnung der lambda-Bloecke;
-// (7) anisotrope Sauter-Schwab-Ordnungen (v0.53) gegen eine hohe isotrope Ordnung.
+// (7) anisotrope Sauter-Schwab-Ordnungen (v0.53) gegen eine hohe isotrope Ordnung;
+// (8) H-Matrix in einfacher Genauigkeit (v0.56) gegen double.
 #include <cstdio>
 
 #include "check.hpp"
@@ -225,7 +226,26 @@ static void test_sauter_schwab_orders() {
     CHECK(wi[3] > 10 * wa[3], "Selbstterm: anisotrope Regel nicht genauer als isotrop 5 (%.2e gegen %.2e)", wa[3], wi[3]);
 }
 
+static void test_single_precision() {
+    // H-Matrix in einfacher Genauigkeit (v0.56, Voreinstellung) gegen double: Produkt und Speicher
+    const QuadraticMesh q = quadratic_icosphere(4);
+    CurvedKernelEntries E(q, cplx(0.09, 1.66));
+    HMatrixParams pd = curved_hmatrix_params(); pd.single_precision = false;
+    HMatrixParams ps = pd; ps.single_precision = true;
+    CurvedHMatrix Hd(E, pd), Hs(E, ps);
+    std::vector<cplx> Z(E.size() * kCurvedComps * 8);
+    for (std::size_t i = 0; i < Z.size(); ++i) Z[i] = cplx(std::sin(0.37 * i), std::cos(0.91 * i));
+    std::vector<cplx> yd(E.size() * 8, cplx(0)), ys = yd;
+    Hd.apply(Z, yd); Hs.apply(Z, ys);
+    double num = 0, den = 0; for (std::size_t i = 0; i < yd.size(); ++i) { num += std::norm(ys[i] - yd[i]); den += std::norm(yd[i]); }
+    const double err = std::sqrt(num / den), ratio = Hs.stats().bytes() / Hd.stats().bytes();
+    std::printf("(8) H-Matrix float gegen double: Produkt %.1e, Speicher %.2f\n", err, ratio);
+    CHECK(err < 3e-7 && err > 0, "einfache Genauigkeit: Abweichung %.1e", err);
+    CHECK(std::abs(ratio - 0.5) < 1e-12, "einfache Genauigkeit: Speicher %.3f statt 0,5", ratio);
+}
+
 int main() {
+    test_single_precision();
     test_sauter_schwab_orders();
     test_far_blocks();
     test_subtraction();

@@ -27,5 +27,17 @@ int main() {
             std::printf("  %s eps %.0e: %zu dicht / %zu NR, Fehler %.1e\n", mode == AcaMode::Joint ? "joint" : (mode == AcaMode::Multivector ? "mv   " : "comp "), eps, H.stats().n_dense, H.stats().n_lowrank, err);
             CHECK(err < 10 * eps, "Fehler %.1e bei eps %.0e", err, eps);
         }
+    // einfache Genauigkeit (v0.56, Voreinstellung) gegen double: Rundungsfehler der Eintraege, halber Speicher
+    for (AcaMode mode : {AcaMode::Joint, AcaMode::Componentwise}) {
+        HMatrixParams pd; pd.eps = 1e-7; pd.mode = mode; pd.single_precision = false;
+        HMatrixParams ps = pd; ps.single_precision = true;
+        KernelHMatrix Hd(E, pd), Hs(E, ps); CauchyOperator od(m, Hd), os(m, Hs);
+        std::vector<cplx> yd, ys; od.apply(x, yd); os.apply(x, ys);
+        real num = 0, den = 0; for (std::size_t i = 0; i < yd.size(); ++i) { num += std::norm(ys[i] - yd[i]); den += std::norm(yd[i]); }
+        const real err = std::sqrt(num / den), ratio = Hs.stats().bytes() / Hd.stats().bytes();
+        std::printf("  %s float gegen double: %.1e, Speicher %.2f\n", mode == AcaMode::Joint ? "joint" : "comp ", err, ratio);
+        CHECK(err < 3e-7 && err > 0, "einfache Genauigkeit: Abweichung %.1e", err);
+        CHECK(std::abs(ratio - 0.5) < 1e-12, "einfache Genauigkeit: Speicher %.3f statt 0,5", ratio);
+    }
     REPORT();
 }

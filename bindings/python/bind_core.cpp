@@ -188,7 +188,8 @@ Zeitkonvention exp(-i omega t), Absorption Im eps > 0.
         .field("exact_in_lowrank", &HMatrixParams::exact_in_lowrank, "ACA mit exakten Eintraegen")
         .field("max_kdiam", &HMatrixParams::max_kdiam, "|k| diam <= max_kdiam")
         .field("mode", &HMatrixParams::mode, "AcaMode")
-        .field("aca_plus", &HMatrixParams::aca_plus, "ACA+ statt teilpivotisierter ACA");
+        .field("aca_plus", &HMatrixParams::aca_plus, "ACA+ statt teilpivotisierter ACA")
+        .field("single_precision", &HMatrixParams::single_precision, "Eintraege als complex<float> speichern (halber Speicher)");
     ParamClass<EntryParams>(m, "EntryParams", "Parameter der Eintragsauswertung (Nahfeldquadratur)")
         .field("near_factor", &EntryParams::near_factor, "Nahpaar, wenn Schwerpunktabstand < near_factor * max(h_i, h_j)")
         .field("near_subdivision", &EntryParams::near_subdivision, "feste aeussere Regel: sub^2 * 7 Punkte")
@@ -227,6 +228,7 @@ Zeitkonvention exp(-i omega t), Absorption Im eps > 0.
         .def_readonly("max_rank", &HStats::max_rank)
         .def_readonly("seconds", &HStats::seconds)
         .def_property_readonly("bytes", &HStats::bytes)
+        .def_readonly("entry_bytes", &HStats::entry_bytes)
         .def("__repr__", [](const HStats& s) {
             std::ostringstream o;
             o << "HStats(dense=" << s.n_dense << ", lowrank=" << s.n_lowrank << ", mean_rank=" << s.mean_rank << ", max_rank=" << s.max_rank

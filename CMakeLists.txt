@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(CliffordBem VERSION 0.55.0 LANGUAGES CXX)
+project(CliffordBem VERSION 0.56.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
