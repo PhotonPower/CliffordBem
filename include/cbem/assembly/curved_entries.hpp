@@ -82,6 +82,24 @@ private:
     PairRule ss_[4];
     std::vector<std::array<real, 9>> S_;
     std::vector<std::array<real, 3>> psiw_;   // w psi_a an den Punkten von q7_ je Element (block_far)
+    // Geometrie je Element als Polynom in u = lambda_1, v = lambda_2 (v0.51): X = A + B u + C v + D u^2 + E u v + F v^2,
+    // inline ausgewertet (QuadraticMesh::X/jacobian sammeln die Knoten je Aufruf ueber die Konnektivitaet)
+    struct Poly { Vec3 A, B, C, D, E, F; };
+    std::vector<Poly> poly_;
+    Vec3 gX(std::size_t t, const std::array<real, 3>& l) const {
+        const Poly& g = poly_[t]; const real u = l[1], v = l[2];
+        return g.A + (g.B + g.D * u + g.E * v) * u + (g.C + g.F * v) * v;
+    }
+    void gFrame(std::size_t t, const std::array<real, 3>& l, Vec3& Xu, Vec3& Xv) const {
+        const Poly& g = poly_[t]; const real u = l[1], v = l[2];
+        Xu = g.B + g.D * (2 * u) + g.E * v; Xv = g.C + g.E * u + g.F * (2 * v);
+    }
+    real gJ(std::size_t t, const std::array<real, 3>& l, Vec3* n = nullptr) const {
+        Vec3 Xu, Xv; gFrame(t, l, Xu, Xv);
+        const Vec3 c = cross(Xu, Xv); const real J = norm(c);
+        if (n) *n = c / J;
+        return J;
+    }
     std::vector<std::vector<std::pair<std::size_t, CurvedBlock>>> cache_;
     bool cached_ = false;
     std::size_t n_near_ = 0;

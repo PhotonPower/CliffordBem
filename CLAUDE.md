@@ -4,7 +4,7 @@ Koordinatenfreie Galerkin-Randelementmethode (BEM) der Nano-Optik in der komplex
 Streuung, Nahfeld, Dipolemission und optische Kräfte an (auch chiralen, beschichteten, mehreren) Körpern. C++17-Kern ohne
 externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Projekts: **Deutsch**.
 
-**Stand: v0.50** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
+**Stand: v0.51** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
 
 | Dichten / Geometrie | Klasse | seit | Genauigkeit an der Kugel (320 Elemente) |
 |---|---|---|---|
@@ -13,7 +13,7 @@ externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Proj
 | unstetig linear / quadratisch gekrümmt | `CurvedScatteringProblem` | v0.47 | Glas −0,012 %, Gold −0,007 %, etwa O(h⁴) |
 
 Die Herleitung, Messungen und Begründungen der gekrümmten Elemente stehen in `docs/results_curved.md` (Stufen 1, 2a, 1b,
-2b, Gmsh, Nahquadratur, H-Matrix) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
+2b, Gmsh, Nahquadratur, H-Matrix, Geometrie) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
 
 ## Bauen und testen
 
@@ -117,9 +117,10 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
 
 ## Offene Aufgaben (priorisiert)
 
-1. **Nahquadratur gekrümmter Elemente beschleunigen** (`src/curved_entries.cpp`): auf dem Windows-Rechner (v0.50) 39 von
-   49 s Aufbau bei 1 280 Elementen (Gold, ein Kern); erst profilieren (analytische Integrale, Fußpunkt, Geometrie –
-   der schnellere Kern änderte dort fast nichts). Die H-Matrix (v0.50: 10 s) ließe sich weiter mit einer ACA auf den
+1. **Nahquadratur gekrümmter Elemente beschleunigen** (`src/curved_entries.cpp`): auf dem Windows-Rechner (v0.51) 29 von
+   39 s Aufbau bei 1 280 Elementen (Gold, ein Kern): 107 Mio. Korrekturpunkte (≈ 38 je äußerem Punkt), Sauter-Schwab
+   etwa ein Viertel. Bei der Voreinstellung begrenzt die Korrektur die Genauigkeit; weniger Punkte verlangen, auch den
+   Krümmungsterm X − X_aff abzuziehen (Messungen in `results_curved.md`, v0.51). Die H-Matrix (v0.50: 10 s) ließe sich weiter mit einer ACA auf den
    Quadraturpunkten beschleunigen (geschätzt Faktor 1,5); Speicher 475 MB je H-Matrix, davon 280 MB dichte Blöcke.
 2. **Nahfeld und Kräfte auf gekrümmten Elementen:** Streufeld aus der 24N-Spur (Quadratur mit `CurvedQuadrature`,
    Normale je Punkt), dann `exterior_near_field`- und Kraft-Varianten; Gewinn gegen Mie (`tools/mie_nearfield.py`,

@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -467,3 +467,45 @@ weniger Kernauswertungen, dann dominiert die ACA-Algebra; geschätzt Faktor 1,5)
 1 280 Elementen, davon 280 MB in dichten Blöcken) ist ein eigener Punkt. Auf diesem Rechner ist der größere Hebel die
 Nahquadratur: 39 von 49 s; der schnellere Kern ändert dort fast nichts, die Zeit geht in die analytischen Integrale und
 die Geometrie.
+
+## Schnellere Geometrie in der Nahquadratur (v0.51)
+
+**Messung** (Gold, 1 280 Elemente, ein Kern, je Wellenzahl 19,3 s Nahquadratur): Sauter-Schwab für benachbarte Paare
+5,1 s (31 Mio. Punkte in 16 580 Paaren), nahe getrennte Paare 14,3 s. Dort laufen an 2,8 Mio. äußeren Punkten
+Fußpunkt und analytische Integrale (419 ns je Aufruf), dazu 107 Mio. Korrekturpunkte (≈ 38 je äußerem Punkt) und
+28 Mio. Unterteilungsknoten. Ein Korrekturpunkt kostete etwa 100 ns, davon 42 ns Geometrie: `QuadraticMesh::jacobian`
+(29 ns) und `QuadraticMesh::X` (13 ns) sammeln die Knoten je Aufruf über die Konnektivität und werten die Formfunktionen
+getrennt aus.
+
+**Änderung.** `CurvedKernelEntries` speichert je Element die ausmultiplizierte Geometrie
+X(u, v) = A + B u + C v + D u² + E uv + F v² (u = λ₁, v = λ₂) und wertet X, Tangenten und Jacobi-Determinante inline aus –
+in Fern-, Nah-, Sauter-Schwab-Quadratur, Unterteilung und Fußpunktsuche. `QuadraticMesh` bleibt unverändert.
+
+**Ergebnis** (ein Kern):
+
+| Fall | Aufbau v0.50 | Aufbau v0.51 | Nahquadratur v0.50 → v0.51 | Änderung von σ_ext |
+|---|---:|---:|---:|---:|
+| Glas, 320 Elemente | 10,6 s | 8,2 s | 9,7 → 7,4 s | 9·10⁻¹⁰ |
+| Gold, 320 Elemente | 10,8 s | 8,4 s | 10,0 → 7,6 s | 5·10⁻⁹ |
+| Gold, 1 280 Elemente | 49,0 s | 39,5 s | 38,7 → 29,4 s | 6·10⁻¹⁰ |
+
+σ_ext ändert sich um mehr als die Rundung, weil die Rundung einzelne adaptive Unterteilungsentscheidungen kippt; das liegt
+drei Größenordnungen unter dem Fehler der Nahquadratur (5·10⁻⁶). Mit 12 Threads braucht der Aufbau bei 1 280 Elementen
+7,0 s (Nahquadratur 5,1 s, H-Matrizen 1,8 s), zu Beginn von v0.50 waren es 9,1 s. `test_curved` und `test_gmsh`
+bestehen unverändert (ebene Gegenprobe der Einträge weiterhin ≤ 2·10⁻¹⁴).
+
+**Was die Korrektur begrenzt** (nahe getrennte Paare, 320 Elemente, k = 1,3 + 0,05i, Fehler gegen das streng gerechnete
+doppelt adaptive Verfahren):
+
+| äußere Regel / Korrektur | größter Fehler | mittlerer Fehler | µs je Paar |
+|---|---:|---:|---:|
+| 0,3 / 0,3 (Voreinstellung) | 5,2·10⁻⁶ | 1,7·10⁻⁶ | 278 |
+| 0,3 / 0,4 | 1,1·10⁻⁵ | 5,7·10⁻⁶ | 171 |
+| 0,3 / 0,5 | 1,9·10⁻⁵ | 1,0·10⁻⁵ | 138 |
+| 0,4 / 0,4 | 1,3·10⁻⁵ | 6,6·10⁻⁶ | 108 |
+| 0,5 / 0,5 | 2,3·10⁻⁵ | 1,2·10⁻⁵ | 51 |
+
+Bei der Voreinstellung begrenzt die Korrektur, nicht die äußere Regel: Schon 0,3/0,4 verdoppelt den Fehler. Der Rest
+nach der Subtraktion verhält sich wie 1/r, getragen von zwei Termen gleicher Ordnung (Variation von n J und Krümmung
+X − X_aff). Weniger Korrekturpunkte bei gleicher Genauigkeit verlangen, beide abzuziehen; den Abzug von n J allein hatte
+v0.49 ohne Gewinn versucht.
