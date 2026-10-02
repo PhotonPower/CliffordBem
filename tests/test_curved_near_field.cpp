@@ -94,5 +94,43 @@ int main() {
         std::printf("  chirales Aussenmedium, chi = 1e-9 gegen achiral: %.1e\n", e);
         CHECK(e < 1e-6, "Nahfeld im Grenzfall chi -> 0 verfehlt: %.2e", e);
     }
+    // 7. H-Matrix fuer viele Punkte (v0.61) gegen die direkte Summation: Karte in y = 0 bis dicht an die Kugel, eps 1e-6 und
+    // 1e-4 (Fehler bezogen auf max |F_s|), dazu das Gesamtfeld im chiralen Aussenmedium (zwei Helizitaeten)
+    {
+        std::vector<Vec3> x;
+        for (int i = 0; i < 72; ++i)
+            for (int j = 0; j < 72; ++j) { const Vec3 y(-2 + 4.0 * (i + 0.5) / 72, 0, -2 + 4.0 * (j + 0.5) / 72); if (norm(y) > 1.01) x.push_back(y); }
+        const auto r = P4.solve_plane_wave(d, pc, so);
+        const cplx k = water.k(om); const auto b = project_plane_wave_curved(q4, k, water.eps, d, pc);
+        std::vector<cplx> hs(r.h.size()); for (std::size_t i = 0; i < hs.size(); ++i) hs[i] = r.h[i] - b[i];
+        const auto F0 = scattered_field_curved(q4, hs, k, x);
+        auto rel = [&](const std::vector<Multivector>& F) {
+            real e = 0, n = 0;
+            for (std::size_t i = 0; i < x.size(); ++i) {
+                real ei = 0, ni = 0; for (int c = 0; c < 8; ++c) { ei += std::norm(F[i].c[c] - F0[i].c[c]); ni += std::norm(F0[i].c[c]); }
+                e = std::max(e, std::sqrt(ei)); n = std::max(n, std::sqrt(ni));
+            }
+            return e / n;
+        };
+        HStats st6, st4;
+        const real e6 = rel(scattered_field_curved_hmatrix(q4, hs, k, x, 1e-6, &st6)), e4 = rel(scattered_field_curved_hmatrix(q4, hs, k, x, 1e-4, &st4));
+        std::printf("  H-Matrix, %zu Punkte: eps 1e-6 Fehler %.1e (%zu Niedrigrangbloecke, Rang %.1f), eps 1e-4 Fehler %.1e (Rang %.1f)\n", x.size(), e6,
+                    st6.n_lowrank, st6.mean_rank, e4, st4.mean_rank);
+        CHECK(st6.n_lowrank > 0 && st6.n_dense > 0, "H-Matrix ohne Niedrigrang- oder dichte Bloecke");
+        CHECK(e6 < 2e-6, "H-Matrix (eps 1e-6) weicht von der direkten Summation ab: %.2e", e6);
+        CHECK(e4 < 2e-4 && e4 > e6, "H-Matrix (eps 1e-4): Fehler %.2e", e4);
+        // chirales Aussenmedium: Gesamtfeld ueber exterior_near_field_curved, H-Matrix (Voreinstellung ab 4000 Punkten) gegen direkt
+        const Medium hc{1.7689, 1.0, 0.05};
+        CurvedScatteringProblem Pc({q4}, {gold}, om, hc);
+        const auto rc = Pc.solve_plane_wave(d, pc, so);
+        NearFieldOptions direct = curved_near_field_options(); direct.hmatrix_min_points = x.size() + 1;
+        const auto fh = exterior_near_field_curved(q4, rc.h, hc, om, d, pc, x), fd = exterior_near_field_curved(q4, rc.h, hc, om, d, pc, x, direct);
+        real ec = 0, nc = 0;
+        for (std::size_t i = 0; i < x.size(); ++i)
+            for (int a = 0; a < 3; ++a) { ec = std::max(ec, std::abs(fh[i].E[a] - fd[i].E[a])); nc = std::max(nc, std::abs(fd[i].E[a])); }
+        std::printf("  H-Matrix, chirales Aussenmedium: Gesamtfeld E %.1e\n", ec / nc);
+        CHECK(x.size() >= curved_near_field_options().hmatrix_min_points, "zu wenige Punkte fuer die H-Matrix");
+        CHECK(ec < 2e-6 * nc, "H-Matrix im chiralen Aussenmedium weicht ab: %.2e", ec / nc);
+    }
     REPORT();
 }

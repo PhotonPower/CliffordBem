@@ -133,33 +133,45 @@ Tangentialdreieck, Gauss 5 x 5 an den Blaettern (outer_rule = correction_rule = 
               auto h = to_trace24(hs, q.size(), "h_scat");
               auto x = to_points(pts);
               return multivectors_to_numpy(nogil([&] { return scattered_field_curved(q, h, k, x); }));
-          }, "mesh"_a, "h_scat"_a, "k"_a, "points"_a, "Streufeld-Multivektoren (M, 8) aus der Streuspur (24 N)");
+          }, "mesh"_a, "h_scat"_a, "k"_a, "points"_a, "Streufeld-Multivektoren (M, 8) aus der Streuspur (24 N); direkte Summation");
+    m.def("scattered_field_curved_hmatrix", [](const QuadraticMesh& q, const CArr& hs, cplx k, const RArr& pts, real eps) {
+              if (!(eps > 0)) throw py::value_error("eps > 0");
+              auto h = to_trace24(hs, q.size(), "h_scat");
+              auto x = to_points(pts);
+              return multivectors_to_numpy(nogil([&] { return scattered_field_curved_hmatrix(q, h, k, x, eps); }));
+          }, "mesh"_a, "h_scat"_a, "k"_a, "points"_a, "eps"_a = 1e-6, R"doc(
+Streufeld wie scattered_field_curved mit einer H-Matrix (v0.61; ACA+ auf dem Dirac-Kern an den Quadraturpunkten, Bloecke sofort
+angewandt): 5120 Elemente x 40 000 Punkte 3,7 s statt 27 s, Fehler etwa 3e-7 bezogen auf max |F_s| bei eps = 1e-6.
+)doc");
+    m.def("curved_near_field_options", &curved_near_field_options,
+          "Voreinstellung der Nahfeldauswertung gekruemmter Elemente: H-Matrix ab 4000 Punkten, eps = 1e-6 (eben 2000 Punkte, 1e-4)");
     m.def("exterior_near_field_curved", [](const QuadraticMesh& q, const CArr& h, const Medium& md, real omega, const Vec3& d, const CVec3& p,
-                                           const RArr& pts) {
+                                           const RArr& pts, const NearFieldOptions& o) {
               auto hv = to_trace24(h, q.size(), "h");
               auto x = to_points(pts);
-              return near_field_to_dict(nogil([&] { return exterior_near_field_curved(q, hv, md, omega, d, p, x); }));
-          }, "outer"_a, "h"_a, "medium"_a, "omega"_a, "d"_a, "p"_a, "points"_a, R"doc(
+              return near_field_to_dict(nogil([&] { return exterior_near_field_curved(q, hv, md, omega, d, p, x, o); }));
+          }, "outer"_a, "h"_a, "medium"_a, "omega"_a, "d"_a, "p"_a, "points"_a, "options"_a = curved_near_field_options(), R"doc(
 Gesamtes Nahfeld auf gekruemmten Elementen bei Anregung durch eine ebene Welle; h = Gesamtspur (24 N). dict wie
 exterior_near_field (E, H, inside, too_close, enhancement, chirality). Goldkugel 1280 Elemente: |E|^2 auf 0,05 % (eben 2-6 %).
+Ab options.hmatrix_min_points Punkten (4000) mit H-Matrix (ACA-Toleranz options.eps, Voreinstellung 1e-6; v0.61).
 )doc");
     m.def("exterior_near_field_curved", [](const QuadraticMesh& q, const CArr& h, const CArr& b, const Medium& md, real omega,
-                                           const IncidentField& inc, const RArr& pts) {
+                                           const IncidentField& inc, const RArr& pts, const NearFieldOptions& o) {
               auto hv = to_trace24(h, q.size(), "h");
               auto bv = to_trace24(b, q.size(), "b");
               auto x = to_points(pts);
-              return near_field_to_dict(nogil([&] { return exterior_near_field_curved(q, hv, bv, md, omega, inc, x); }));
-          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a, "points"_a,
+              return near_field_to_dict(nogil([&] { return exterior_near_field_curved(q, hv, bv, md, omega, inc, x, o); }));
+          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a, "points"_a, "options"_a = curved_near_field_options(),
           "allgemeine Anregung: b = project_incident_curved(outer, incident, medium)");
     m.def("near_field_evaluator_curved", [](const QuadraticMesh& q, const CArr& h, const CArr& b, const Medium& md, real omega,
-                                            std::shared_ptr<IncidentField> inc) {
+                                            std::shared_ptr<IncidentField> inc, const NearFieldOptions& o) {
               struct Data { QuadraticMesh q; std::vector<cplx> h; };
               auto data = std::make_shared<const Data>(Data{q, to_trace24(h, q.size(), "h")});
               PyNearFieldEval e;
               e.owner = data;
-              e.f = make_near_field_eval_curved(data->q, data->h, to_trace24(b, q.size(), "b"), md, omega, inc);
+              e.f = make_near_field_eval_curved(data->q, data->h, to_trace24(b, q.size(), "b"), md, omega, inc, o);
               return e;
-          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a,
+          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a, "options"_a = curved_near_field_options(),
           "Feldauswerter fuer Kraefte und Gradienten (force_on_sphere, force_on_offset, fields_with_gradients) auf gekruemmten Elementen");
 
     // einfallende Felder aus Python (v0.60): Projektion in zwei Schritten (CustomField.project waehlt sie fuer QuadraticMesh),
@@ -182,18 +194,18 @@ exterior_near_field (E, H, inside, too_close, enhancement, chirality). Goldkugel
               return to_numpy(nogil([&] { return project_samples_curved(q, E, H, md, sub); }));
           }, "mesh"_a, "E"_a, "H"_a, "medium"_a, "sub"_a = 2, "Spur (24 N) aus Feldwerten an den Quadraturpunkten");
     m.def("exterior_near_field_curved", [](const QuadraticMesh& q, const CArr& h, const CArr& b, const Medium& md, real omega,
-                                           py::object incident, const RArr& pts) {
+                                           py::object incident, const RArr& pts, const NearFieldOptions& o) {
               check_python_field(incident);
               auto hv = to_trace24(h, q.size(), "h");
               auto bv = to_trace24(b, q.size(), "b");
               auto x = to_points(pts);
               return near_field_to_dict(nogil([&] {
-                  return add_python_incident(exterior_near_field_curved(q, hv, bv, md, omega, ZeroField(), x), incident, x);
+                  return add_python_incident(exterior_near_field_curved(q, hv, bv, md, omega, ZeroField(), x, o), incident, x);
               }));
-          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a, "points"_a,
+          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a, "points"_a, "options"_a = curved_near_field_options(),
           "einfallendes Feld aus Python (Objekt mit fields(x) -> (E, H), z. B. CustomField); b = incident.project(outer, medium)");
     m.def("near_field_evaluator_curved", [](const QuadraticMesh& q, const CArr& h, const CArr& b, const Medium& md, real omega,
-                                            py::object incident) {
+                                            py::object incident, const NearFieldOptions& o) {
               check_python_field(incident);
               struct Data { QuadraticMesh q; std::vector<cplx> h, b; };
               auto data = std::make_shared<const Data>(Data{q, to_trace24(h, q.size(), "h"), to_trace24(b, q.size(), "b")});
@@ -201,11 +213,11 @@ exterior_near_field (E, H, inside, too_close, enhancement, chirality). Goldkugel
               PyNearFieldEval e;
               e.owner = data;
               // wird von den Kraftfunktionen ohne GIL aufgerufen, je Auswertung einmal mit allen Punkten
-              e.f = [data, md, omega, field](const std::vector<Vec3>& pts) {
-                  return add_python_incident(exterior_near_field_curved(data->q, data->h, data->b, md, omega, ZeroField(), pts), *field, pts);
+              e.f = [data, md, omega, field, o](const std::vector<Vec3>& pts) {
+                  return add_python_incident(exterior_near_field_curved(data->q, data->h, data->b, md, omega, ZeroField(), pts, o), *field, pts);
               };
               return e;
-          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a,
+          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a, "options"_a = curved_near_field_options(),
           "Feldauswerter fuer ein einfallendes Feld aus Python auf gekruemmten Elementen");
 
     py::class_<CurvedScatteringProblem>(m, "CurvedScatteringProblem", R"doc(

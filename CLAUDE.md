@@ -4,7 +4,7 @@ Koordinatenfreie Galerkin-Randelementmethode (BEM) der Nano-Optik in der komplex
 Streuung, Nahfeld, Dipolemission und optische Kräfte an (auch chiralen, beschichteten, mehreren) Körpern. C++17-Kern ohne
 externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Projekts: **Deutsch**.
 
-**Stand: v0.60** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
+**Stand: v0.61** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
 
 | Dichten / Geometrie | Klasse | seit | Genauigkeit an der Kugel (320 Elemente) |
 |---|---|---|---|
@@ -13,7 +13,7 @@ externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Proj
 | unstetig linear / quadratisch gekrümmt | `CurvedScatteringProblem` | v0.47 | Glas −0,012 %, Gold −0,007 %, etwa O(h⁴) |
 
 Die Herleitung, Messungen und Begründungen der gekrümmten Elemente stehen in `docs/results_curved.md` (Stufen 1, 2a, 1b,
-2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt, Aufbau, Nahfeld und Kräfte, chirales Außenmedium, Python-Felder) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
+2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt, Aufbau, Nahfeld und Kräfte, chirales Außenmedium, Python-Felder, Nahfeld-H-Matrix) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
 
 ## Bauen und testen
 
@@ -114,6 +114,9 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
   inneren Schleifen reell rechnen und in lokalen Feldern akkumulieren (v0.54: Produkt fast doppelt so schnell, bitgleich);
   seit v0.55 baut die Bibliothek mit `-fcx-fortran-rules` (`CBEM_FAST_COMPLEX`), dann gibt es keine Aufrufstellen mehr.
   Laufzeiten nie nur für den Aufbau messen: das Lösen kostete bei 1 280 Elementen ebenso viel.
+- Prototypen mit eigenen `CBEM_OMP`-Schleifen mit `-DCBEM_USE_OPENMP` bauen (sonst laufen nur die Bibliotheksschleifen
+  parallel; v0.61 sah die H-Matrix deshalb zunächst fünfmal zu langsam aus). Laufzeiten mit Threads über die Summe der
+  Blockzeiten gegen die Wandzeit prüfen.
 - Textersetzungen in Quelldateien nur mit eindeutigem Anker und Prüfung (`assert a in s`); eine Ersetzung in
   `src/hmatrix.cpp` traf einmal zwei Stellen.
 - Neue Überladungen (z. B. `translated`, `signed_volume` für `QuadraticMesh`) machen `&funktion` in den pybind11-Bindungen
@@ -134,9 +137,9 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
    6,5 s, Sauter-Schwab ≈ 4,6 s (seit v0.57 gepaart). Kein großer Einzelhebel mehr (results_curved.md).
    Sauter-Schwab auf verzerrten Elementen (längste Kante/Höhe > 1,7) konvergiert langsam (Ausreißer bis 10⁻⁴ auf
    Gmsh-Netzen) – Ordnung nach Elementform wählen? Lösen kostet so viel wie der Aufbau. Immer erst messen.
-2. **Nahfeld und Kräfte auf gekrümmten Elementen (Rest):** H-Matrix für viele Auswertepunkte (wie `NearFieldOperator`;
-   heute direkte Summation, 0,1 µs je Punkt und Element mit 12 Threads, 5- bis 10-mal langsamer als eben mit H-Matrix;
-   Umbau der Fernsumme brachte nichts, v0.60); Kraft aus Randspuren und Fernfeld nur als zusätzliche Gegenprobe.
+2. **Nahfeld und Kräfte auf gekrümmten Elementen (Rest):** Karten seit v0.61 mit H-Matrix (ab 4 000 Punkten, so schnell
+   wie eben); die Kraft (2 048 Punkte) bleibt direkt, ihr ACA-Aufwand ist von der Arithmetik der langen Zeilen (28 Spalten je
+   Element) bestimmt, nicht von Kernauswertungen. Kraft aus Randspuren und Fernfeld nur als zusätzliche Gegenprobe.
 3. Gekrümmte Elemente: Vorkonditionierung gemessen (results_curved.md): Iterationen durch das Hauptsymbol (Materialkontrast)
    festgelegt, lokale Vorkonditionierer (Block, HODLR) wirkungslos; Krylov-Recycling über mehrere rechte Seiten
    ebenfalls gemessen und ohne Nutzen (≤ 16 % Iterationen, keine Zeit; breites Spektrum ohne Ausreißer). Offen nur noch

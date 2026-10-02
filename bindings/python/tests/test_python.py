@@ -628,6 +628,20 @@ def test_curved_elements():
     Fp = cb.force_on_sphere(evp, water, (0, 0, 0), 1.5)
     assert np.allclose(Fp, F, rtol=1e-10, atol=1e-12), (Fp, F)
     assert raises(TypeError, cb.near_field_evaluator_curved, q4, rg.h, bp, water, 0.5, object())
+    # H-Matrix fuer viele Punkte (v0.61): Voreinstellung ab 4000 Punkten mit eps = 1e-6, gegen die direkte Summation
+    o = cb.curved_near_field_options()
+    assert o.hmatrix_min_points == 4000 and o.eps == 1e-6
+    g = np.linspace(-2, 2, 72)
+    xs = np.array([[a, 0.0, c] for a in g for c in g if a * a + c * c > 1.03])
+    assert len(xs) >= 4000
+    hs, k = rg.h - bg, complex(0.5 * np.sqrt(1.7689))
+    Fd, Fh = cb.scattered_field_curved(q4, hs, k, xs), cb.scattered_field_curved_hmatrix(q4, hs, k, xs)
+    assert np.abs(Fh - Fd).max() < 2e-6 * np.abs(Fd).max(), np.abs(Fh - Fd).max() / np.abs(Fd).max()
+    direct = cb.curved_near_field_options()
+    direct.hmatrix_min_points = len(xs) + 1
+    nh = cb.exterior_near_field_curved(q4, rg.h, water, 0.5, Z, X, xs)
+    nd = cb.exterior_near_field_curved(q4, rg.h, water, 0.5, Z, X, xs, options=direct)
+    assert np.abs(nh["E"] - nd["E"]).max() < 2e-6 * np.abs(nd["E"]).max()
 
 
 def test_gmsh_second_order():

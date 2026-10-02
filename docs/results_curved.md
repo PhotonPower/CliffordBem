@@ -920,3 +920,74 @@ oben): Die Eigenwerte liegen breit auf den vier Ästen des Hauptsymbols, ohne ei
 abfangen könnte; die Dipolresonanz der Kugel hebt sich bei diesem Materialkontrast nicht genug ab. Im ebenen Pfad waren es
 10 % bei ε = −11 und 30–40 % nahe einer Resonanz (`results_dipole.md`), bei groberen Netzen mit stärkeren Ausreißern.
 `CurvedScatteringProblem` bekommt daher kein `use_recycling`; die Lösungen stimmen auf tol überein (Abweichung ≤ 2·10⁻⁶).
+
+## Nahfeldkarten mit H-Matrix (v0.61)
+
+**Ansatz.** Wie `NearFieldOperator` im ebenen Pfad: Zeilen sind die Auswertepunkte, Spalten die Elemente, Clusterbäume
+über Punkte und Schwerpunkte. Ein Block ist zulässig, wenn min(diam) ≤ η dist, dist > 3 h_max, |k| diam ≤ 20 und
+zusätzlich dist > 4 r_max (r = größter Abstand der Ecken vom Schwerpunkt plus Wölbung): Dann rechnet `point_integrals` für
+alle Paare des Blocks mit der 7-Punkt-Fernregel, und das Feld des Blocks ist eine Summe über Quadraturpunkte,
+F(x) = Σ_q (s + v z) W_q mit z = x − y_q und W_q = n_q Σ_a w_q ψ_a(y_q) u_a. Nahe Blöcke rechnen direkt mit `point_integrals`
+(Singularitätssubtraktion wie bisher).
+
+**Messung** (`prototype/curved/near_field_hmatrix.cpp`; Goldkugel in Wasser, Karte in der Ebene y = 0, 12 Threads; Fehler
+gegen die direkte Summation bezogen auf max |F_s|). Zwei Varianten der ACA+ in zulässigen Blöcken:
+- **E (Elementebene):** Einträge sind die 21 Integrale `point_integrals` je Punkt und Element (3 Basisfunktionen × 7
+  Komponenten).
+- **P (Punktebene):** Einträge sind die 4 Komponenten des Dirac-Kerns (s, v z) je Punkt und Quadraturpunkt (28 Spalten je
+  Element).
+
+| Fall (η = 2, eps 10⁻⁴) | Aufbau + Anwendung | Fehler | Rang | Kernauswertungen |
+|---|---:|---:|---:|---:|
+| 1 280 × 9 968, direkt | 1,61 s | – | – | 100 % |
+| E, Blatt 32 | 0,51 + 0,04 s | 3,0·10⁻⁵ | 8,2 | 15,5 % |
+| P, Blatt 32 / 64 / 128 | 0,41 / 0,43 / 0,45 s + 0,05–0,10 s | 2,5 / 2,3 / 6,7·10⁻⁵ | 8,2–8,9 | 5,9 / 5,2 / 4,5 % |
+| P, Blatt 64, ohne Nachkompression | 0,23 + 0,08 s | 2,0·10⁻⁵ | 12,5 | 5,2 % |
+| 5 120 × 39 912, direkt | 26,6 s | – | – | 100 % |
+| E, Blatt 32 | 3,03 + 0,14 s | 3,5·10⁻⁵ | 8,8 | 5,5 % |
+| P, Blatt 64 | 2,76 + 0,27 s | 4,0·10⁻⁵ | 9,5 | 1,7 % |
+| P, Blatt 64, ohne Nachkompression | 1,83 + 0,40 s | 4,2·10⁻⁵ | 13,7 | 1,7 % |
+
+Mit eps = 10⁻⁶ (P, Blatt 64): 1 280 × 9 968 0,89 + 0,08 s mit, 0,40 + 0,11 s ohne Nachkompression; 5 120 × 39 912
+7,05 + 0,38 s mit, 3,13 + 0,52 s ohne; Fehler jeweils 2,6–2,8·10⁻⁷.
+
+Was die Zeit bestimmt:
+- **Arithmetik der ACA, nicht die Kernauswertungen.** P braucht nur 1,7 % der Kernauswertungen der direkten Summation.
+  Fast die ganze Zeit geht in die Arithmetik der ACA+ (Reste, Kreuzterme, Referenzen: O(r²(m + 28 n)) je Block; 5 120 × 39 912:
+  19 s Rechenzeit über alle Threads) und in die Nachkompression (QR und SVD, 12 s; bei eps = 10⁻⁶ 44 s).
+- **Nachkompression.** Für eine einmalige Anwendung ist sie überflüssig: Ohne sie wird der Aufbau 35–55 % schneller, das
+  Produkt etwas langsamer (höherer Rang), der Fehler bleibt.
+- **Betragsquadrate statt `std::abs`.** In der Pivotsuche ersetzt (`std::abs` einer komplexen Zahl ruft `hypot`), sparen sie
+  nur 5–20 % der ACA-Zeit; `aca.cpp` (gemeinsamer Code) bleibt unverändert.
+- **E gegen P.** E ist ähnlich schnell, braucht aber dreimal so viele Kernauswertungen (jede Zeile rechnet `point_integrals`).
+- **Speicher.** Gespeichert bräuchte die H-Matrix 1,1–2,4 GB bei 40 000 Punkten, vor allem für die dichten Blöcke
+  (21 komplexe Zahlen je Paar). Daher wird jeder Block nach dem Aufbau sofort angewandt und verworfen.
+
+Bei der ersten Messung war der Prototyp ohne `-DCBEM_USE_OPENMP` gebaut; seine eigenen Schleifen liefen dann auf einem Kern,
+und die H-Matrix sah fünfmal langsamer aus (Summe der Blockzeiten = Wandzeit).
+
+**Umsetzung** (`scattered_field_curved_hmatrix`): Variante P, η = 2, Blattgröße 64, ACA+ ohne Nachkompression, jeder Block
+sofort angewandt (Summen je Thread). `exterior_near_field_curved` nutzt sie ab `hmatrix_min_points` Punkten mit
+`NearFieldOptions` (Voreinstellung `curved_near_field_options()`: 4 000 Punkte, eps = 10⁻⁶; eben 2 000 Punkte und 10⁻⁴).
+Die Toleranz 10⁻⁶ hält den Fehler bei 3·10⁻⁷ von max |F_s|, weit unter dem Diskretisierungsfehler (|E|² 5·10⁻⁴ bei 1 280
+Elementen); 10⁻⁴ gäbe 4·10⁻⁵.
+
+**Kosten** (`prototype/curved/near_field_cost.cpp`, Bibliothek, 12 Threads):
+
+| Punkte | 1 280: direkt / H-Matrix | eben | 5 120: direkt / H-Matrix | eben |
+|---:|---:|---:|---:|---:|
+| 1 000 | 0,19 / 0,22 s | 0,10 s | 0,81 / 1,38 s | 0,40 s |
+| 1 976 | 0,34 / 0,31 s | 0,18 s | 1,55 / 1,82 s | 0,76 s |
+| 4 000 | 0,66 / 0,40 s | 0,20 s | 2,98 / 2,26 s | 0,56 s |
+| 9 968 | 1,68 / 0,56 s | 0,46 s | 7,39 / 2,79 s | 0,97 s |
+| 39 912 | 6,71 / 1,36 s | 1,44 s | 30,6 / 4,36 s | 2,90 s |
+
+Fehler des Gesamtfelds E höchstens 3,2·10⁻⁷ (bezogen auf max |E|). Die Schwelle liegt bei 4 000 Punkten, weil die H-Matrix
+mit 5 120 Elementen erst ab etwa 3 000 Punkten gewinnt. Für die Kraft über die Kugel (32 × 64 = 2 048 Punkte) bleibt die
+direkte Summation schneller: 1 280 Elemente 0,36 statt 0,43 s, 5 120 Elemente 1,53 statt 2,73 s. Kräfte rechnen daher wie
+bisher (gleiche Werte). Da 1 280 gekrümmte Elemente genauer sind als 5 120 ebene, kostet eine Karte mit 40 000 Punkten bei
+gleicher Genauigkeit jetzt 1,4 s statt 2,9 s eben (vorher gekrümmt 7 s).
+
+**Prüfung** (`test_curved_near_field`, Teil 7; 320 Elemente, 4 140 Punkte bis 0,01 Radien vor der Kugel): eps 10⁻⁶ Fehler
+1,5·10⁻⁷, eps 10⁻⁴ 2,1·10⁻⁵, Gesamtfeld im chiralen Außenmedium (zwei Helizitäten, χ = 0,05) 1,2·10⁻⁷; Python
+(`test_curved_elements`): H-Matrix gegen direkte Summation und `options`.
