@@ -4,7 +4,7 @@ Koordinatenfreie Galerkin-Randelementmethode (BEM) der Nano-Optik in der komplex
 Streuung, Nahfeld, Dipolemission und optische Kräfte an (auch chiralen, beschichteten, mehreren) Körpern. C++17-Kern ohne
 externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Projekts: **Deutsch**.
 
-**Stand: v0.54** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
+**Stand: v0.55** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
 
 | Dichten / Geometrie | Klasse | seit | Genauigkeit an der Kugel (320 Elemente) |
 |---|---|---|---|
@@ -26,7 +26,7 @@ PYTHONPATH=build/python python3 -c "import cliffordbem as cb; print(cb.__version
 pip install .                                                           # Python-Paket über scikit-build-core
 ```
 
-- Optionen: `CBEM_OPENMP` (an), `CBEM_NATIVE` (aus), `CBEM_BUILD_TESTS` (an), `CBEM_BUILD_APPS` (an), `CBEM_BUILD_PYTHON` (aus).
+- Optionen: `CBEM_OPENMP` (an), `CBEM_NATIVE` (aus; für eigene Rechnungen lohnend, Produkt doppelt so schnell), `CBEM_FAST_COMPLEX` (an, `-fcx-fortran-rules`), `CBEM_BUILD_TESTS` (an), `CBEM_BUILD_APPS` (an), `CBEM_BUILD_PYTHON` (aus).
 - **Laufzeit:** Der volle Testlauf dauert auf einem Kern etwa 45 Minuten. Die längsten Tests sind `test_optical_force`
   (~200 s), `test_hodlr`, `test_twoport`, `test_dipole` (~170 s), `test_curved` (~90 s) und `test_python` (~85 s).
   Bei Änderungen nur die betroffenen Tests laufen lassen; vor Versionen, die gemeinsam genutzten Code ändern, den vollen
@@ -109,7 +109,8 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
   über den PATH die `libstdc++-6.dll` aus Git for Windows, und `test_materials`/`test_gmsh` stürzten in den Dateistreams ab.
 - `std::complex<double>`-Multiplikation in heißen Schleifen: GCC erzeugt nach jeder Multiplikation eine NaN-Prüfung mit
   Rückfall auf `__muldc3` (sichtbar mit `objdump -dr datei.obj | grep __muldc3`); das verhindert die Vektorisierung. In
-  inneren Schleifen reell rechnen und in lokalen Feldern akkumulieren (v0.54: Produkt fast doppelt so schnell, bitgleich).
+  inneren Schleifen reell rechnen und in lokalen Feldern akkumulieren (v0.54: Produkt fast doppelt so schnell, bitgleich);
+  seit v0.55 baut die Bibliothek mit `-fcx-fortran-rules` (`CBEM_FAST_COMPLEX`), dann gibt es keine Aufrufstellen mehr.
   Laufzeiten nie nur für den Aufbau messen: das Lösen kostete bei 1 280 Elementen ebenso viel.
 - Textersetzungen in Quelldateien nur mit eindeutigem Anker und Prüfung (`assert a in s`); eine Ersetzung in
   `src/hmatrix.cpp` traf einmal zwei Stellen.
@@ -125,8 +126,9 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
 
 ## Offene Aufgaben (priorisiert)
 
-1. **`__muldc3` aus heißen Schleifen entfernen** wie in v0.54 (`CurvedHMatrix::apply`): `KernelHMatrix::apply` (konstante und
-   lineare Dichten, 45 Aufrufstellen), HODLR (23), dichte Blöcke (34) – bitgleich nachweisen. Danach complex64-Speicher.
+1. **H-Matrix in einfacher Genauigkeit (complex64)**: halbiert den Speicher (gekrümmt 1 280: 481 MB je H-Matrix) und, weil die
+   dichten Blöcke mit `-march=native` an der Bandbreite liegen, etwa auch das Produkt; Genauigkeit gegen ACA-Toleranz messen.
+   (`__muldc3` ist seit v0.55 überall entfernt, `docs/results_performance.md`.)
 2. **Aufbau gekrümmter Elemente weiter beschleunigen**: auf dem Windows-Rechner (v0.53) 22 s bei 1 280 Elementen
    (Gold, ein Kern): Nahquadratur 12,6 s (Sauter-Schwab etwa 5 s, seit v0.53 anisotrop und genauer, nicht schneller),
    H-Matrizen 10 s (ACA auf Quadraturpunkten, Speicher). Sauter-Schwab auf verzerrten Elementen (längste Kante/Höhe > 1,7)

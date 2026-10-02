@@ -1,4 +1,5 @@
 #include "cbem/hmatrix/hmatrix.hpp"
+#include "cbem/linalg/axpy8.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -173,10 +174,12 @@ void KernelHMatrix::apply(const std::vector<cplx>& Z, std::vector<cplx>& Y) cons
         const std::size_t n = D.C.size();
         for (std::size_t a = 0; a < D.R.size(); ++a) {
             cplx* y = &Yo[D.R[a] * 8];
+            real acc[16]; load8(acc, y);                                  // reell, in Registern, bitgleich (v0.55)
             for (std::size_t c = 0; c < n; ++c) {
                 const KernelComp& K = D.K[a * n + c]; const cplx* z = &Z[D.C[c] * 32];
-                for (int q = 0; q < 4; ++q) for (int r = 0; r < 8; ++r) y[r] += K[q] * z[q * 8 + r];
+                for (int q = 0; q < 4; ++q) axpy8(acc, K[q], z + q * 8);
             }
+            store8(y, acc);
         }
     };
     auto lr_block = [&](const LR& B, std::vector<cplx>& Yo, std::vector<cplx>& tmp) {
@@ -197,21 +200,19 @@ void KernelHMatrix::apply(const std::vector<cplx>& Z, std::vector<cplx>& Y) cons
             // tmp = V^T zs,  zs: Zeilen (c, j) bei Joint, (j) bei Componentwise mit c = fi
             for (std::size_t k = 0; k < r; ++k) {
                 const cplx* v = f.V.col(k);
+                real acc[16]; load8(acc, &tmp[k * 8]);
                 if (B.f.size() == 1) {
-                    for (int c = 0; c < 4; ++c) for (std::size_t j = 0; j < n; ++j) {
-                        const cplx* z = &Z[B.C[j] * 32 + c * 8]; cplx vv = v[c * n + j];
-                        for (int q = 0; q < 8; ++q) tmp[k * 8 + q] += vv * z[q];
-                    }
+                    for (int c = 0; c < 4; ++c) for (std::size_t j = 0; j < n; ++j) axpy8(acc, v[c * n + j], &Z[B.C[j] * 32 + c * 8]);
                 } else {
-                    for (std::size_t j = 0; j < n; ++j) {
-                        const cplx* z = &Z[B.C[j] * 32 + fi * 8]; cplx vv = v[j];
-                        for (int q = 0; q < 8; ++q) tmp[k * 8 + q] += vv * z[q];
-                    }
+                    for (std::size_t j = 0; j < n; ++j) axpy8(acc, v[j], &Z[B.C[j] * 32 + fi * 8]);
                 }
+                store8(&tmp[k * 8], acc);
             }
             for (std::size_t a = 0; a < m; ++a) {
                 cplx* y = &Yo[B.R[a] * 8];
-                for (std::size_t k = 0; k < r; ++k) { cplx u = f.U(a, k); for (int q = 0; q < 8; ++q) y[q] += u * tmp[k * 8 + q]; }
+                real acc[16]; load8(acc, y);
+                for (std::size_t k = 0; k < r; ++k) axpy8(acc, f.U(a, k), &tmp[k * 8]);
+                store8(y, acc);
             }
         }
     };
