@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53), schnelleres H-Matrix-Produkt (v0.54), ACA-Toleranz (v0.56)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53), schnelleres H-Matrix-Produkt (v0.54), ACA-Toleranz (v0.56), gepaartes Sauter-Schwab und H-Matrix (v0.57)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -688,3 +688,35 @@ Bei 320 Elementen: 1,7·10⁻⁶ (10⁻⁴), 4,4·10⁻⁸ (10⁻⁵), 2,7·10�
 Elemente jetzt 10⁻⁵ (`curved_hmatrix_params()`, Standardwert von `CurvedHMatrix`, `CurvedScatteringProblem` und der
 Python-Anbindung); 10–40-mal genauer für etwa 5 % Zeit und 15 % Speicher. Die übrigen Pfade bleiben bei 10⁻⁴. Gold mit
 320 Elementen gibt jetzt −0,0068 % gegen Mie (40 statt 47 Iterationen).
+
+## Aufbau: gepaartes Sauter-Schwab, H-Matrix eta = 2 mit ε = 10⁻⁶ (v0.57)
+
+**Messung** (`prototype/curved/build_profile.cpp`; Gold, 1 280 Elemente, ein Kern, Stand v0.56): Aufbau 24,1 s, davon
+H-Matrizen 10,9 s (45 %), getrennte Nahpaare 6,5 s (27 %), Sauter-Schwab 6,3 s (26 %; davon Eckpaare 3,5 s, Kantenpaare
+1,9 s, Selbstterme 0,9 s), Rest (Transmission, ψ, Quadratur) 0,05 s.
+
+**Gepaartes Sauter-Schwab.** Eine Regel auf τ_i × τ_j integriert auch das Paar (j, i): x′ = y auf τ_j, y′ = x auf τ_i,
+z′ = −z, die Normale gehört zu x. Für Ecken- und Kantenpaare werden beide Blöcke in einem Durchgang berechnet
+(`lambda_sauter_schwab_pair`); Kern und Geometrie je Punkt nur einmal. Der Block (i, j) bleibt bitgleich, der Block (j, i)
+ist so genau wie direkt gerechnet (gegen isotrope Ordnung 12: Ecke 1,7·10⁻⁷, Kante 1,2·10⁻⁶). Nahfeld-Cache 13,1 → 11,4 s.
+
+**H-Matrix.** Partition bei ε = 10⁻⁵ (`prototype/curved/hmatrix_params.cpp`, Produkt mit Zufallsvektor gegen ε = 10⁻⁸):
+eta = 2 spart 14 % Aufbau, 10 % Produkt und 11 % Speicher bei gleichem Fehler des Produkts (1,7·10⁻⁷ statt 1,5·10⁻⁷);
+größere Blätter oder sep_factor = 2 bringen nichts oder verschlechtern den Fehler. σ_ext reagiert aber empfindlicher
+(Gold, gegen eta = 1 mit ε = 10⁻⁷):
+
+| eta / ε | Fehler 320 | Fehler 1 280 | Aufbau 1 280 | Speicher | Lösen 1 280 |
+|---|---:|---:|---:|---:|---:|
+| 1 / 10⁻⁵ (v0.56) | 4,4·10⁻⁸ | 1,6·10⁻⁷ | 21,8 s | 549 MB | 23,8 s |
+| 2 / 10⁻⁵ | 5,9·10⁻⁷ | 5,9·10⁻⁷ | 20,2 s | 486 MB | 21,8 s |
+| 1,5 / 10⁻⁵ | 5,9·10⁻⁷ | 5,5·10⁻⁷ | 20,4 s | 499 MB | 21,8 s |
+| **2 / 10⁻⁶ (v0.57)** | 3,7·10⁻⁹ | 3,1·10⁻⁸ | 22,6 s | 548 MB | 23,8 s |
+| 1,5 / 10⁻⁶ | 3,7·10⁻⁹ | 2,4·10⁻⁸ | 22,6 s | 565 MB | 24,4 s |
+
+(Zeiten mit gepaartem Sauter-Schwab.) eta = 2 mit ε = 10⁻⁶ kostet so viel wie die Voreinstellung von v0.56 und ist 5- bis
+12-mal genauer; die ACA ist damit so genau wie die Quadratur (≈ 2·10⁻⁸). Neue Voreinstellung in `curved_hmatrix_params()`.
+
+**Ergebnis.** Aufbau Gold 1 280: 24,1 s (v0.56) → 23,0 s (Nahfeld 11,4 s), σ_ext 1,6·10⁻⁷ → 3·10⁻⁸ neben der Rechnung
+mit ε = 10⁻⁷. Gold 320: −0,0068 % gegen Mie (40 Iterationen).
+
+**Prüfung.** `test_curved` (7): gepaarte Blöcke (j, i) gegen isotrop 12, Block (i, j) bitgleich zur Einzelrechnung.

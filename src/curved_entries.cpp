@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <stdexcept>
 
 #include "cbem/kernel/dirac_kernel.hpp"
 #include "cbem/kernel/triangle_integrals.hpp"
@@ -125,11 +126,32 @@ void CurvedKernelEntries::build_near_cache() {
 #ifdef CBEM_USE_OPENMP
 #pragma omp parallel for schedule(dynamic, 8)
 #endif
+    for (long i = 0; i < static_cast<long>(N); ++i)
+        for (std::size_t j = 0; j < N; ++j) if (is_near(i, j)) nb[i].push_back(j);   // is_near ist symmetrisch
+    // Ecken- und Kantenpaare je einmal fuer (i, j) und (j, i) (v0.57); (j, i) zunaechst bei i abgelegt, danach einsortiert
+    std::vector<std::vector<std::pair<std::size_t, CurvedBlock>>> partner(N);
+#ifdef CBEM_USE_OPENMP
+#pragma omp parallel for schedule(dynamic, 8)
+#endif
     for (long i = 0; i < static_cast<long>(N); ++i) {
-        for (std::size_t j = 0; j < N; ++j) if (is_near(i, j)) nb[i].push_back(j);   // kein Symmetrieschluss: n(y) im Kern
         val[i].resize(nb[i].size());
-        for (std::size_t a = 0; a < nb[i].size(); ++a) val[i][a] = to_psi(i, nb[i][a], lambda_exact(i, nb[i][a]));
+        for (std::size_t a = 0; a < nb[i].size(); ++a) {
+            const std::size_t j = nb[i][a];
+            const Adjacency adj = adjacency(i, j);
+            if (adj == Adjacency::Vertex || adj == Adjacency::Edge) {
+                if (j < static_cast<std::size_t>(i)) continue;                // vom Partner berechnet
+                CurvedBlock Kij, Kji;
+                lambda_sauter_schwab_pair(i, j, adj, Kij, Kji);
+                val[i][a] = to_psi(i, j, Kij);
+                partner[i].emplace_back(j, to_psi(j, i, Kji));
+            } else val[i][a] = to_psi(i, j, lambda_exact(i, j));
+        }
     }
+    for (std::size_t i = 0; i < N; ++i)
+        for (auto& [j, K] : partner[i]) {
+            const std::size_t a = std::lower_bound(nb[j].begin(), nb[j].end(), i) - nb[j].begin();
+            val[j][a] = K;
+        }
     cache_.assign(N, {});
     for (std::size_t i = 0; i < N; ++i) {
         for (std::size_t a = 0; a < nb[i].size(); ++a) cache_[i].emplace_back(nb[i][a], val[i][a]);
@@ -328,6 +350,19 @@ CurvedBlock CurvedKernelEntries::lambda_near(std::size_t i, std::size_t j) const
 }
 
 CurvedBlock CurvedKernelEntries::lambda_sauter_schwab(std::size_t i, std::size_t j, Adjacency adj) const {
+    CurvedBlock K = zero_block();
+    sauter_schwab(i, j, adj, K, nullptr);
+    return K;
+}
+
+void CurvedKernelEntries::lambda_sauter_schwab_pair(std::size_t i, std::size_t j, Adjacency adj, CurvedBlock& Kij, CurvedBlock& Kji) const {
+    if (adj == Adjacency::Coincident || adj == Adjacency::None) throw std::invalid_argument("lambda_sauter_schwab_pair: nur Ecke oder Kante");
+    Kij = zero_block(); Kji = zero_block();
+    sauter_schwab(i, j, adj, Kij, &Kji);
+}
+
+// Regel auf tau_i x tau_j; mit Kt zugleich der Block (j, i): x' = y auf tau_j, y' = x auf tau_i, z' = -z, Normale n(x)
+void CurvedKernelEntries::sauter_schwab(std::size_t i, std::size_t j, Adjacency adj, CurvedBlock& K, CurvedBlock* Kt) const {
     const auto& T = m_.flat.T;
     std::array<int, 3> ti = T[i], tj = T[j];
     if (adj == Adjacency::Edge || adj == Adjacency::Vertex) {             // gemeinsame Ecken zuerst (wie KernelEntries)
@@ -349,7 +384,6 @@ CurvedBlock CurvedKernelEntries::lambda_sauter_schwab(std::size_t i, std::size_t
     int perm_i[3], perm_j[3];
     for (int k = 0; k < 3; ++k) for (int a = 0; a < 3; ++a) { if (T[i][a] == ti[k]) perm_i[k] = a; if (T[j][a] == tj[k]) perm_j[k] = a; }
     const PairRule& R = ss_[static_cast<int>(adj)];
-    CurvedBlock K = zero_block();
     const bool coinc = (adj == Adjacency::Coincident);
     for (std::size_t q = 0; q < R.w.size(); ++q) {
         const real lpx[3] = {1 - R.x[q][0] - R.x[q][1], R.x[q][0], R.x[q][1]};
@@ -363,7 +397,11 @@ CurvedBlock CurvedKernelEntries::lambda_sauter_schwab(std::size_t i, std::size_t
         if (r < 1e-14) continue;
         const KernelValue kv = dirac_kernel_fast(z, k_);
         const real w = R.w[q] * Jx * Jy;
-        if (!coinc) { acc(K, lx, ly, w, comps7(z, ny, kv.s, kv.vcoef)); continue; }
+        if (!coinc) {
+            acc(K, lx, ly, w, comps7(z, ny, kv.s, kv.vcoef));
+            if (Kt) acc(*Kt, ly, lx, w, comps7(z * -1.0, nx, kv.s, kv.vcoef));
+            continue;
+        }
         // Selbstterm: Rest (ohne Phi_0) normal; Phi_0 = z/(4 pi r^3) n(y) = K_a + K_s
         const cplx p0 = 1.0 / (4 * pi * r * r * r);
         acc(K, lx, ly, w, comps7(z, ny, kv.s, kv.vcoef - p0));
@@ -376,7 +414,6 @@ CurvedBlock CurvedKernelEntries::lambda_sauter_schwab(std::size_t i, std::size_t
                 for (int c = 0; c < kCurvedComps; ++c) K[a * 3 + b][c] += f * Ka[c];
             }
     }
-    return K;
 }
 
 }  // namespace cbem

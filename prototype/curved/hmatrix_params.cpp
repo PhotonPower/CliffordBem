@@ -29,8 +29,8 @@ int main(int argc, char** argv) {
     double nr = 0; for (auto y : Yr) nr += std::norm(y);
     std::printf("%zu Elemente, Nahfeld %.2f s\n", q.size(), E.near_seconds());
     struct V { std::size_t leaf; real eta, sep, eps; };
-    for (const V& v : std::vector<V>{{32, 1.0, 3.0, 1e-4}, {64, 1.0, 3.0, 1e-4}, {128, 1.0, 3.0, 1e-4}, {32, 2.0, 3.0, 1e-4},
-                                     {64, 2.0, 3.0, 1e-4}, {32, 1.0, 2.0, 1e-4}, {64, 2.0, 2.0, 1e-4}}) {
+    for (const V& v : std::vector<V>{{32, 1.0, 3.0, 1e-5}, {32, 2.0, 3.0, 1e-5}, {64, 2.0, 3.0, 1e-5}, {32, 1.5, 3.0, 1e-5},
+                                     {32, 2.0, 2.0, 1e-5}, {64, 2.0, 2.0, 1e-5}, {48, 2.0, 3.0, 1e-5}}) {
         HMatrixParams hp; hp.leaf = v.leaf; hp.eta = v.eta; hp.sep_factor = v.sep; hp.eps = v.eps;
         auto t0 = std::chrono::steady_clock::now();
         CurvedHMatrix H(E, hp);

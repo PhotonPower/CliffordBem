@@ -12,10 +12,11 @@
 
 namespace cbem {
 
-// Voreinstellung fuer gekruemmte Elemente (v0.56): ACA-Toleranz 1e-5 statt 1e-4. Seit den genaueren Quadraturen (v0.52,
-// v0.53) dominierte eps = 1e-4 den Fehler (sigma_ext Gold 1280: 1,5e-6, mit 1e-5 1,6e-7) bei etwa 5 % mehr Zeit und 15 %
-// mehr Speicher (results_curved.md).
-inline HMatrixParams curved_hmatrix_params() { HMatrixParams p; p.eps = 1e-5; return p; }
+// Voreinstellung fuer gekruemmte Elemente (results_curved.md): eta = 2 und ACA-Toleranz 1e-6 (v0.57). Seit den genaueren
+// Quadraturen (v0.52, v0.53) dominierte die ACA den Fehler (eps 1e-4: sigma_ext Gold 1280 1,5e-6; v0.56 eps 1e-5: 1,6e-7).
+// eta = 2 mit eps = 1e-6 kostet so viel wie eta = 1 mit 1e-5 und gibt 3e-8 (so genau wie die Quadratur); eta = 2 allein mit
+// 1e-5 waere 7 % schneller, aber 6e-7.
+inline HMatrixParams curved_hmatrix_params() { HMatrixParams p; p.eps = 1e-6; p.eta = 2.0; return p; }
 
 class CurvedHMatrix {
 public:

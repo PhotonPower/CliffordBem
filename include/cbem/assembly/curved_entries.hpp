@@ -70,6 +70,8 @@ public:
     CurvedBlock lambda_far(std::size_t i, std::size_t j) const;
     CurvedBlock lambda_exact(std::size_t i, std::size_t j) const;
     CurvedBlock lambda_sauter_schwab(std::size_t i, std::size_t j, Adjacency a) const;
+    // Ecke/Kante: (i, j) und (j, i) in einem Durchgang mit derselben Regel auf tau_i x tau_j (Kern und Geometrie einmal; v0.57)
+    void lambda_sauter_schwab_pair(std::size_t i, std::size_t j, Adjacency a, CurvedBlock& Kij, CurvedBlock& Kji) const;
     CurvedBlock lambda_near(std::size_t i, std::size_t j) const;
     // orthonormierte Basis psi (Nahpaare gecacht)
     CurvedBlock block(std::size_t i, std::size_t j) const;
@@ -115,6 +117,7 @@ private:
     std::size_t n_near_ = 0;
     double t_near_ = 0;
     CurvedBlock to_psi(std::size_t i, std::size_t j, const CurvedBlock& L) const;
+    void sauter_schwab(std::size_t i, std::size_t j, Adjacency a, CurvedBlock& K, CurvedBlock* Kt) const;
     void inner(const Vec3& x, std::size_t j, const std::array<std::array<real, 3>, 3>& tri, real aref, int depth,
                std::array<CurvedComp, 3>& acc) const;
     struct Tangent { Vec3 X0, Xu, Xv, n; real J; std::array<real, 3> lam; };   // affine Taylor-Abbildung am Fusspunkt

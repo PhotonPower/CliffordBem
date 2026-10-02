@@ -208,7 +208,7 @@ static void test_sauter_schwab_orders() {
     EntryParams e12 = ep; e12.ss_order = 12;
     CurvedNearParams iso; iso.ss_orders = {};
     CurvedKernelEntries R(q, k, e12, iso), A(q, k, ep), I(q, k, ep, iso);
-    double wa[4] = {0, 0, 0, 0}, wi[4] = {0, 0, 0, 0};
+    double wa[4] = {0, 0, 0, 0}, wi[4] = {0, 0, 0, 0}, wp[4] = {0, 0, 0, 0};
     for (std::size_t i = 0; i < q.size(); i += 5)
         for (std::size_t j = 0; j < q.size(); ++j) {
             const Adjacency adj = R.adjacency(i, j);
@@ -219,10 +219,21 @@ static void test_sauter_schwab_orders() {
             for (int p = 0; p < 9; ++p)
                 for (int c = 0; c < kCurvedComps; ++c) { nr += std::norm(Kr[p][c]); da += std::norm(Ka[p][c] - Kr[p][c]); di += std::norm(Ki[p][c] - Kr[p][c]); }
             wa[t] = std::max(wa[t], std::sqrt(da / nr)); wi[t] = std::max(wi[t], std::sqrt(di / nr));
+            if (adj != Adjacency::Coincident) {                               // (j, i) aus dem gepaarten Durchgang (v0.57)
+                CurvedBlock Kij, Kji; A.lambda_sauter_schwab_pair(i, j, adj, Kij, Kji);
+                const CurvedBlock Rt = R.lambda_exact(j, i);
+                double nt = 0, dt = 0, d0 = 0;
+                for (int p = 0; p < 9; ++p)
+                    for (int c = 0; c < kCurvedComps; ++c) { nt += std::norm(Rt[p][c]); dt += std::norm(Kji[p][c] - Rt[p][c]); d0 += std::norm(Kij[p][c] - Ka[p][c]); }
+                wp[t] = std::max(wp[t], std::sqrt(dt / nt));
+                CHECK(d0 == 0, "gepaarter Durchgang aendert den Block (i, j)");
+            }
         }
     std::printf("(7) Sauter-Schwab gegen isotrop 12: anisotrop Ecke %.1e, Kante %.1e, Selbstterm %.1e; isotrop 5: %.1e, %.1e, %.1e\n",
                 wa[1], wa[2], wa[3], wi[1], wi[2], wi[3]);
     CHECK(wa[1] < 1e-6 && wa[2] < 2e-6 && wa[3] < 2e-6, "anisotrope Sauter-Schwab-Regel ungenau: %.2e %.2e %.2e", wa[1], wa[2], wa[3]);
+    std::printf("    gepaart (j, i) gegen isotrop 12: Ecke %.1e, Kante %.1e\n", wp[1], wp[2]);
+    CHECK(wp[1] < 1e-6 && wp[2] < 2e-6, "gepaarte Sauter-Schwab-Bloecke ungenau: %.2e %.2e", wp[1], wp[2]);
     CHECK(wi[3] > 10 * wa[3], "Selbstterm: anisotrope Regel nicht genauer als isotrop 5 (%.2e gegen %.2e)", wa[3], wi[3]);
 }
 

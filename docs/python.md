@@ -59,7 +59,7 @@ sp = cb.spectrum(cb.make_icosphere(8), gold, np.arange(450, 651, 10), unit=20, n
 | Punkte | float64-Array (M, 3); ein einzelner Punkt als (3,) |
 | Nahfeld | `dict` mit `E`, `H` (M, 3), `inside`, `too_close` (M,), `enhancement` = \|E\|²/\|E₀\|², `chirality` (M,) |
 | 8×8-Blöcke | `ndarray` (8, 8), Zeile r, Spalte c (`left_matrix`, `transmission_map`, `system_entry`, `TransmissionOperator.J`: (N, 8, 8)) |
-| Parameter | `HMatrixParams`, `EntryParams`, `SolveOptions`, `HodlrParams`, `NearFieldOptions`, `TwoPortOptions` mit Schlüsselwortargumenten, z. B. `cb.HMatrixParams(eps=1e-6)` (v0.56: `single_precision`, an; gekrümmte Elemente verwenden `eps = 1e-5`); unbekannte Namen → `AttributeError` |
+| Parameter | `HMatrixParams`, `EntryParams`, `SolveOptions`, `HodlrParams`, `NearFieldOptions`, `TwoPortOptions` mit Schlüsselwortargumenten, z. B. `cb.HMatrixParams(eps=1e-6)` (v0.56: `single_precision`, an; gekrümmte Elemente verwenden `eta = 2`, `eps = 1e-6`, v0.57); unbekannte Namen → `AttributeError` |
 | Fehler | `std::runtime_error` → `RuntimeError`, `std::invalid_argument` → `ValueError`; falsche Längen und Formen werden vor der Rechnung als `ValueError` gemeldet |
 
 Netze sind in Python unveränderlich: `points`, `triangles`, `normals`, `centroids`, `areas`, `hmax` liefern Kopien; ein

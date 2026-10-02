@@ -4,7 +4,7 @@ Koordinatenfreie Galerkin-Randelementmethode (BEM) der Nano-Optik in der komplex
 Streuung, Nahfeld, Dipolemission und optische Kräfte an (auch chiralen, beschichteten, mehreren) Körpern. C++17-Kern ohne
 externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Projekts: **Deutsch**.
 
-**Stand: v0.56** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
+**Stand: v0.57** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
 
 | Dichten / Geometrie | Klasse | seit | Genauigkeit an der Kugel (320 Elemente) |
 |---|---|---|---|
@@ -13,7 +13,7 @@ externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Proj
 | unstetig linear / quadratisch gekrümmt | `CurvedScatteringProblem` | v0.47 | Glas −0,012 %, Gold −0,007 %, etwa O(h⁴) |
 
 Die Herleitung, Messungen und Begründungen der gekrümmten Elemente stehen in `docs/results_curved.md` (Stufen 1, 2a, 1b,
-2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
+2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt, Aufbau) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
 
 ## Bauen und testen
 
@@ -97,7 +97,7 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
   - schlägt eine Schwelle fehl, zuerst klären, welche Seite ungenau ist (mehrfach war es die Referenz), nicht die
     Schwelle aufweichen; unerwartete Ergebnisse offen berichten.
 - **H-Matrix:** Einträge seit v0.56 in einfacher Genauigkeit gespeichert (`HMatrixParams::single_precision`), gekrümmte
-  Elemente mit ACA-Toleranz 10⁻⁵ (`curved_hmatrix_params()`); bitgenaue Vergleiche zwischen Bauten nur mit gleichen Schaltern.
+  Elemente mit eta = 2 und ACA-Toleranz 10⁻⁶ (`curved_hmatrix_params()`, v0.57); bitgenaue Vergleiche zwischen Bauten nur mit gleichen Schaltern.
 - **Bestehende Pfade nicht verändern:** Neue Diskretisierungen kamen als zusätzliche Klassen; der konstante Pfad blieb
   Operation für Operation gleich (Regressionswerte, z. B. `test_scattering` 0,20291).
 - Python-Anbindung: `keep_alive` für Objekte mit Referenzmembern, GIL freigeben (`nogil`, `call_guard`), Vektor-Member als
@@ -128,12 +128,11 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
 
 ## Offene Aufgaben (priorisiert)
 
-1. **Aufbau gekrümmter Elemente weiter beschleunigen**: auf dem Windows-Rechner (v0.53) 22 s bei 1 280 Elementen
-   (Gold, ein Kern): Nahquadratur 12,6 s (Sauter-Schwab etwa 5 s, seit v0.53 anisotrop und genauer, nicht schneller),
-   H-Matrizen 10 s (ACA auf Quadraturpunkten, Speicher). Sauter-Schwab auf verzerrten Elementen (längste Kante/Höhe > 1,7)
-   konvergiert langsam (Ausreißer bis 10⁻⁴ auf Gmsh-Netzen) – Ordnung nach Elementform wählen? Befunde v0.52/v0.53:
-   erst messen, welche Größe begrenzt. Die H-Matrix (v0.50: 10 s) ließe sich weiter mit einer ACA auf den
-   Quadraturpunkten beschleunigen (geschätzt Faktor 1,5); Speicher 475 MB je H-Matrix, davon 280 MB dichte Blöcke.
+1. **Aufbau gekrümmter Elemente weiter beschleunigen**: auf dem Windows-Rechner (v0.57) 23 s bei 1 280 Elementen
+   (Gold, ein Kern, `prototype/curved/build_profile.cpp`): H-Matrizen ≈ 11 s (ACA auf Quadraturpunkten, geschätzt Faktor
+   1,5; Symmetrie (i, j)/(j, i) der Fernblöcke), getrennte Nahpaare 6,5 s, Sauter-Schwab ≈ 4,6 s (seit v0.57 gepaart).
+   Sauter-Schwab auf verzerrten Elementen (längste Kante/Höhe > 1,7) konvergiert langsam (Ausreißer bis 10⁻⁴ auf
+   Gmsh-Netzen) – Ordnung nach Elementform wählen? Lösen kostet so viel wie der Aufbau. Immer erst messen.
 2. **Nahfeld und Kräfte auf gekrümmten Elementen:** Streufeld aus der 24N-Spur (Quadratur mit `CurvedQuadrature`,
    Normale je Punkt), dann `exterior_near_field`- und Kraft-Varianten; Gewinn gegen Mie (`tools/mie_nearfield.py`,
    `tools/mie_force.py`) messen – Feldwerte konvergieren punktweise langsamer als die Extinktion.
