@@ -91,6 +91,29 @@ std::vector<Vec3> CurvedKernelEntries::index_points() const {
     return p;
 }
 
+std::array<CurvedComp, 3> CurvedKernelEntries::point_integrals(const Vec3& x, std::size_t j, real far_factor) const {
+    std::array<CurvedComp, 3> G;
+    for (auto& g : G) g.fill(cplx(0));
+    const auto v = m_.flat.vertices(j); const Vec3& c = m_.flat.centroid[j];
+    const real rad = std::max(norm(v[0] - c), std::max(norm(v[1] - c), norm(v[2] - c))) + m_.bulge[j];
+    if (norm(x - c) > far_factor * rad) {
+        const int nq = q7_.q; const Vec3* y = q7_.points(j); const Vec3* ny = q7_.normals(j); const auto* gy = &psiw_[j * nq];
+        for (int q = 0; q < nq; ++q) {
+            const Vec3 z = x - y[q]; const KernelValue kv = dirac_kernel_fast(z, k_);
+            const CurvedComp cc = comps7(z, ny[q], kv.s, kv.vcoef);
+            for (int a = 0; a < 3; ++a) for (int r = 0; r < kCurvedComps; ++r) G[a][r] += gy[q][a] * cc[r];
+        }
+        return G;
+    }
+    std::array<CurvedComp, 3> L;                                         // Gewichte lambda_b, dann psi_a = sum_k S_ak lambda_k
+    for (auto& l : L) l.fill(cplx(0));
+    if (np_.subtract) inner_subtracted(x, j, L);
+    else inner(x, j, kRef, 0.5, 0, L);
+    const auto& S = S_[j];
+    for (int a = 0; a < 3; ++a) for (int k = 0; k < 3; ++k) for (int r = 0; r < kCurvedComps; ++r) G[a][r] += S[a * 3 + k] * L[k][r];
+    return G;
+}
+
 bool CurvedKernelEntries::is_near(std::size_t i, std::size_t j) const {
     const real d = norm(m_.flat.centroid[i] - m_.flat.centroid[j]);
     return d < prm_.near_factor * std::max(m_.flat.hmax[i], m_.flat.hmax[j]);

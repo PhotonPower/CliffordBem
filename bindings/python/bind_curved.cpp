@@ -4,6 +4,7 @@
 
 #include "cbem/geometry/gmsh_io.hpp"
 #include "cbem/problems/curved_problem.hpp"
+#include "cbem/sources/curved_near_field.hpp"
 
 namespace cbem::py_bind {
 
@@ -121,6 +122,44 @@ Tangentialdreieck, Gauss 5 x 5 an den Blaettern (outer_rule = correction_rule = 
               auto h = to_trace24(hs, q.size(), "h_scat");
               return nogil([&] { return far_field_curved(q, h, k, xhat, sub); });
           }, "mesh"_a, "h_scat"_a, "k"_a, "xhat"_a, "sub"_a = 2);
+
+    // Nahfeld und Kraefte (v0.58)
+    m.def("project_incident_curved", [](const QuadraticMesh& q, const IncidentField& inc, const Medium& md, int sub) {
+              if (sub < 1) throw py::value_error("sub >= 1");
+              return to_numpy(nogil([&] { return project_incident_curved(q, inc, md, sub); }));
+          }, "mesh"_a, "incident"_a, "medium"_a, "sub"_a = 2, "Spur eines einfallenden Feldes in der psi-Basis (24 N)");
+    m.def("scattered_field_curved", [](const QuadraticMesh& q, const CArr& hs, cplx k, const RArr& pts) {
+              auto h = to_trace24(hs, q.size(), "h_scat");
+              auto x = to_points(pts);
+              return multivectors_to_numpy(nogil([&] { return scattered_field_curved(q, h, k, x); }));
+          }, "mesh"_a, "h_scat"_a, "k"_a, "points"_a, "Streufeld-Multivektoren (M, 8) aus der Streuspur (24 N)");
+    m.def("exterior_near_field_curved", [](const QuadraticMesh& q, const CArr& h, const Medium& md, real omega, const Vec3& d, const CVec3& p,
+                                           const RArr& pts) {
+              auto hv = to_trace24(h, q.size(), "h");
+              auto x = to_points(pts);
+              return near_field_to_dict(nogil([&] { return exterior_near_field_curved(q, hv, md, omega, d, p, x); }));
+          }, "outer"_a, "h"_a, "medium"_a, "omega"_a, "d"_a, "p"_a, "points"_a, R"doc(
+Gesamtes Nahfeld auf gekruemmten Elementen bei Anregung durch eine ebene Welle; h = Gesamtspur (24 N). dict wie
+exterior_near_field (E, H, inside, too_close, enhancement, chirality). Goldkugel 1280 Elemente: |E|^2 auf 0,05 % (eben 2-6 %).
+)doc");
+    m.def("exterior_near_field_curved", [](const QuadraticMesh& q, const CArr& h, const CArr& b, const Medium& md, real omega,
+                                           const IncidentField& inc, const RArr& pts) {
+              auto hv = to_trace24(h, q.size(), "h");
+              auto bv = to_trace24(b, q.size(), "b");
+              auto x = to_points(pts);
+              return near_field_to_dict(nogil([&] { return exterior_near_field_curved(q, hv, bv, md, omega, inc, x); }));
+          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a, "points"_a,
+          "allgemeine Anregung: b = project_incident_curved(outer, incident, medium)");
+    m.def("near_field_evaluator_curved", [](const QuadraticMesh& q, const CArr& h, const CArr& b, const Medium& md, real omega,
+                                            std::shared_ptr<IncidentField> inc) {
+              struct Data { QuadraticMesh q; std::vector<cplx> h; };
+              auto data = std::make_shared<const Data>(Data{q, to_trace24(h, q.size(), "h")});
+              PyNearFieldEval e;
+              e.owner = data;
+              e.f = make_near_field_eval_curved(data->q, data->h, to_trace24(b, q.size(), "b"), md, omega, inc);
+              return e;
+          }, "outer"_a, "h"_a, "b"_a, "medium"_a, "omega"_a, "incident"_a,
+          "Feldauswerter fuer Kraefte und Gradienten (force_on_sphere, force_on_offset, fields_with_gradients) auf gekruemmten Elementen");
 
     py::class_<CurvedScatteringProblem>(m, "CurvedScatteringProblem", R"doc(
 Streuproblem auf quadratischen (gekruemmten) Elementen mit unstetig linearen Dichten (24 Unbekannte je Element): ein oder

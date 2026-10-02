@@ -11,9 +11,6 @@
 
 namespace cbem::py_bind {
 
-namespace {
-
-// Nahfeldpunkte als Woerterbuch von Arrays
 py::dict near_field_to_dict(const std::vector<NearFieldPoint>& v) {
     const auto M = static_cast<py::ssize_t>(v.size());
     py::array_t<cplx> E({M, py::ssize_t(3)}), H({M, py::ssize_t(3)});
@@ -30,6 +27,8 @@ py::dict near_field_to_dict(const std::vector<NearFieldPoint>& v) {
     return py::dict("E"_a = E, "H"_a = H, "inside"_a = inside, "too_close"_a = too_close, "enhancement"_a = enh, "chirality"_a = chi);
 }
 
+namespace {
+
 // E und H an Punkten (ein Punkt: (3,), mehrere: (M, 3))
 template <class F> py::tuple eval_fields(const RArr& x, F&& f) {
     const auto pts = to_points(x);
@@ -39,13 +38,6 @@ template <class F> py::tuple eval_fields(const RArr& x, F&& f) {
     return py::make_tuple(cvecs_to_numpy(E), cvecs_to_numpy(H));
 }
 
-// Feldauswerter mit eigenem Netz und eigener Spur: make_near_field_eval haelt beide nur per Referenz
-struct PyNearFieldEval {
-    std::shared_ptr<const TriangleMesh> mesh;
-    std::shared_ptr<const std::vector<cplx>> h;
-    NearFieldEval f;
-    std::vector<NearFieldPoint> operator()(const std::vector<Vec3>& p) const { return f(p); }
-};
 
 // --- einfallende Felder aus Python (v0.43) ---------------------------------------------------------------------------------
 // Ein Python-Feld ist ein Objekt mit der Methode fields(x) -> (E, H) fuer Punkte x der Form (M, 3) und optional den Attributen

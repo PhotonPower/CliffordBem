@@ -4,7 +4,7 @@ Koordinatenfreie Galerkin-Randelementmethode (BEM) der Nano-Optik in der komplex
 Streuung, Nahfeld, Dipolemission und optische Kräfte an (auch chiralen, beschichteten, mehreren) Körpern. C++17-Kern ohne
 externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Projekts: **Deutsch**.
 
-**Stand: v0.57** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
+**Stand: v0.58** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
 
 | Dichten / Geometrie | Klasse | seit | Genauigkeit an der Kugel (320 Elemente) |
 |---|---|---|---|
@@ -13,14 +13,14 @@ externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Proj
 | unstetig linear / quadratisch gekrümmt | `CurvedScatteringProblem` | v0.47 | Glas −0,012 %, Gold −0,007 %, etwa O(h⁴) |
 
 Die Herleitung, Messungen und Begründungen der gekrümmten Elemente stehen in `docs/results_curved.md` (Stufen 1, 2a, 1b,
-2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt, Aufbau) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
+2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt, Aufbau, Nahfeld und Kräfte) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
 
 ## Bauen und testen
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCBEM_BUILD_PYTHON=ON   # Python optional (pip install pybind11 numpy scipy)
 cmake --build build -j
-ctest --test-dir build --output-on-failure                              # 29 Tests mit Python, 28 ohne
+ctest --test-dir build --output-on-failure                              # 30 Tests mit Python, 29 ohne
 ctest --test-dir build -R "test_curved|test_linear" --output-on-failure # Teilmenge
 PYTHONPATH=build/python python3 -c "import cliffordbem as cb; print(cb.__version__)"
 pip install .                                                           # Python-Paket über scikit-build-core
@@ -134,9 +134,9 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
    6,5 s, Sauter-Schwab ≈ 4,6 s (seit v0.57 gepaart). Kein großer Einzelhebel mehr (results_curved.md).
    Sauter-Schwab auf verzerrten Elementen (längste Kante/Höhe > 1,7) konvergiert langsam (Ausreißer bis 10⁻⁴ auf
    Gmsh-Netzen) – Ordnung nach Elementform wählen? Lösen kostet so viel wie der Aufbau. Immer erst messen.
-2. **Nahfeld und Kräfte auf gekrümmten Elementen:** Streufeld aus der 24N-Spur (Quadratur mit `CurvedQuadrature`,
-   Normale je Punkt), dann `exterior_near_field`- und Kraft-Varianten; Gewinn gegen Mie (`tools/mie_nearfield.py`,
-   `tools/mie_force.py`) messen – Feldwerte konvergieren punktweise langsamer als die Extinktion.
+2. **Nahfeld und Kräfte auf gekrümmten Elementen (v0.58, Rest):** Kraft aus Randspuren und Fernfeld
+   (`force_from_traces`, `force_from_far_field`), H-Matrix für viele Auswertepunkte (wie `NearFieldOperator`; heute
+   direkte Summation), einfallende Felder aus Python (`fields(x)`) für `exterior_near_field_curved`.
 3. **Chirales Außenmedium** für lineare und gekrümmte Elemente (Fernfeld je Helizität wie `extinction_in_medium`).
 4. Block-/HODLR-Vorkonditionierung und geschichtete Körper für lineare/gekrümmte Elemente.
 5. Typ-Stubs (`.pyi`) für die Python-Anbindung; Wheels für weitere Plattformen.

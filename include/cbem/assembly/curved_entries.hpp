@@ -77,6 +77,10 @@ public:
     CurvedBlock block(std::size_t i, std::size_t j) const;
     CurvedBlock block_far(std::size_t i, std::size_t j) const;
 
+    // Punkt x ausserhalb von Element j (Nahfeld, v0.58): G_a = int_tau_j psi_a(y) Phi_k(x - y) n(y) dS_y (7 Komponenten),
+    // fern (Abstand zum Schwerpunkt > far_factor Umkreisradien) die 7-Punkt-Regel, sonst die Singularitaetssubtraktion der
+    // nahen Paare (Fusspunkt, Tangentialdreieck, adaptive Korrektur)
+    std::array<CurvedComp, 3> point_integrals(const Vec3& x, std::size_t j, real far_factor = 4.0) const;
     bool is_near(std::size_t i, std::size_t j) const;
     Adjacency adjacency(std::size_t i, std::size_t j) const;
     const std::array<real, 9>& S(std::size_t t) const { return S_[t]; }

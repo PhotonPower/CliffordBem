@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53), schnelleres H-Matrix-Produkt (v0.54), ACA-Toleranz (v0.56), gepaartes Sauter-Schwab und H-Matrix (v0.57)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53), schnelleres H-Matrix-Produkt (v0.54), ACA-Toleranz (v0.56), gepaartes Sauter-Schwab und H-Matrix (v0.57), Nahfeld und Kräfte (v0.58)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -746,3 +746,54 @@ Gleicher Rang, fünfmal weniger Kernauswertungen, aber nur ein Drittel weniger Z
 ACA-Teil, −20 % auf die H-Matrizen und etwa −10 % auf den Aufbau (23 → 21 s). Nicht eingebaut; der Aufbau ist auf
 H-Matrizen (≈ 11 s), getrennte Nahpaare (6,5 s) und Sauter-Schwab (≈ 4,6 s) verteilt, und mit 12 Threads dauert er bei
 1 280 Elementen etwa 4 s.
+
+## Nahfeld und Kräfte auf gekrümmten Elementen (v0.58)
+
+**Verfahren.** Das Streufeld im Außenraum ist das Cauchy-Integral der Streuspur h_s = h − b mit der Normalen im Integral:
+F_s(x) = Σ_τ Σ_a [∫_τ ψ_a(y) Φ_k(x − y) n(y) dS_y] u_{τ,a}, mit den Koeffizienten u_{τ,a} der 24N-Spur und demselben
+Vorzeichen wie bei konstanten Dichten. Die Integrale in der Klammer sind die sieben Kernkomponenten der Einträge;
+`CurvedKernelEntries::point_integrals` wertet sie fern (Abstand zum Schwerpunkt > 4 Umkreisradien) mit der 7-Punkt-Regel aus,
+nah mit der Singularitätssubtraktion der nahen Paare (Fußpunkt, Tangentialdreieck, Gauß-Korrektur). Die Markierungen
+„innen“ und „zu nah“ beziehen sich auf das Sehnennetz; als zu nah gilt zusätzlich der Bereich der größten Wölbung, in dem
+ein Punkt zwischen Sehne und gekrümmter Fläche liegen kann. Die Kraftfunktionen (`force_on_sphere`, `force_on_offset`,
+`fields_with_gradients`) arbeiten unverändert über den Feldauswerter `make_plane_wave_eval_curved` bzw.
+`make_near_field_eval_curved`; `project_incident_curved` projiziert beliebige einfallende Felder (Strahlen, Dipole) auf die
+gekrümmte Spur.
+
+**Nahfeld gegen Mie** (Goldkugel ε = −11 + 1,2i in Wasser, ωa = 0,5, zirkular polarisiert; Abweichung von |E|² und der
+optischen Chiralität C an vier Punkten in 0,05 bis 1 Radien Abstand):
+
+| Elemente | (1,05, 0, 0) | (0, 0, 1,2) | (0,72, 0,58, 0,77) | (2, 0, 0) |
+|---|---|---|---|---|
+| konstant, 1 280 | −1,7 % / −0,3 % | −5,7 % / +2,4 % | −3,1 % / −0,8 % | −1,3 % / −0,02 % |
+| gekrümmt, 180 | −0,60 % / −1,13 % | −0,80 % / +0,81 % | −0,48 % / −0,09 % | −0,15 % / +0,04 % |
+| gekrümmt, 320 | +0,67 % / +0,16 % | −0,17 % / −0,08 % | −0,18 % / −0,05 % | −0,05 % / +0,01 % |
+| gekrümmt, 720 | +0,16 % / +0,04 % | −0,04 % / +0,02 % | −0,04 % / −0,01 % | −0,01 % / +0,002 % |
+| gekrümmt, 1 280 | +0,046 % / +0,012 % | −0,015 % / +0,008 % | −0,011 % / −0,003 % | −0,004 % / +0,001 % |
+
+Bei 1 280 Elementen 40- bis 400-mal genauer als konstante Dichten; schon 320 gekrümmte Elemente sind genauer als 1 280
+ebene. Von 320 auf 1 280 Elemente fällt der Fehler um den Faktor 14 (O(h⁴): 16).
+
+**Strahlungsdruck gegen Mie** (linear polarisiert, Mie 10,629788036; Kugel R = 1,5 bzw. Parallelfläche des Sehnennetzes
+im Abstand 0,2):
+
+| Elemente | Kugel | Parallelfläche | Querkraft |
+|---|---:|---:|---:|
+| konstant, 1 280 | −1,52 % | −1,54 % | |
+| gekrümmt, 180 | −0,357 % | −0,368 % | 2·10⁻⁹ |
+| gekrümmt, 320 | −0,120 % | −0,123 % | 4·10⁻⁹ |
+| gekrümmt, 720 | −0,025 % | −0,026 % | 1·10⁻⁸ |
+| gekrümmt, 1 280 | −0,0081 % | −0,0083 % | 7·10⁻⁹ |
+
+Bei 1 280 Elementen 190-mal genauer als konstante Dichten. Die Quadratur auf der Kugel (32 bzw. 48 Ringe) ändert den
+Wert nicht.
+
+**Kosten.** Direkte Summation über Punkte × Elemente: vier Punkte bei 1 280 Elementen 0,01 s, die Kraft über die Kugel
+(32 × 64 Punkte) 0,3 s mit 12 Threads.
+
+**Prüfung** (`test_curved_near_field`, Python `test_curved_elements`): allgemeine Projektion gegen die der ebenen Welle
+(6·10⁻¹⁶), Fernfeldgrenze (7,6·10⁻⁴ bei R = 400 wie im ebenen Pfad), Nahfeld und Strahlungsdruck gegen Mie bei 320 und
+720 Elementen mit Konvergenzordnung, Kugel gegen Parallelfläche, Querkraft, Markierungen (innen, Wölbung).
+
+**Offen.** Kraft aus den Randspuren und aus dem Fernfeld (`force_from_traces`, `force_from_far_field`) für gekrümmte
+Elemente; H-Matrix für viele Auswertepunkte (wie `NearFieldOperator`); chirales Außenmedium; einfallende Felder aus Python.

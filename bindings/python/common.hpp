@@ -26,6 +26,7 @@
 #include "cbem/clifford/multivector.hpp"
 #include "cbem/core/types.hpp"
 #include "cbem/linalg/dense.hpp"
+#include "cbem/sources/optical_force.hpp"
 
 namespace pybind11 {
 namespace detail {
@@ -185,6 +186,18 @@ private:
     py::class_<T> cls_;
     std::shared_ptr<std::vector<std::string>> names_;
 };
+
+// Feldauswerter mit eigenen Daten: make_near_field_eval haelt Netz und Spur nur per Referenz. mesh/h fuer ebene Netze,
+// owner fuer beliebige andere Daten (gekruemmte Netze, v0.58)
+struct PyNearFieldEval {
+    std::shared_ptr<const TriangleMesh> mesh;
+    std::shared_ptr<const std::vector<cplx>> h;
+    std::shared_ptr<const void> owner;
+    NearFieldEval f;
+    std::vector<NearFieldPoint> operator()(const std::vector<Vec3>& p) const { return f(p); }
+};
+// Nahfeldpunkte als Woerterbuch von Arrays (bind_sources.cpp)
+py::dict near_field_to_dict(const std::vector<NearFieldPoint>& v);
 
 // Teilmodule
 void init_core(py::module_& m);

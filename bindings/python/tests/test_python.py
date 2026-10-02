@@ -582,6 +582,22 @@ def test_curved_elements():
     C = cb.CurvedCauchyOperator(q, cb.CurvedHMatrix(E))                 # Eintraege und H-Matrix bleiben am Leben
     del E
     assert np.linalg.norm(C.apply(b) - b) < 5e-3 * np.linalg.norm(b)    # Plemelj E b = b (innere Loesung)
+    # Nahfeld und Kraft (v0.58): Goldkugel in Wasser, 320 Elemente, gegen Mie (tests/test_curved_near_field.cpp)
+    gold, water = cb.Medium(eps=-11 + 1.2j), cb.Medium(eps=1.7689)
+    q4 = cb.quadratic_icosphere(4)
+    Pg = cb.CurvedScatteringProblem(q4, gold, 0.5, outer=water)
+    rg = Pg.solve_plane_wave(d=Z, p=X, options=so)
+    inc = cb.PlaneWaveField(water, 0.5, Z, X)
+    bg = cb.project_incident_curved(q4, inc, water)
+    assert np.allclose(bg, cb.plane_wave_trace_curved(q4, water, 0.5, Z, X), rtol=0, atol=1e-14)
+    nf = cb.exterior_near_field_curved(q4, rg.h, water, 0.5, Z, X, np.array([[0.0, 0.0, 1.2], [0.0, 0.0, 0.0]]))
+    assert list(nf["inside"]) == [False, True] and not nf["too_close"][0]
+    nf2 = cb.exterior_near_field_curved(q4, rg.h, bg, water, 0.5, inc, np.array([[0.0, 0.0, 1.2]]))
+    assert np.allclose(nf2["E"][0], nf["E"][0], rtol=1e-12)
+    ev = cb.near_field_evaluator_curved(q4, rg.h, bg, water, 0.5, inc)
+    del q4, rg                                                          # der Auswerter haelt Netz und Spur selbst
+    F = cb.force_on_sphere(ev, water, (0, 0, 0), 1.5)
+    assert abs(F[2] / 10.629788036 - 1) < 3e-3 and abs(F[0]) + abs(F[1]) < 1e-6 * F[2], F
 
 
 def test_gmsh_second_order():
