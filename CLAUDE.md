@@ -129,8 +129,9 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
 ## Offene Aufgaben (priorisiert)
 
 1. **Aufbau gekrümmter Elemente weiter beschleunigen**: auf dem Windows-Rechner (v0.57) 23 s bei 1 280 Elementen
-   (Gold, ein Kern, `prototype/curved/build_profile.cpp`): H-Matrizen ≈ 11 s (ACA auf Quadraturpunkten, geschätzt Faktor
-   1,5; Symmetrie (i, j)/(j, i) der Fernblöcke), getrennte Nahpaare 6,5 s, Sauter-Schwab ≈ 4,6 s (seit v0.57 gepaart).
+   (Gold, ein Kern, `prototype/curved/build_profile.cpp`): H-Matrizen ≈ 11 s (ACA auf Quadraturpunkten gemessen: −24 % auf
+   den ACA-Teil, ≈ −10 % Aufbau, nicht eingebaut; Fernblöcke (t, s)/(s, t) paaren, geschätzt −8 %), getrennte Nahpaare
+   6,5 s, Sauter-Schwab ≈ 4,6 s (seit v0.57 gepaart). Kein großer Einzelhebel mehr (results_curved.md).
    Sauter-Schwab auf verzerrten Elementen (längste Kante/Höhe > 1,7) konvergiert langsam (Ausreißer bis 10⁻⁴ auf
    Gmsh-Netzen) – Ordnung nach Elementform wählen? Lösen kostet so viel wie der Aufbau. Immer erst messen.
 2. **Nahfeld und Kräfte auf gekrümmten Elementen:** Streufeld aus der 24N-Spur (Quadratur mit `CurvedQuadrature`,

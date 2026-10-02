@@ -720,3 +720,29 @@ größere Blätter oder sep_factor = 2 bringen nichts oder verschlechtern den Fe
 mit ε = 10⁻⁷. Gold 320: −0,0068 % gegen Mie (40 Iterationen).
 
 **Prüfung.** `test_curved` (7): gepaarte Blöcke (j, i) gegen isotrop 12, Block (i, j) bitgleich zur Einzelrechnung.
+
+## Messung: H-Matrix-Aufbau gekrümmter Elemente (nach v0.57)
+
+**Aufteilung** (Gold, 1 280 Elemente, ein Kern, eta = 2, ε = 10⁻⁶; je Wellenzahl 5,4–5,9 s): dichte Blöcke 0,6–0,7 s
+(281 000 Elementpaare), Blockauswertungen der ACA 2,2–2,3 s (850 000 von 1,36 Mio. zulässigen Paaren, 63 %), ACA-Algebra
+1,0–1,1 s, Nachkompression 1,5–1,7 s. Die Blöcke haben im Mittel 22 × 22 Elemente bei Rang 15; die ACA wertet deshalb
+fast jedes Paar aus.
+
+**Nachkompression.** Sie senkt den Rang von 18,6 auf 15,0, spart 11 % Speicher (311 → 278 MB) und 12 % Zeit je Produkt
+(0,308 → 0,270 s) und kostet 1,7 s Aufbau je Wellenzahl. Bei 45 Iterationen mit zwei Produkten gleicht sich das aus; sie
+bleibt.
+
+**ACA auf Quadraturpunkten** (`prototype/curved/point_aca.cpp`; 30 zufällige zulässige Clusterpaare, ε = 10⁻⁶): Statt
+Elementpaaren (7 × 7 Punkte, 7 Komponenten) werden einzelne Punktzeilen und -spalten der vier Kernkomponenten (s, v z)
+gezogen.
+
+| Clustergröße | Elementebene: Rang, Kernauswertungen, Zeit | Punktebene: Rang, Kernauswertungen, Zeit |
+|---|---|---|
+| 22 Elemente | 13,0; 23 700; 2,18 ms | 13,2; 4 480; 1,43 ms |
+| 44 Elemente | 16,0; 63 200; 5,83 ms | 16,0; 11 100; 4,07 ms |
+
+Gleicher Rang, fünfmal weniger Kernauswertungen, aber nur ein Drittel weniger Zeit: ACA-Algebra und Nachkompression
+überwiegen dann. Mit der Umrechnung der Punktfaktoren auf die Basis (≈ 0,2 ms je Block) bliebe etwa −24 % auf den
+ACA-Teil, −20 % auf die H-Matrizen und etwa −10 % auf den Aufbau (23 → 21 s). Nicht eingebaut; der Aufbau ist auf
+H-Matrizen (≈ 11 s), getrennte Nahpaare (6,5 s) und Sauter-Schwab (≈ 4,6 s) verteilt, und mit 12 Threads dauert er bei
+1 280 Elementen etwa 4 s.
