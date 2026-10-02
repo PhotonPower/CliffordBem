@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -361,3 +361,57 @@ zwischen brauchbar und unbrauchbar ausmachen.
 bei 700 nm, longitudinal angeregt, mit Gmsh vernetzt. Bei 196 bzw. 366 Elementen liegen ebene Elemente 29 % bzw. 15 % über
 dem feinsten gekrümmten Wert, gekrümmte ändern sich nur um 0,3 %. Ohne das Python-Paket gmsh rechnet das Skript die
 mitgelieferte Kugel.
+
+## Schnellere Nahquadratur (v0.49)
+
+**Ausgangslage.** Bei 320 gekrümmten Elementen gingen 25 von 27 s Aufbau in die Nahquadratur, und davon 88 % in die nahen,
+nicht benachbarten Elementpaare: 12 660 Paare zu je 600 µs. Sauter-Schwab für die benachbarten Paare (Ecke 150 µs, Kante
+370 µs, Selbstterm 730 µs) war mit zusammen 12 % unkritisch. Die ebenen linearen Elemente brauchen für dieselben Paare
+21 µs, weil ihr Innenintegral analytisch ist.
+
+**Verfahren: Singularitätssubtraktion am Tangentialdreieck.** Für jeden äußeren Punkt x wird der Fußpunkt u* auf dem
+gekrümmten Element bestimmt (Projektion auf das Sehnendreieck, zwei Newton-Schritte). Dort wird der singuläre Kern über
+dem Tangentialdreieck X_aff(u) = X(u*) + X_u(u − u*) + X_v(v − v*) mit der Normalen n(u*) und der Jacobi-Determinante
+J(u*) analytisch integriert (`triangle_integrals_linear`, die Gewichte λ_b sind exakt linear) und abgezogen. Im Rest
+stimmen die Positionen bei u* bis O(|u − u*|²), Normale und Jacobi-Determinante bis O(|u − u*|); er verhält sich dort wie
+1/r statt 1/r³ und wird mit einem gröberen adaptiven Kriterium integriert. Ein Sehnendreieck statt des Tangentialdreiecks
+genügt nicht: Die Normale variiert über ein Element um etwa h/R (15 % bei 320 Elementen).
+
+**Genauigkeit und Zeit der Einträge** (nahe, getrennte Paare; Fehler gegen das streng gerechnete doppelt adaptive
+Verfahren, 0,12/0,06):
+
+| Verfahren | 320 Elemente | µs je Paar | 1 280 Elemente | µs je Paar |
+|---|---:|---:|---:|---:|
+| doppelt adaptiv 0,3/0,15 (bis v0.48) | 3,0·10⁻⁶ | 593 | 4,5·10⁻⁶ | 624 |
+| **Subtraktion 0,3/0,3 (Voreinstellung)** | 5,2·10⁻⁶ | 250 | 4,8·10⁻⁶ | 263 |
+| Subtraktion 0,35/0,35 | 8,7·10⁻⁶ | 156 | 1,3·10⁻⁵ | 170 |
+| Subtraktion 0,5/0,5 (schnell) | 2,3·10⁻⁵ | 50 | 3,0·10⁻⁵ | 57 |
+
+**Wirkung auf die Streurechnung:**
+
+| Fall | Aufbau bis v0.48 | Aufbau v0.49 | Änderung von σ_ext |
+|---|---:|---:|---:|
+| Gold, 320 Elemente | 19,2 s (Nahfeld 17,6 s) | 9,7 s (8,3 s) | 2·10⁻⁶ relativ |
+| Glas, 320 Elemente | 18,5 s (17,0 s) | 10,0 s (8,5 s) | 4·10⁻⁸ |
+| Gold, 1 280 Elemente | 88,8 s (64,6 s) | 55,1 s (32,1 s) | 9·10⁻⁷ |
+| Gold, 320, schnell 0,5/0,5 | | 4,9 s (3,4 s) | 2·10⁻⁵ |
+
+Die Voreinstellung halbiert den Aufbau bei unveränderter Genauigkeit. Die schnelle Einstellung ist so genau wie die
+analytische Nahquadratur der ebenen Elemente (deren Voreinstellung liegt bei 1,7·10⁻⁵). Bei Gold mit 320 Elementen
+verschiebt sie σ_ext aber um etwa 30 % des Diskretisierungsfehlers (−0,0045 % statt −0,0069 %). Für gekrümmte Elemente
+ist sie deshalb nicht die Voreinstellung.
+
+**Was nicht geholfen hat.**
+- Die Gewichte λ_b n J um u* linear abzuziehen (als Kombination der λ_k, ebenfalls analytisch) änderte nichts
+  (2,3·10⁻⁵ wie zuvor).
+- Den Rest in Polarkoordinaten um u* zu integrieren (die Jacobi-Determinante hebt die 1/r-Spitze auf), war ab 4 Punkten je
+  Richtung konvergiert, aber teurer als die adaptive Korrektur.
+- Begrenzend ist die äußere Integration. Mit dem Kriterium 0,5 liegt sie bei 2·10⁻⁵, wie bei den ebenen Elementen.
+  Beide Varianten wurden wieder entfernt.
+
+**Prüfung** (`test_curved`, Teil 5): Subtraktion gegen das streng gerechnete doppelt adaptive Verfahren,
+Voreinstellung 4,7·10⁻⁶, schnell 2,1·10⁻⁵. Python: σ_ext mit Subtraktion und doppelt adaptiv auf 10⁻⁶ gleich. Das
+doppelt adaptive Verfahren bleibt als Referenz wählbar (`CurvedNearParams(subtract=False)`).
+
+**Nächster Engpass.** Bei 1 280 Elementen braucht die H-Matrix mit sieben Komponenten jetzt 23 von 55 s, die
+Nahquadratur 32 s.

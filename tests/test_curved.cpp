@@ -5,7 +5,8 @@
 // (3) Plemelj auf der gekruemmten Flaeche: E h = h fuer innere, E h = -h fuer aeussere Loesungen mit O(h^2) (ein Fehler im
 //     Selbstterm, etwa ohne den schwach singulaeren Anteil K_s, gibt O(h) und einen 40-fach groesseren Fehler);
 // (4) Streuproblem: ebene Gegenprobe gegen LinearScatteringProblem; Kugel aus Glas und Gold gegen Mie (Fehler bei 320
-//     Elementen unter 0,02 %, heute 5,7 % bzw. 7,3 %); chirale Spiegelsymmetrie.
+//     Elementen unter 0,02 %, heute 5,7 % bzw. 7,3 %); chirale Spiegelsymmetrie;
+// (5) Nahquadratur mit Singularitaetssubtraktion (v0.49) gegen das doppelt adaptive Verfahren als Referenz.
 #include <cstdio>
 
 #include "check.hpp"
@@ -135,7 +136,28 @@ static void test_scattering() {
     CHECK(std::abs(spp - spm) > 1e-3 * spp, "kein Zirkulardichroismus");
 }
 
+static void test_subtraction() {
+    const QuadraticMesh q = quadratic_icosphere(3);
+    EntryParams ep; ep.cache_near = false;
+    CurvedNearParams ref; ref.subtract = false; ref.outer_ratio = 0.15; ref.inner_ratio = 0.08; ref.inner_depth = 20;
+    CurvedNearParams fast; fast.subtract_outer_ratio = 0.5; fast.correction_ratio = 0.5;
+    CurvedKernelEntries R(q, cplx(1.3, 0.05), ep, ref), D(q, cplx(1.3, 0.05), ep), F(q, cplx(1.3, 0.05), ep, fast);
+    double wd = 0, wf = 0;
+    for (std::size_t i = 0; i < q.size(); i += 7)
+        for (std::size_t j = 0; j < q.size(); ++j) {
+            if (!R.is_near(i, j) || R.adjacency(i, j) != Adjacency::None) continue;
+            const CurvedBlock A = R.lambda_near(i, j), B = D.lambda_near(i, j), C = F.lambda_near(i, j);
+            double na = 0, db = 0, dc = 0;
+            for (int p = 0; p < 9; ++p) for (int c = 0; c < kCurvedComps; ++c) { na += std::norm(A[p][c]); db += std::norm(B[p][c] - A[p][c]); dc += std::norm(C[p][c] - A[p][c]); }
+            wd = std::max(wd, std::sqrt(db / na)); wf = std::max(wf, std::sqrt(dc / na));
+        }
+    std::printf("(5) Nahquadratur mit Subtraktion gegen doppelt adaptiv (streng): Voreinstellung %.1e, schnell (0,5/0,5) %.1e\n", wd, wf);
+    CHECK(wd < 1e-5, "Subtraktion (Voreinstellung) weicht ab: %.2e", wd);
+    CHECK(wf < 6e-5, "Subtraktion (schnell) weicht ab: %.2e", wf);
+}
+
 int main() {
+    test_subtraction();
     test_geometry();
     test_entries_flat();
     test_plemelj();

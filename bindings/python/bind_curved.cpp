@@ -73,9 +73,17 @@ make_quadratic_sphere oder make_quadratic(mesh, project) mit einer Funktion, die
           "Gmsh 2.2/4.1 zweiter Ordnung (6-Knoten-Dreiecke, Mesh.ElementOrder = 2): Liste von (tag, QuadraticMesh), nach aussen orientiert");
     m.def("write_gmsh22_quadratic", &write_gmsh22_quadratic, "path"_a, "bodies"_a, "Gmsh 2.2 zweiter Ordnung, physikalische Gruppen 1, 2, ...");
 
-    ParamClass<CurvedNearParams>(m, "CurvedNearParams", "Nahquadratur gekruemmter Elemente (doppelt adaptiv)")
-        .field("outer_ratio", &CurvedNearParams::outer_ratio, "aeusseres Teilstueck: Umkreisradius < outer_ratio * Abstand")
-        .field("inner_ratio", &CurvedNearParams::inner_ratio, "inneres Teilstueck: Umkreisradius < inner_ratio * Abstand")
+    ParamClass<CurvedNearParams>(m, "CurvedNearParams", R"doc(
+Nahquadratur gekruemmter Elemente fuer nahe, getrennte Paare. Voreinstellung (v0.49): Singularitaetssubtraktion am
+Tangentialdreieck, Kriterien 0,3/0,3 (Fehler etwa 5e-6, 2,4-mal schneller als doppelt adaptiv). Schnell:
+subtract_outer_ratio = correction_ratio = 0.5 (11-mal schneller, Fehler 2-3e-5). subtract = False: doppelt adaptiv
+(outer_ratio, inner_ratio) als Referenz.
+)doc")
+        .field("subtract", &CurvedNearParams::subtract, "Singularitaetssubtraktion am Tangentialdreieck (sonst doppelt adaptiv)")
+        .field("subtract_outer_ratio", &CurvedNearParams::subtract_outer_ratio, "mit Subtraktion: aeusseres Kriterium")
+        .field("correction_ratio", &CurvedNearParams::correction_ratio, "mit Subtraktion: Kriterium fuer den Rest")
+        .field("outer_ratio", &CurvedNearParams::outer_ratio, "doppelt adaptiv: aeusseres Teilstueck, Umkreisradius < outer_ratio * Abstand")
+        .field("inner_ratio", &CurvedNearParams::inner_ratio, "doppelt adaptiv: inneres Teilstueck, Umkreisradius < inner_ratio * Abstand")
         .field("outer_depth", &CurvedNearParams::outer_depth, "maximale Halbierungstiefe aussen")
         .field("inner_depth", &CurvedNearParams::inner_depth, "maximale Halbierungstiefe innen");
 

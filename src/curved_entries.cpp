@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "cbem/kernel/dirac_kernel.hpp"
+#include "cbem/kernel/triangle_integrals.hpp"
 
 namespace cbem {
 
@@ -176,7 +177,8 @@ void CurvedKernelEntries::outer(std::size_t i, std::size_t j, const Tri& tri, re
     const Vec3 c = (c0 + c1 + c2) / 3.0;
     const real rho = std::max(norm(c0 - c), std::max(norm(c1 - c), norm(c2 - c)));
     const real d = distance_to_element(c, j) - rho;
-    if (depth < np_.outer_depth && !(rho < np_.outer_ratio * d)) {
+    const real ratio = np_.subtract ? np_.subtract_outer_ratio : np_.outer_ratio;
+    if (depth < np_.outer_depth && !(rho < ratio * d)) {
         const real l01 = norm(c1 - c0), l12 = norm(c2 - c1), l20 = norm(c0 - c2);
         int e = (l01 >= l12 && l01 >= l20) ? 0 : (l12 >= l20 ? 1 : 2);
         const auto& A = tri[e]; const auto& B = tri[(e + 1) % 3]; const auto& C = tri[(e + 2) % 3];
@@ -190,8 +192,89 @@ void CurvedKernelEntries::outer(std::size_t i, std::size_t j, const Tri& tri, re
         for (int k = 0; k < 3; ++k) l[k] = r7_.bary[p][0] * tri[0][k] + r7_.bary[p][1] * tri[1][k] + r7_.bary[p][2] * tri[2][k];
         const real w = r7_.w[p] * aref * m_.jacobian(i, l);
         std::array<CurvedComp, 3> in; for (auto& v : in) v.fill(cplx(0));
-        inner(m_.X(i, l), j, kRef, 0.5, 0, in);
+        if (np_.subtract) inner_subtracted(m_.X(i, l), j, in);
+        else inner(m_.X(i, l), j, kRef, 0.5, 0, in);
         for (int a = 0; a < 3; ++a) for (int b = 0; b < 3; ++b) for (int q = 0; q < kCurvedComps; ++q) K[a * 3 + b][q] += w * l[a] * in[b][q];
+    }
+}
+
+CurvedKernelEntries::Tangent CurvedKernelEntries::tangent_at(const Vec3& x, std::size_t j) const {
+    // Fusspunkt: Projektion auf das Sehnendreieck (baryzentrisch, in das Dreieck geklemmt), dann zwei Newton-Schritte auf der
+    // gekruemmten Flaeche (Genauigkeit beeinflusst nur die Wirksamkeit der Subtraktion, nicht ihre Richtigkeit)
+    const auto v = m_.flat.vertices(j); const Vec3& nf = m_.flat.normal[j];
+    const real A2 = dot(cross(v[1] - v[0], v[2] - v[0]), nf);
+    std::array<real, 3> l;
+    for (int k = 0; k < 3; ++k) l[k] = dot(cross(v[(k + 2) % 3] - v[(k + 1) % 3], x - v[(k + 1) % 3]), nf) / A2;
+    auto clamp = [](std::array<real, 3>& q) {
+        real s = 0; for (auto& c : q) { c = std::max(c, 0.0); s += c; }
+        for (auto& c : q) c /= s;
+    };
+    clamp(l);
+    for (int it = 0; it < 2; ++it) {
+        Vec3 Xu, Xv; m_.frame(j, l, Xu, Xv);
+        const Vec3 r = x - m_.X(j, l);
+        const real a11 = dot(Xu, Xu), a12 = dot(Xu, Xv), a22 = dot(Xv, Xv), b1 = dot(r, Xu), b2 = dot(r, Xv);
+        const real det = a11 * a22 - a12 * a12;
+        const real du = (a22 * b1 - a12 * b2) / det, dv = (a11 * b2 - a12 * b1) / det;
+        l = {l[0] - du - dv, l[1] + du, l[2] + dv};
+        clamp(l);
+    }
+    Tangent T; T.lam = l;
+    m_.frame(j, l, T.Xu, T.Xv);
+    const Vec3 c = cross(T.Xu, T.Xv); T.J = norm(c); T.n = c / T.J;
+    T.X0 = m_.X(j, l) - T.Xu * l[1] - T.Xv * l[2];                     // X_aff(u, v) = X0 + Xu u + Xv v
+    return T;
+}
+
+void CurvedKernelEntries::inner_subtracted(const Vec3& x, std::size_t j, std::array<CurvedComp, 3>& out) const {
+    const Tangent T = tangent_at(x, j);
+    // analytisch: singulaerer Kern ueber dem Tangentialdreieck mit n(u*), Gewichte lambda_b (dS = J(u*) du dv)
+    const std::array<Vec3, 3> tri = {T.X0, T.X0 + T.Xu, T.X0 + T.Xv};
+    std::array<Vec3, 3> Ig; std::array<real, 3> Ii;
+    triangle_integrals_linear(x, tri, T.n, Ig, Ii);
+    const cplx ik = cplx(0, 1) * k_;
+    for (int b = 0; b < 3; ++b) {
+        const CurvedComp c = comps7(Ig[b] / (4 * pi), T.n, -ik * Ii[b] / (4 * pi), 1.0);
+        for (int q = 0; q < kCurvedComps; ++q) out[b][q] += c[q];
+    }
+    correction(x, j, T, kRef, 0.5, 0, out);
+}
+
+void CurvedKernelEntries::correction(const Vec3& x, std::size_t j, const Tangent& T, const Tri& tri, real aref, int depth,
+                                     std::array<CurvedComp, 3>& out) const {
+    const Vec3 c0 = m_.X(j, tri[0]), c1 = m_.X(j, tri[1]), c2 = m_.X(j, tri[2]);
+    const Vec3 c = (c0 + c1 + c2) / 3.0;
+    const real rho = std::max(norm(c0 - c), std::max(norm(c1 - c), norm(c2 - c)));
+    const real d = norm(x - c) - rho;
+    if (depth < np_.inner_depth && !(rho < np_.correction_ratio * d)) {
+        const real l01 = norm(c1 - c0), l12 = norm(c2 - c1), l20 = norm(c0 - c2);
+        int e = (l01 >= l12 && l01 >= l20) ? 0 : (l12 >= l20 ? 1 : 2);
+        const auto& A = tri[e]; const auto& B = tri[(e + 1) % 3]; const auto& C = tri[(e + 2) % 3];
+        const std::array<real, 3> M = {(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2};
+        correction(x, j, T, {A, M, C}, aref / 2, depth + 1, out);
+        correction(x, j, T, {M, B, C}, aref / 2, depth + 1, out);
+        return;
+    }
+    for (std::size_t p = 0; p < r7_.w.size(); ++p) {
+        std::array<real, 3> l;
+        for (int k = 0; k < 3; ++k) l[k] = r7_.bary[p][0] * tri[0][k] + r7_.bary[p][1] * tri[1][k] + r7_.bary[p][2] * tri[2][k];
+        correction_point(x, j, T, l, r7_.w[p] * aref, out);
+    }
+}
+
+// Rest im Parameterpunkt l mit Gewicht w (Referenzmass du dv): lambda_b (J f(x - X) n - J(u*) f_sing(x - X_aff) n(u*))
+void CurvedKernelEntries::correction_point(const Vec3& x, std::size_t j, const Tangent& T, const std::array<real, 3>& l, real w,
+                                           std::array<CurvedComp, 3>& out) const {
+    const cplx ik = cplx(0, 1) * k_;
+    Vec3 n; const real J = m_.jacobian(j, l, &n);
+    const Vec3 z = x - m_.X(j, l); const KernelValue kv = dirac_kernel_full(z, k_);
+    const CurvedComp full = comps7(z, n, kv.s, kv.vcoef);
+    const Vec3 za = x - (T.X0 + T.Xu * l[1] + T.Xv * l[2]);              // Tangentialdreieck, gleicher Parameter
+    const real ra = norm(za);
+    const CurvedComp sing = comps7(za, T.n, -ik / (4 * pi * ra), 1.0 / (4 * pi * ra * ra * ra));
+    for (int b = 0; b < 3; ++b) {
+        const real wb = w * l[b];
+        for (int q = 0; q < kCurvedComps; ++q) out[b][q] += wb * (J * full[q] - T.J * sing[q]);
     }
 }
 

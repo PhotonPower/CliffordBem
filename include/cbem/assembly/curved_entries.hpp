@@ -30,11 +30,21 @@ using CurvedBlock = std::array<CurvedComp, 9>;   // [a * 3 + b]
 constexpr int kCurvedBlade[kCurvedComps] = {0, 1, 2, 4, 3, 5, 6};
 
 struct CurvedNearParams {
-    // Voreinstellung: relativer Fehler etwa 2e-6 (Selbstkonvergenz: 0,5/0,25 -> 2e-5, 0,3/0,15 -> 2e-6, 0,2/0,1 -> 2e-7);
+    // doppelt adaptives Verfahren (subtract = false): relativer Fehler etwa 2e-6 (Selbstkonvergenz: 0,5/0,25 -> 2e-5,
+    // 0,3/0,15 -> 2e-6, 0,2/0,1 -> 2e-7);
     // zum Vergleich: die analytische Nahquadratur der ebenen Elemente liegt bei 3,5e-6 (Rest mit 7 Gauss-Punkten)
     real outer_ratio = 0.3;    // aeusseres Teilstueck: Umkreisradius < outer_ratio * Abstand zum inneren Element
     real inner_ratio = 0.15;   // inneres Teilstueck: Umkreisradius < inner_ratio * Abstand zum aeusseren Punkt
     int outer_depth = 12, inner_depth = 16;
+    // Singularitaetssubtraktion (v0.49): vom Innenintegral wird der singulaere Kern ueber dem Tangentialdreieck am Fusspunkt
+    // u* des aeusseren Punktes analytisch abgezogen (triangle_integrals_linear, Normale n(u*), Jacobi-Determinante J(u*));
+    // der Rest verhaelt sich bei u* wie 1/r statt 1/r^3 und wird mit dem groeberen Kriterium correction_ratio integriert.
+    // Voreinstellung 0,3/0,3: Fehler wie das doppelt adaptive Verfahren (5e-6), 2,4-mal schneller; 0,5/0,5: 11-mal
+    // schneller, Fehler 2-3e-5 (wie die analytische Nahquadratur ebener Elemente). Begrenzend ist die aeussere Integration.
+    // false: doppelt adaptiv wie in v0.47 (Referenz, outer_ratio/inner_ratio).
+    bool subtract = true;
+    real subtract_outer_ratio = 0.3;
+    real correction_ratio = 0.3;
 };
 
 class CurvedKernelEntries {
@@ -78,6 +88,13 @@ private:
     CurvedBlock to_psi(std::size_t i, std::size_t j, const CurvedBlock& L) const;
     void inner(const Vec3& x, std::size_t j, const std::array<std::array<real, 3>, 3>& tri, real aref, int depth,
                std::array<CurvedComp, 3>& acc) const;
+    struct Tangent { Vec3 X0, Xu, Xv, n; real J; std::array<real, 3> lam; };   // affine Taylor-Abbildung am Fusspunkt
+    Tangent tangent_at(const Vec3& x, std::size_t j) const;
+    void inner_subtracted(const Vec3& x, std::size_t j, std::array<CurvedComp, 3>& acc) const;
+    void correction(const Vec3& x, std::size_t j, const Tangent& T, const std::array<std::array<real, 3>, 3>& tri, real aref, int depth,
+                    std::array<CurvedComp, 3>& acc) const;
+    void correction_point(const Vec3& x, std::size_t j, const Tangent& T, const std::array<real, 3>& l, real w,
+                          std::array<CurvedComp, 3>& acc) const;
     void outer(std::size_t i, std::size_t j, const std::array<std::array<real, 3>, 3>& tri, real aref, int depth, CurvedBlock& K) const;
     real distance_to_element(const Vec3& x, std::size_t j) const;
     void build_near_cache();
