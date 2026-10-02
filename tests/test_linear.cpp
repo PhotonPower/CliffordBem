@@ -5,7 +5,8 @@
 // (4) Streuung an der Kugel gegen die unabhaengige Vorhersage aus Stufe 1 (prototype/curved, Galerkin-Projektion auf feinen
 //     ebenen Unterteilungen, extrapoliert): eben/linear Glas -6,163 % (320) und -4,000 % (500), Gold -5,79 % / -3,87 %;
 // (5) chirale Kugel: chi = 0 wie achiral, Spiegelsymmetrie sigma_s(chi) = sigma_-s(-chi), nahe der konstanten Rechnung;
-// (6) zwei weit getrennte Kugeln: additiv.
+// (6) zwei weit getrennte Kugeln: additiv;
+// (7) chirales Aussenmedium (v0.59): Goldkugel gegen Mie, unsichtbare Kugel, lineare Polarisation abgelehnt, chi -> 0, Spiegelung.
 #include <cstdio>
 
 #include "check.hpp"
@@ -137,11 +138,39 @@ static void test_chiral_and_multibody() {
     CHECK(std::abs(s2 / (2 * s1) - 1) < 0.05, "weit getrennte Koerper nicht additiv");
 }
 
+static void test_chiral_host() {
+    // chirales Aussenmedium (v0.59): Goldkugel in chiralem Wasser gegen Mie (tools/mie_chiral_layered.py, wie test_chiral_host),
+    // Kugel aus dem Aussenmedium unsichtbar, lineare Polarisation abgelehnt, Grenzfall chi -> 0, Spiegelsymmetrie
+    const real om = 0.5; const Vec3 d(0, 0, 1);
+    SolveOptions so; so.tol = 1e-10;
+    const Medium gold{cplx(-11, 1.2), 1.0, 0.0}, host{1.7689, 1.0, 0.05};
+    const auto s = make_icosphere(4);
+    auto sig = [&](const Medium& core, const Medium& out, int h) {
+        return LinearScatteringProblem({s}, {core}, om, out).solve_plane_wave(d, circular_polarization(d, h), so).sigma_ext; };
+    const real mp = 11.765497482627687, mm = 11.91281031526871;
+    const real p = sig(gold, host, +1), m = sig(gold, host, -1);
+    std::printf("    chirales Aussenmedium, Goldkugel 320 Elemente: sigma+ %+.3f %%, sigma- %+.3f %%, CD %+.3f %% gegen Mie\n",
+                100 * (p / mp - 1), 100 * (m / mm - 1), 100 * ((p - m) / (mp - mm) - 1));
+    CHECK(std::abs(p / mp - 1) < 0.07 && std::abs(m / mm - 1) < 0.07, "sigma im chiralen Aussenmedium zu ungenau");
+    CHECK(std::abs((p - m) / (mp - mm) - 1) < 0.15, "CD im chiralen Aussenmedium zu ungenau");
+    const real inv = sig(host, host, +1);
+    CHECK(std::abs(inv) < 1e-10, "Kugel aus dem Aussenmedium streut: %.2e", inv);
+    bool thrown = false;
+    try { LinearScatteringProblem({s}, {gold}, om, host).solve_plane_wave(d, CVec3{1.0, 0.0, 0.0}, so); } catch (const std::invalid_argument&) { thrown = true; }
+    CHECK(thrown, "lineare Polarisation im chiralen Aussenmedium angenommen");
+    const real a = sig(gold, Medium{1.7689, 1.0, 1e-9}, +1), b = sig(gold, Medium{1.7689, 1.0, 0.0}, +1);
+    const real q = sig(gold, Medium{1.7689, 1.0, -0.05}, -1);
+    std::printf("    unsichtbar %.1e, chi -> 0 %.1e, Spiegelsymmetrie %.1e\n", inv, std::abs(a / b - 1), std::abs(p / q - 1));
+    CHECK(std::abs(a / b - 1) < 1e-7, "Grenzfall chi -> 0 verfehlt");
+    CHECK(std::abs(p / q - 1) < 1e-5, "Spiegelsymmetrie verletzt");
+}
+
 int main() {
     test_integrals();
     test_entries();
     test_projection_plemelj();
     test_sphere_against_stage1();
     test_chiral_and_multibody();
+    test_chiral_host();
     REPORT();
 }

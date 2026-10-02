@@ -4,7 +4,7 @@ Koordinatenfreie Galerkin-Randelementmethode (BEM) der Nano-Optik in der komplex
 Streuung, Nahfeld, Dipolemission und optische Kräfte an (auch chiralen, beschichteten, mehreren) Körpern. C++17-Kern ohne
 externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Projekts: **Deutsch**.
 
-**Stand: v0.58** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
+**Stand: v0.59** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
 
 | Dichten / Geometrie | Klasse | seit | Genauigkeit an der Kugel (320 Elemente) |
 |---|---|---|---|
@@ -13,7 +13,7 @@ externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Proj
 | unstetig linear / quadratisch gekrümmt | `CurvedScatteringProblem` | v0.47 | Glas −0,012 %, Gold −0,007 %, etwa O(h⁴) |
 
 Die Herleitung, Messungen und Begründungen der gekrümmten Elemente stehen in `docs/results_curved.md` (Stufen 1, 2a, 1b,
-2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt, Aufbau, Nahfeld und Kräfte) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
+2b, Gmsh, Nahquadratur, H-Matrix, Geometrie, Gauß-Regeln, Sauter-Schwab, Produkt, Aufbau, Nahfeld und Kräfte, chirales Außenmedium) – vor Arbeiten an linearen/gekrümmten Elementen lesen.
 
 ## Bauen und testen
 
@@ -137,10 +137,9 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
 2. **Nahfeld und Kräfte auf gekrümmten Elementen (v0.58, Rest):** Kraft aus Randspuren und Fernfeld
    (`force_from_traces`, `force_from_far_field`), H-Matrix für viele Auswertepunkte (wie `NearFieldOperator`; heute
    direkte Summation), einfallende Felder aus Python (`fields(x)`) für `exterior_near_field_curved`.
-3. **Chirales Außenmedium** für lineare und gekrümmte Elemente (Fernfeld je Helizität wie `extinction_in_medium`).
-4. Block-/HODLR-Vorkonditionierung und geschichtete Körper für lineare/gekrümmte Elemente.
-5. Typ-Stubs (`.pyi`) für die Python-Anbindung; Wheels für weitere Plattformen.
-6. Ältere offene Punkte aus `README.md`/`docs/ARCHITECTURE.md`: reflexionsfreier Abschluss an 3D-Kanten, Streckung um
+3. Block-/HODLR-Vorkonditionierung und geschichtete Körper für lineare/gekrümmte Elemente.
+4. Typ-Stubs (`.pyi`) für die Python-Anbindung; Wheels für weitere Plattformen.
+5. Ältere offene Punkte aus `README.md`/`docs/ARCHITECTURE.md`: reflexionsfreier Abschluss an 3D-Kanten, Streckung um
    Spitzen im C++-Kern, Substrate, parallele Tests auf Mehrkernrechnern, Stabilität der Dünnschicht-Näherung für d ≳ h.
 
 ## Kurzbeispiel (Python)

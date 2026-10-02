@@ -10,7 +10,7 @@
 //
 // Markierungen beziehen sich auf das Sehnennetz (outer.flat): innen (Windungszahl > 1/2) und zu nah (naeher als 2 % der
 // Elementgroesse oder als die groesste Woelbung der Elemente am Sehnennetz; dort kann ein Punkt zwischen Sehne und gekruemmter
-// Flaeche liegen). Achirales Aussenmedium (wie CurvedScatteringProblem).
+// Flaeche liegen). Chirales Aussenmedium (v0.59): Streufeld je Helizitaet mit k_pm und P_pm h_s (wie near_field.hpp).
 //
 // Kraefte: Die Feldauswerter make_near_field_eval_curved / make_plane_wave_eval_curved liefern das Gesamtfeld und arbeiten mit
 // force_on_sphere, force_on_offset und fields_with_gradients aus optical_force.hpp.

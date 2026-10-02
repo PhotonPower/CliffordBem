@@ -1,4 +1,4 @@
-# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53), schnelleres H-Matrix-Produkt (v0.54), ACA-Toleranz (v0.56), gepaartes Sauter-Schwab und H-Matrix (v0.57), Nahfeld und Kräfte (v0.58)
+# Gekrümmte Elemente: Messung (Stufe 1, v0.44), lineare Dichten (Stufe 2a, v0.45), quadratische Geometrie (Stufe 1b, v0.46), gekrümmte Elemente im Kern (Stufe 2b, v0.47), Gmsh-Netze zweiter Ordnung (v0.48), schnellere Nahquadratur (v0.49), schnellere H-Matrix (v0.50), schnellere Geometrie (v0.51), Gauß-Regeln in der Nahquadratur (v0.52), anisotropes Sauter-Schwab (v0.53), schnelleres H-Matrix-Produkt (v0.54), ACA-Toleranz (v0.56), gepaartes Sauter-Schwab und H-Matrix (v0.57), Nahfeld und Kräfte (v0.58), chirales Außenmedium (v0.59)
 
 **Frage.** Lohnen gekrümmte Elemente? Vorab war geschätzt worden, dass der Fehler der Kugelstreuung zu rund 90 % aus der
 Geometrie (eingeschriebenes Polyeder) stammt und gekrümmte Elemente ihn etwa zehnfach senken. Grundlage war ein Vergleich
@@ -797,3 +797,33 @@ Wert nicht.
 
 **Offen.** Kraft aus den Randspuren und aus dem Fernfeld (`force_from_traces`, `force_from_far_field`) für gekrümmte
 Elemente; H-Matrix für viele Auswertepunkte (wie `NearFieldOperator`); chirales Außenmedium; einfallende Felder aus Python.
+
+## Chirales Außenmedium für lineare und gekrümmte Elemente (v0.59)
+
+**Verfahren** wie im Pfad konstanter Dichten (`results_chiral.md`, v0.21): Außenoperator P₊E_{k₊} + P₋E_{k₋} aus zwei
+Cauchy-Operatoren (`ChiralCauchyOperator`), einfallende Helizitätswelle mit k_σ (`plane_wave_incidence`; lineare
+Polarisation ist keine Eigenmode und wird abgelehnt), Extinktion und Vorwärtsamplitude nach dem optischen Theorem im
+Kanal σ aus P_σ h_s. Die Transmissionsabbildung J (`transmission_map`, an jedem Quadraturpunkt) behandelte chirale Medien
+auf beiden Seiten schon. Das Nahfeld auf gekrümmten Elementen rechnet das Streufeld je Helizität mit k_± (wie
+`exterior_near_field`), die Kraftfunktionen folgen über den Feldauswerter.
+
+**Goldkugel in chiralem Wasser** (ε = 1,7689, χ = 0,05; Gold ε = −11 + 1,2i; ωa = 0,5) gegen die chirale Mie-Lösung
+(σ₊ = 11,765497, σ₋ = 11,912810, `tools/mie_chiral_layered.py`):
+
+| Elemente | konstant σ₊ / σ₋ / CD | linear σ₊ / σ₋ / CD | gekrümmt σ₊ / σ₋ / CD |
+|---|---|---|---|
+| 180 | | −9,69 % / −9,84 % / −21,5 % | −0,367 % / −0,370 % / −0,63 % |
+| 320 | −5,08 % / −5,28 % / −21,0 % | −5,71 % / −5,80 % / −12,6 % | −0,123 % / −0,124 % / −0,21 % |
+| 720 | −2,37 % / −2,46 % / −9,7 % | −2,64 % / −2,68 % / −5,8 % | −0,026 % / −0,026 % / −0,044 % |
+| 1 280 | −1,36 % / −1,41 % / −5,6 % | −1,51 % / −1,53 % / −3,3 % | −0,0083 % / −0,0084 % / −0,014 % |
+| 2 880 | −0,61 % / −0,64 % / −2,5 % | | |
+
+Der Zirkulardichroismus CD = σ₊ − σ₋ ist eine Differenz von 1,2 % der Extinktion; sein relativer Fehler ist im ebenen
+Pfad viermal so groß wie der von σ. Gekrümmte Elemente geben ihn bei 320 Elementen 100-mal, bei 1 280 Elementen 400-mal
+genauer als konstante Dichten (etwa O(h⁴)). Lineare Dichten auf ebenen Elementen verbessern σ nicht (die Geometrie
+dominiert, wie in Stufe 2a), wohl aber den CD um den Faktor 1,7.
+
+**Gegenproben** (`test_curved` (9), `test_linear` (7), `test_curved_near_field` (6)): Kugel aus dem Außenmedium
+unsichtbar (σ = 8·10⁻¹⁷ bzw. 10⁻¹⁷), lineare Polarisation abgelehnt, Grenzfall χ = 10⁻⁹ gegen achiral (gekrümmt
+1,8·10⁻¹⁰, linear 3,2·10⁻⁸, Nahfeld 4,5·10⁻⁹), Spiegelsymmetrie σ₊(χ) = σ₋(−χ) (gekrümmt 7·10⁻⁹ mit ε = 10⁻⁶,
+linear 1,6·10⁻⁶ mit ε = 10⁻⁴).

@@ -6,6 +6,7 @@
 #include "cbem/assembly/curved_entries.hpp"
 #include "cbem/geometry/quadrature.hpp"
 #include "cbem/problems/curved_problem.hpp"
+#include "cbem/sources/chiral_incidence.hpp"
 
 namespace cbem {
 
@@ -59,10 +60,17 @@ std::vector<Multivector> scattered_field_curved(const QuadraticMesh& m, const st
 
 std::vector<NearFieldPoint> exterior_near_field_curved(const QuadraticMesh& outer, const std::vector<cplx>& h, const std::vector<cplx>& b,
                                                        const Medium& m, real omega, const IncidentField& incf, const std::vector<Vec3>& pts) {
-    if (std::abs(m.chi) > 0) throw std::invalid_argument("exterior_near_field_curved: chirales Aussenmedium noch nicht unterstuetzt");
     if (h.size() != b.size()) throw std::invalid_argument("exterior_near_field_curved: h und b verschieden lang");
     std::vector<cplx> hs(h.size()); for (std::size_t i = 0; i < h.size(); ++i) hs[i] = h[i] - b[i];
-    const std::vector<Multivector> Fs = scattered_field_curved(outer, hs, m.k(omega), pts);
+    std::vector<Multivector> Fs;
+    if (std::abs(m.chi) > 0) {                                          // chirales Aussenmedium (v0.59): je Helizitaet mit k_pm
+        Fs.assign(pts.size(), Multivector{});
+        for (int s : {+1, -1}) {
+            const auto part = scattered_field_curved(outer, helicity_part(hs, s), m.k(omega, s), pts);
+            const Multivector P = Multivector::blade(0, 0.5) + Multivector::blade(7, cplx(0, 0.5 * s));   // P_s = (1 + s iI)/2
+            for (std::size_t i = 0; i < pts.size(); ++i) Fs[i] = Fs[i] + P * part[i];
+        }
+    } else Fs = scattered_field_curved(outer, hs, m.k(omega), pts);
     const cplx se = std::sqrt(m.eps), sm = std::sqrt(m.mu);
     const real p2 = incf.reference_E2(), C0 = incf.reference_C();
     const TriangleMesh& flat = outer.flat;
@@ -93,7 +101,7 @@ std::vector<NearFieldPoint> exterior_near_field_curved(const QuadraticMesh& oute
 std::vector<NearFieldPoint> exterior_near_field_curved(const QuadraticMesh& outer, const std::vector<cplx>& h, const Medium& m, real omega,
                                                        const Vec3& d0, const CVec3& p, const std::vector<Vec3>& pts) {
     const Vec3 d = d0 / norm(d0);
-    const std::vector<cplx> b = project_plane_wave_curved(outer, m.k(omega), m.eps, d, p);   // dieselbe Projektion wie im Loeser
+    const std::vector<cplx> b = project_plane_wave_curved(outer, plane_wave_incidence(m, omega, d, p).k, m.eps, d, p);   // wie im Loeser
     return exterior_near_field_curved(outer, h, b, m, omega, PlaneWaveField(m, omega, d, p), pts);
 }
 

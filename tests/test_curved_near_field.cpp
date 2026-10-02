@@ -82,5 +82,17 @@ int main() {
         CHECK(f[0].inside, "Mittelpunkt nicht als innen markiert");
         CHECK(f[1].too_close, "Punkt in der Woelbung nicht als zu nah markiert");
     }
+    // 6. chirales Aussenmedium (v0.59): Grenzfall chi -> 0 des Nahfelds (Streufeld je Helizitaet mit k_pm)
+    {
+        const Medium h0{1.7689, 1.0, 0.0}, h1{1.7689, 1.0, 1e-9};
+        CurvedScatteringProblem A({q4}, {gold}, om, h0), B({q4}, {gold}, om, h1);
+        const auto ra = A.solve_plane_wave(d, pc, so), rb = B.solve_plane_wave(d, pc, so);
+        const std::vector<Vec3> x{Vec3(1.05, 0, 0), Vec3(0.72, 0.576, 0.768)};
+        const auto fa = exterior_near_field_curved(q4, ra.h, h0, om, d, pc, x), fb = exterior_near_field_curved(q4, rb.h, h1, om, d, pc, x);
+        double e = 0;
+        for (int i = 0; i < 2; ++i) e = std::max(e, std::max(std::abs(fb[i].enhancement / fa[i].enhancement - 1), std::abs(fb[i].chirality / fa[i].chirality - 1)));
+        std::printf("  chirales Aussenmedium, chi = 1e-9 gegen achiral: %.1e\n", e);
+        CHECK(e < 1e-6, "Nahfeld im Grenzfall chi -> 0 verfehlt: %.2e", e);
+    }
     REPORT();
 }

@@ -5,6 +5,7 @@
 
 #include "cbem/geometry/quadrature.hpp"
 #include "cbem/solvers/gmres.hpp"
+#include "cbem/sources/chiral_incidence.hpp"
 
 namespace cbem {
 
@@ -110,7 +111,6 @@ LinearScatteringProblem::LinearScatteringProblem(const std::vector<TriangleMesh>
                                                  Medium outer, HMatrixParams hp, EntryParams ep)
     : mb_(make_multibody(bodies)), omega_(omega), outer_(outer) {
     if (media.size() != bodies.size()) throw std::invalid_argument("LinearScatteringProblem: ein Medium je Koerper");
-    if (std::abs(outer.chi) > 0) throw std::invalid_argument("LinearScatteringProblem: chirales Aussenmedium noch nicht unterstuetzt");
     { std::vector<const TriangleMesh*> ps; for (auto& b : bodies) ps.push_back(&b); require_separated_all(ps, {}, "LinearScatteringProblem"); }
     const TriangleMesh& m = mb_.all;
     auto add = [&](const TriangleMesh& mesh, cplx k) -> LinearCauchyOperator* {
@@ -119,7 +119,12 @@ LinearScatteringProblem::LinearScatteringProblem(const std::vector<TriangleMesh>
         cops_.push_back(std::make_unique<LinearCauchyOperator>(mesh, *hms_.back()));
         return cops_.back().get();
     };
-    outer_op_ = add(m, outer.k(omega));
+    if (std::abs(outer.chi) > 0) {                                      // chirales Aussenmedium (v0.59): P+ E_{k+} + P- E_{k-}
+        LinearCauchyOperator* op = add(m, outer.k(omega, +1));
+        LinearCauchyOperator* om = add(m, outer.k(omega, -1));
+        chops_.push_back(std::make_unique<ChiralCauchyOperator>(*op, *om));
+        outer_op_ = chops_.back().get();
+    } else outer_op_ = add(m, outer.k(omega));
     std::vector<const BoundaryOperator*> blocks;
     std::vector<std::size_t> begin3;                                     // Basisfunktionen je Koerper: 3 x Dreiecke
     for (std::size_t b = 0; b < bodies.size(); ++b) {
@@ -158,12 +163,14 @@ PlaneWaveResult LinearScatteringProblem::solve_rhs(const std::vector<cplx>& b, c
 PlaneWaveResult LinearScatteringProblem::solve_plane_wave(const Vec3& d0, const CVec3& p, const SolveOptions& o) const {
     const Vec3 d = d0 / norm(d0);
     const TriangleMesh& m = mb_.all;
-    const cplx k = outer_.k(omega_);
-    const auto b = project_plane_wave_linear(m, k, outer_.eps, d, p);
+    // chirales Aussenmedium: Helizitaetswelle mit k_sigma, optisches Theorem im Kanal sigma (wie extinction_in_medium)
+    const PlaneWaveIncidence inc = plane_wave_incidence(outer_, omega_, d, p);
+    const auto b = project_plane_wave_linear(m, inc.k, outer_.eps, d, p);
     PlaneWaveResult r = solve_rhs(b, o);
     std::vector<cplx> hs(r.h.size()); for (std::size_t i = 0; i < hs.size(); ++i) hs[i] = r.h[i] - b[i];
-    r.sigma_ext = extinction_cross_section_linear(m, hs, k, outer_.eps, d, p);
-    r.forward = forward_amplitude_linear(m, hs, k, outer_.eps, d, p);
+    const std::vector<cplx> hc = helicity_part(hs, inc.proj);
+    r.sigma_ext = extinction_cross_section_linear(m, hc, inc.k, outer_.eps, d, p);
+    r.forward = forward_amplitude_linear(m, hc, inc.k, outer_.eps, d, p);
     return r;
 }
 

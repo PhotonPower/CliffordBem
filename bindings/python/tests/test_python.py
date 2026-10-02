@@ -527,7 +527,15 @@ def test_linear_densities():
     v = cb.linear_trace_value(m, r.h, 7, m.centroids[7])                # Dichte im Schwerpunkt = Mittelwert
     assert np.allclose(v.c, cb.linear_to_constant(m, r.h)[56:64] / np.sqrt(m.areas[7]))
     assert raises(ValueError, P.solve_rhs, np.zeros(8 * len(m)))
-    assert raises(ValueError, cb.plane_wave_trace_linear, m, cb.Medium(eps=2.0, chi=0.1), 1.0, Z, cb.circular_polarization(Z, 1))
+    # chirales Aussenmedium (v0.59): Helizitaetswelle mit k_sigma; lineare Polarisation ist dort keine Eigenmode
+    host = cb.Medium(eps=2.0, chi=0.1)
+    bc = cb.plane_wave_trace_linear(m, host, 1.0, Z, cb.circular_polarization(Z, 1))
+    proj = lambda k: cb.project_plane_wave_linear(m, k, host.eps, Z, cb.circular_polarization(Z, 1))
+    assert sum(np.allclose(bc, proj(host.k(1.0, s))) for s in (1, -1)) == 1 and not np.allclose(bc, proj(host.k(1.0)))
+    assert raises(ValueError, cb.plane_wave_trace_linear, m, host, 1.0, Z, X)
+    rc = cb.LinearScatteringProblem(m, cb.Medium(eps=-11 + 1.2j), 0.5, outer=cb.Medium(eps=1.7689, chi=0.05)).solve_plane_wave(
+        d=Z, p=cb.circular_polarization(Z, 1))
+    assert abs(rc.sigma_ext / 11.765497482627687 - 1) < 0.07, rc.sigma_ext            # Mie (tests/test_linear.cpp (7))
     H = cb.linear_hmatrix(cb.LinearKernelEntries(m, 1.0))                # Eintraege und Netz bleiben am Leben
     C = cb.LinearCauchyOperator(m, H)
     del H

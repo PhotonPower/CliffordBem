@@ -9,7 +9,8 @@
 // (5) Nahquadratur mit Singularitaetssubtraktion (v0.49; Gauss-Blattregeln v0.52) gegen das doppelt adaptive Verfahren;
 // (6) Fernbloecke direkt in der psi-Basis (v0.50) gegen die Umrechnung der lambda-Bloecke;
 // (7) anisotrope Sauter-Schwab-Ordnungen (v0.53) gegen eine hohe isotrope Ordnung;
-// (8) H-Matrix in einfacher Genauigkeit (v0.56) gegen double.
+// (8) H-Matrix in einfacher Genauigkeit (v0.56) gegen double;
+// (9) chirales Aussenmedium (v0.59) gegen Mie und Gegenproben.
 #include <cstdio>
 
 #include "check.hpp"
@@ -255,7 +256,35 @@ static void test_single_precision() {
     CHECK(std::abs(ratio - 0.5) < 1e-12, "einfache Genauigkeit: Speicher %.3f statt 0,5", ratio);
 }
 
+static void test_chiral_host() {
+    // chirales Aussenmedium (v0.59): Goldkugel in chiralem Wasser gegen Mie (tools/mie_chiral_layered.py, wie test_chiral_host),
+    // Kugel aus dem Aussenmedium unsichtbar, lineare Polarisation abgelehnt, Grenzfall chi -> 0, Spiegelsymmetrie
+    const real om = 0.5; const Vec3 d(0, 0, 1);
+    SolveOptions so; so.tol = 1e-10;
+    const Medium gold{cplx(-11, 1.2), 1.0, 0.0}, host{1.7689, 1.0, 0.05};
+    const auto s = quadratic_icosphere(4);
+    auto sig = [&](const Medium& core, const Medium& out, int h) {
+        return CurvedScatteringProblem({s}, {core}, om, out).solve_plane_wave(d, circular_polarization(d, h), so).sigma_ext; };
+    const real mp = 11.765497482627687, mm = 11.91281031526871;
+    const real p = sig(gold, host, +1), m = sig(gold, host, -1);
+    std::printf("(9) chirales Aussenmedium, Goldkugel 320 Elemente: sigma+ %+.3f %%, sigma- %+.3f %%, CD %+.3f %% gegen Mie\n",
+                100 * (p / mp - 1), 100 * (m / mm - 1), 100 * ((p - m) / (mp - mm) - 1));
+    CHECK(std::abs(p / mp - 1) < 2e-3 && std::abs(m / mm - 1) < 2e-3, "sigma im chiralen Aussenmedium zu ungenau");
+    CHECK(std::abs((p - m) / (mp - mm) - 1) < 4e-3, "CD im chiralen Aussenmedium zu ungenau");
+    const real inv = sig(host, host, +1);
+    CHECK(std::abs(inv) < 1e-10, "Kugel aus dem Aussenmedium streut: %.2e", inv);
+    bool thrown = false;
+    try { CurvedScatteringProblem({s}, {gold}, om, host).solve_plane_wave(d, CVec3{1.0, 0.0, 0.0}, so); } catch (const std::invalid_argument&) { thrown = true; }
+    CHECK(thrown, "lineare Polarisation im chiralen Aussenmedium angenommen");
+    const real a = sig(gold, Medium{1.7689, 1.0, 1e-9}, +1), b = sig(gold, Medium{1.7689, 1.0, 0.0}, +1);
+    const real q = sig(gold, Medium{1.7689, 1.0, -0.05}, -1);
+    std::printf("    unsichtbar %.1e, chi -> 0 %.1e, Spiegelsymmetrie %.1e\n", inv, std::abs(a / b - 1), std::abs(p / q - 1));
+    CHECK(std::abs(a / b - 1) < 1e-7, "Grenzfall chi -> 0 verfehlt");
+    CHECK(std::abs(p / q - 1) < 1e-6, "Spiegelsymmetrie verletzt");
+}
+
 int main() {
+    test_chiral_host();
     test_single_precision();
     test_sauter_schwab_orders();
     test_far_blocks();

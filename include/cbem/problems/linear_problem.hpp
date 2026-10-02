@@ -2,8 +2,9 @@
 // Streuproblem mit unstetig linearen Dichten auf ebenen Dreiecken (v0.45, Stufe 2a der gekruemmten Elemente).
 // Gleiche Formulierung wie ScatteringProblem (T_1 = 1/2 (1 + E_2) + 1/2 (1 - E_1) J), Basis je Element orthonormal
 // (psi = S lambda, LinearKernelEntries): 24 Unbekannte je Dreieck, Koeffizienten h[8 (3 t + a) + q].
-// Umfang: ein oder mehrere Koerper (auch chiral), achirales Aussenmedium, ebene Wellen und beliebige rechte Seiten,
-// Extinktion und Vorwaertsamplitude. Nahfeld, Kraefte, chirales Aussenmedium und Block-/HODLR-Vorkonditionierung folgen.
+// Umfang: ein oder mehrere Koerper (auch chiral), seit v0.59 auch chirales Aussenmedium (Helizitaetswellen mit k_pm,
+// optisches Theorem je Kanal), ebene Wellen und beliebige rechte Seiten, Extinktion und Vorwaertsamplitude. Nahfeld, Kraefte
+// und Block-/HODLR-Vorkonditionierung folgen.
 // Ergebnis der Messung (docs/results_curved.md): auf ebenen Elementen allein kein Gewinn an der Kugel (der Geometriefehler
 // dominiert); Grundlage fuer gekruemmte Elemente (Stufe 2b).
 #include <memory>

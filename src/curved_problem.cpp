@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "cbem/solvers/gmres.hpp"
+#include "cbem/sources/chiral_incidence.hpp"
 
 namespace cbem {
 
@@ -63,7 +64,6 @@ CurvedScatteringProblem::CurvedScatteringProblem(const std::vector<QuadraticMesh
                                                  Medium outer, HMatrixParams hp, EntryParams ep, CurvedNearParams np)
     : parts_(bodies), omega_(omega), outer_(outer) {
     if (media.size() != bodies.size() || bodies.empty()) throw std::invalid_argument("CurvedScatteringProblem: ein Medium je Koerper");
-    if (std::abs(outer.chi) > 0) throw std::invalid_argument("CurvedScatteringProblem: chirales Aussenmedium noch nicht unterstuetzt");
     { std::vector<const TriangleMesh*> ps; for (auto& b : parts_) ps.push_back(&b.flat); require_separated_all(ps, {}, "CurvedScatteringProblem"); }
     all_ = merge_quadratic(parts_, &begin_);
     auto add = [&](const QuadraticMesh& mesh, cplx k) -> CurvedCauchyOperator* {
@@ -72,7 +72,12 @@ CurvedScatteringProblem::CurvedScatteringProblem(const std::vector<QuadraticMesh
         cops_.push_back(std::make_unique<CurvedCauchyOperator>(mesh, *hms_.back()));
         return cops_.back().get();
     };
-    outer_op_ = add(all_, outer.k(omega));
+    if (std::abs(outer.chi) > 0) {                                      // chirales Aussenmedium (v0.59): P+ E_{k+} + P- E_{k-}
+        CurvedCauchyOperator* op = add(all_, outer.k(omega, +1));
+        CurvedCauchyOperator* om = add(all_, outer.k(omega, -1));
+        chops_.push_back(std::make_unique<ChiralCauchyOperator>(*op, *om));
+        outer_op_ = chops_.back().get();
+    } else outer_op_ = add(all_, outer.k(omega));
     std::vector<const BoundaryOperator*> blocks;
     for (std::size_t b = 0; b < parts_.size(); ++b) {
         const Medium& md = media[b];
@@ -105,12 +110,14 @@ PlaneWaveResult CurvedScatteringProblem::solve_rhs(const std::vector<cplx>& b, c
 
 PlaneWaveResult CurvedScatteringProblem::solve_plane_wave(const Vec3& d0, const CVec3& p, const SolveOptions& o) const {
     const Vec3 d = d0 / norm(d0);
-    const cplx k = outer_.k(omega_);
-    const auto b = project_plane_wave_curved(all_, k, outer_.eps, d, p);
+    // chirales Aussenmedium: Helizitaetswelle mit k_sigma, optisches Theorem im Kanal sigma (wie extinction_in_medium)
+    const PlaneWaveIncidence inc = plane_wave_incidence(outer_, omega_, d, p);
+    const auto b = project_plane_wave_curved(all_, inc.k, outer_.eps, d, p);
     PlaneWaveResult r = solve_rhs(b, o);
     std::vector<cplx> hs(r.h.size()); for (std::size_t i = 0; i < hs.size(); ++i) hs[i] = r.h[i] - b[i];
-    r.sigma_ext = extinction_cross_section_curved(all_, hs, k, outer_.eps, d, p);
-    r.forward = forward_amplitude_curved(all_, hs, k, outer_.eps, d, p);
+    const std::vector<cplx> hc = helicity_part(hs, inc.proj);
+    r.sigma_ext = extinction_cross_section_curved(all_, hc, inc.k, outer_.eps, d, p);
+    r.forward = forward_amplitude_curved(all_, hc, inc.k, outer_.eps, d, p);
     return r;
 }
 

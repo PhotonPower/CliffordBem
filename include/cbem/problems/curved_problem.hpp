@@ -1,7 +1,8 @@
 #pragma once
 // Streuproblem auf quadratischen (gekruemmten) Elementen mit unstetig linearen Dichten (v0.47, Stufe 2b der gekruemmten
 // Elemente): 24 Unbekannte je Element, h[8 (3 t + a) + q] mit der je Element orthonormierten Basis psi (curved_psi_matrices).
-// Umfang wie LinearScatteringProblem: ein oder mehrere Koerper (auch chiral), achirales Aussenmedium, ebene Wellen und
+// Umfang wie LinearScatteringProblem: ein oder mehrere Koerper (auch chiral), seit v0.59 auch chirales Aussenmedium
+// (Helizitaetswellen mit k_pm, Aussenoperator P+ E_{k+} + P- E_{k-}, optisches Theorem je Kanal), ebene Wellen und
 // beliebige rechte Seiten, Extinktion und Vorwaertsamplitude. Prueffall: Kugel gegen die Vorhersage aus Stufe 1b
 // (docs/results_curved.md).
 #include <memory>

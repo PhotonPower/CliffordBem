@@ -4,6 +4,7 @@
 
 #include "cbem/geometry/gmsh_io.hpp"
 #include "cbem/problems/curved_problem.hpp"
+#include "cbem/sources/chiral_incidence.hpp"
 #include "cbem/sources/curved_near_field.hpp"
 
 namespace cbem::py_bind {
@@ -111,8 +112,8 @@ Tangentialdreieck, Gauss 5 x 5 an den Blaettern (outer_rule = correction_rule = 
         .def(py::init<const QuadraticMesh&, const CurvedHMatrix&>(), "mesh"_a, "H"_a, py::keep_alive<1, 2>(), py::keep_alive<1, 3>());
 
     m.def("plane_wave_trace_curved", [](const QuadraticMesh& q, const Medium& md, real omega, const Vec3& d, const CVec3& p, int sub) {
-              if (std::abs(md.chi) > 0) throw py::value_error("gekruemmte Elemente: chirales Aussenmedium noch nicht unterstuetzt");
-              return to_numpy(nogil([&] { return project_plane_wave_curved(q, md.k(omega), md.eps, d, p, sub); }));
+              const cplx k = plane_wave_incidence(md, omega, d, p).k;     // chiral: Helizitaetswelle mit k_sigma (v0.59)
+              return to_numpy(nogil([&] { return project_plane_wave_curved(q, k, md.eps, d, p, sub); }));
           }, "mesh"_a, "medium"_a, "omega"_a, "d"_a, "p"_a, "sub"_a = 2);
     m.def("extinction_cross_section_curved", [](const QuadraticMesh& q, const CArr& hs, cplx k, cplx eps, const Vec3& d, const CVec3& p) {
               auto h = to_trace24(hs, q.size(), "h_scat");

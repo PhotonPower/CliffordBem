@@ -4,6 +4,7 @@
 #include "common.hpp"
 
 #include "cbem/problems/linear_problem.hpp"
+#include "cbem/sources/chiral_incidence.hpp"
 
 namespace cbem::py_bind {
 
@@ -59,8 +60,8 @@ baryzentrischen Koordinaten. Summe ueber die Formfunktionen = KernelEntries. Hae
               return to_numpy(nogil([&] { return project_plane_wave_linear(me, k, eps, d, p, sub); }));
           }, "mesh"_a, "k"_a, "eps"_a, "d"_a, "p"_a, "sub"_a = 2, "L2-Projektion der ebenen Welle auf die linearen Dichten (24 N)");
     m.def("plane_wave_trace_linear", [](const TriangleMesh& me, const Medium& md, real omega, const Vec3& d, const CVec3& p, int sub) {
-              if (std::abs(md.chi) > 0) throw py::value_error("lineare Dichten: chirales Aussenmedium noch nicht unterstuetzt");
-              return to_numpy(nogil([&] { return project_plane_wave_linear(me, md.k(omega), md.eps, d, p, sub); }));
+              const cplx k = plane_wave_incidence(md, omega, d, p).k;     // chiral: Helizitaetswelle mit k_sigma (v0.59)
+              return to_numpy(nogil([&] { return project_plane_wave_linear(me, k, md.eps, d, p, sub); }));
           }, "mesh"_a, "medium"_a, "omega"_a, "d"_a, "p"_a, "sub"_a = 2, "rechte Seite wie LinearScatteringProblem.solve_plane_wave");
     m.def("far_field_linear", [](const TriangleMesh& me, const CArr& hs, cplx k, const Vec3& xhat, int sub) {
               auto h = to_linear_trace(hs, me.size(), "h_scat");
