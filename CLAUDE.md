@@ -4,7 +4,7 @@ Koordinatenfreie Galerkin-Randelementmethode (BEM) der Nano-Optik in der komplex
 Streuung, Nahfeld, Dipolemission und optische Kräfte an (auch chiralen, beschichteten, mehreren) Körpern. C++17-Kern ohne
 externe Abhängigkeiten, optionale Python-Anbindung (pybind11). Sprache des Projekts: **Deutsch**.
 
-**Stand: v0.62** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
+**Stand: v0.63** (siehe `CHANGELOG.md`, neueste Version oben). Drei Diskretisierungen stehen nebeneinander:
 
 | Dichten / Geometrie | Klasse | seit | Genauigkeit an der Kugel (320 Elemente) |
 |---|---|---|---|
@@ -147,8 +147,9 @@ Strahlen, Dipole, Nahfeld, Kräfte, chirale Anregung).
    festgelegt, lokale Vorkonditionierer (Block, HODLR) wirkungslos; Krylov-Recycling über mehrere rechte Seiten
    ebenfalls gemessen und ohne Nutzen (≤ 16 % Iterationen, keine Zeit; breites Spektrum ohne Ausreißer). Offen nur noch
    Calderón-Vorkonditionierung (jede Iteration etwa doppelt so teuer).
-   Geschichtete Körper gekrümmt seit v0.62 (lineare Elemente bringen an glatten Körpern nichts); offen: Aufbau dünner
-   Schichten (d = 0,01: 320–440 s; Band der Breite d um die Kanten übereinanderliegender Elemente, gradierte äußere Regel?),
+   Geschichtete Körper gekrümmt seit v0.62 (lineare Elemente bringen an glatten Körpern nichts); Aufbau dünner Schichten
+   v0.63 (d = 0,01: 80–160 s statt 290–430 s; äußeres Kriterium 3, polare Korrektur). Offen: das Band der Breite d um die
+   Kanten übereinanderliegender Elemente (etwa h/d äußere Blätter; gradierte äußere Regel?),
    Nahfeld und Kräfte für geschichtete gekrümmte Körper, Dünnschicht-Näherung/Zweitor auf gekrümmten Elementen.
 4. Typ-Stubs (`.pyi`) für die Python-Anbindung; Wheels für weitere Plattformen.
 5. Ältere offene Punkte aus `README.md`/`docs/ARCHITECTURE.md`: reflexionsfreier Abschluss an 3D-Kanten, Streckung um

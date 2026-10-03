@@ -656,7 +656,9 @@ def test_curved_layered():
     a = cb.CurvedLayeredScatteringProblem(g, 0.5, near=cb.CurvedNearParams()).solve_plane_wave(d=Z, p=X, options=so)
     b = cb.CurvedScatteringProblem(q2, gold, 0.5).solve_plane_wave(d=Z, p=X, options=so)
     assert abs(a.sigma_ext / b.sigma_ext - 1) < 1e-10 and abs(a.forward - b.forward) < 1e-10 * abs(b.forward)
-    assert cb.curved_layered_near_params().adapt_to_boundary and not cb.CurvedNearParams().adapt_to_boundary
+    lp = cb.curved_layered_near_params()
+    assert lp.adapt_to_boundary and not cb.CurvedNearParams().adapt_to_boundary
+    assert lp.polar_radial == 8 and lp.polar_angular == 6 and lp.polar_below == 0.3 and cb.CurvedNearParams().polar_radial == 0
     # Parallelflaeche der Kugel: Radius 1,2 an den Knoten
     o = cb.offset_surface(q2, 0.2)
     assert abs(np.linalg.norm(o.midpoints, axis=2) - 1.2).max() < 1e-4

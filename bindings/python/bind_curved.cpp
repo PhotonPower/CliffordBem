@@ -103,7 +103,10 @@ Tangentialdreieck, Gauss 5 x 5 an den Blaettern (outer_rule = correction_rule = 
         .field("outer_depth", &CurvedNearParams::outer_depth, "maximale Halbierungstiefe aussen")
         .field("inner_depth", &CurvedNearParams::inner_depth, "maximale Halbierungstiefe innen")
         .field("adapt_to_boundary", &CurvedNearParams::adapt_to_boundary,
-               "duenne Schichten (v0.62): Randabstand fuer Teilstuecke auf einer Seite der Flaeche, Abstaende zur gekruemmten Flaeche");
+               "duenne Schichten (v0.62): Randabstand fuer Teilstuecke auf einer Seite der Flaeche, Abstaende zur gekruemmten Flaeche")
+        .field("polar_radial", &CurvedNearParams::polar_radial, "Korrektur in Polarkoordinaten (v0.63): Gauss-Punkte radial (0 = adaptiv)")
+        .field("polar_angular", &CurvedNearParams::polar_angular, "Korrektur in Polarkoordinaten: Gauss-Punkte entlang der Kanten")
+        .field("polar_below", &CurvedNearParams::polar_below, "polar nur fuer Punkte naeher als polar_below * h_max am Element");
 
     py::class_<CurvedKernelEntries>(m, "CurvedKernelEntries", "Eintraege gekruemmter Elemente: je Elementpaar (3, 3, 7), Komponenten [1, e1, e2, e3, e12, e13, e23]")
         .def(py::init<const QuadraticMesh&, cplx, EntryParams, CurvedNearParams>(), "mesh"_a, "k"_a, "params"_a = EntryParams{},
@@ -306,7 +309,7 @@ Gebiet 0 ist der Aussenraum.
 Geschichtete und beschichtete Koerper auf gekruemmten Elementen (v0.62). Goldkern mit Glasschale, 2 x 1280 Elemente: sigma_ext
 gegen Aden-Kerker 2e-6 (d = 0,2) bis 2,5e-5 (duenne Schichten bis d = 0,01), die Wirkung der Schicht direkt gegen die Rechnung
 ohne Schicht auf 2e-4 (konstante Dichten 0,3-0,9 % bzw. 1-2 % gegen eine neutrale Vergleichsrechnung). Duenne Schichten
-kosten Aufbauzeit (d = 0,01: etwa 440 s mit 12 Threads).
+kosten Aufbauzeit (d = 0,01, 2 x 1280 Elemente: etwa 160 s mit 12 Threads; v0.62: 440 s).
 )doc")
         .def(py::init([](const CurvedLayeredGeometry& g, real omega, const HMatrixParams& hp, const EntryParams& ep, const CurvedNearParams& np) {
                  return nogil([&] { return std::make_unique<CurvedLayeredScatteringProblem>(g, omega, hp, ep, np); });

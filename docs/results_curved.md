@@ -1066,3 +1066,67 @@ mehrere Körper und chirale Schichten oder Außenmedien. **Prüfung** (`test_cur
 - chirale Glasschale (χ = 0,1) gegen `tools/mie_chiral_layered.py`: σ₊ 2·10⁻⁶, σ₋ 2·10⁻⁵, Zirkulardichroismus auf 1 %,
   Spiegelsymmetrie σ_s(χ) = σ_{−s}(−χ) auf 2·10⁻⁹;
 - Nahquadratur mit Randabstand gegen die Voreinstellung über eine Schicht d = 0,05: 1,7·10⁻⁸.
+
+## Aufbau dünner Schichten (v0.63)
+
+**Wohin die Zeit geht** (`prototype/curved/thin_layer_cost.cpp` mit einer gezählten Kopie der Nahquadratur; n = 4, ein Thread,
+Element 0 der Schale gegen die nahen Elemente des Kerns, Voreinstellung v0.62):
+
+| d (d/h) | übereinanderliegendes Paar: äußere Blätter / Korrekturblätter je Außenpunkt / Zeit | übrige Paare je Paar |
+|---|---|---|
+| 0,05 (0,16) | 60 / 19 / 53 ms | 4,7 / 6,7 / 1,7 ms |
+| 0,02 (0,07) | 204 / 35 / 361 ms | 8,8 / 14 / 5,9 ms |
+| 0,01 (0,03) | 486 / 49 / 1 140 ms | 16 / 22 / 17 ms |
+| 0,005 (0,02) | 994 / 63 / 3 040 ms | 27 / 31 / 40 ms |
+
+Jedes Blatt hat 25 Punkte; das übereinanderliegende Paar braucht bei d = 0,01 etwa 15 Mio. Kernauswertungen. Die äußeren
+Blätter wachsen etwa wie h/d (Band der Breite d um die Kanten), die Korrekturblätter um etwa 14 je Halbierung von d (adaptive
+Verfeinerung um den Fußpunkt bis auf die Größe d).
+
+**Kriterien und Regeln** (`prototype/curved/thin_layer_rules.cpp`; Fehler je Paar bezogen auf dessen größten Eintrag, gegen
+eine Referenz mit Kriterien 0,6/0,6 und Gauß 6 × 6):
+
+| Variante | n = 4, d = 0,02 | n = 4, d = 0,01 | n = 8, d = 0,01 | Fehler je Paar |
+|---|---:|---:|---:|---:|
+| v0.62 (äußeres Kriterium 1,5, Korrektur 1,5, Gauß 5) | 0,61 s | 1,89 s | 0,56 s | 0,9–1,3·10⁻⁶ |
+| äußeres Kriterium 3 | 0,39 s | 1,26 s | 0,37 s | 1,0–1,3·10⁻⁶ |
+| äußeres Kriterium 5 | 0,36 s | 1,15 s | 0,31 s | 1,0–1,3·10⁻⁶ (global etwas größer) |
+| Korrektur 2 / 3 | 0,33 / 0,28 s | 1,09 / 0,86 s | 0,34 / 0,33 s | 1,3–2,3·10⁻⁶ / 3–7·10⁻⁶ |
+| Gauß 4 statt 5 | 0,11 s | 0,35 s | 0,11 s | 3–6·10⁻⁵ |
+
+Das äußere Kriterium 3 kostet keine Genauigkeit: Über einer Schicht ist das Innenintegral tangential sehr glatt.
+
+**Korrektur in Polarkoordinaten** (`CurvedNearParams::polar_radial`, `polar_angular`, `polar_below`;
+`prototype/curved/thin_layer_polar.cpp`). Das Referenzdreieck wird am Fußpunkt in drei Teildreiecke zerlegt und jedes am
+Lotfußpunkt auf seiner Gegenkante noch einmal geteilt. Je Teil wird Gauß entlang der Kante verwendet, sinh-gestaucht mit der
+Skala Lotabstand durch Kantenlänge, und radial Gauß nach ρ = δ sinh(μt) mit δ = Abstand des Punktes von der Fläche durch die
+Länge des Strahls. Ohne die Teilung am Lotfußpunkt lagen Punkte über der Nähe einer Kante bei 5–7·10⁻⁴, weil der Integrand
+entlang der Kante auf der Skala des Kantenabstands variiert.
+
+| Fall | adaptiv | polar 8 × 6 | polar 10 × 8 | polar 8 × 6 unter 0,3 h |
+|---|---|---|---|---|
+| Schicht n = 4, d = 0,02 | 0,43 s / 1,3·10⁻⁶ | 0,24 s / 5·10⁻⁷ | 0,39 s / 5·10⁻⁷ | 0,21 s / 1,3·10⁻⁶ |
+| Schicht n = 4, d = 0,01 | 1,39 s / 1,0·10⁻⁶ | 0,51 s / 6·10⁻⁷ | 0,81 s / 6·10⁻⁷ | 0,47 s / 1,1·10⁻⁶ |
+| Schicht n = 8, d = 0,01 | 0,37 s / 1,3·10⁻⁶ | 0,25 s / 1,3·10⁻⁶ | 0,39 s / 1,3·10⁻⁶ | 0,21 s / 1,3·10⁻⁶ |
+| Schicht n = 8, d = 0,002 | 4,7 s / 1,3·10⁻⁶ | 1,32 s / 1,3·10⁻⁶ | 2,2 s / 1,3·10⁻⁶ | 1,31 s / 1,3·10⁻⁶ |
+| eine Fläche, nahe Paare | 0,002 s / 8·10⁻⁷ | 0,016 s / 6·10⁻⁷ | 0,025 s / 6·10⁻⁷ | 0,002 s / 8·10⁻⁷ |
+
+(Zeiten je Element, alle mit äußerem Kriterium 3.) Die polare Regel hängt nicht vom Abstand ab; für Punkte weiter weg (eine
+Fläche) genügt adaptiv ein Blatt, daher die Schwelle. Im Nahfeld (24 Punkte 0,001 … 0,3 über Mitte, Kanten und Ecke eines
+Elements) ist polar 10 × 8 auf 1,4·10⁻⁷ genau. Adaptiv sind es bis Höhe 0,1 schon 3·10⁻⁷; der größte adaptive Fehler (6·10⁻⁶)
+liegt in Höhe 0,3, etwa eine Elementgröße, wo ein einziges Blatt verwendet wird.
+
+**Gesamtproblem** (`prototype/curved/layered_build.cpp`, Goldkern mit Glasschale d = 0,01, 12 Threads):
+
+| | v0.62 | äußeres Kriterium 3 | dazu polar 8 × 6 unter 0,3 h (Voreinstellung v0.63) |
+|---|---:|---:|---:|
+| 2 × 320 Elemente: Aufbau / σ gegen Aden-Kerker | 288 s / −2,04·10⁻⁶ | 217 s / −2,09·10⁻⁶ | 80 s / −3,17·10⁻⁶ |
+| 2 × 1 280 Elemente | 427 s / +7,93·10⁻⁶ | 321 s / +7,90·10⁻⁶ | 161 s / +7,94·10⁻⁶ |
+
+Bei d = 0,02 und n = 4 verkürzt das äußere Kriterium allein den Aufbau von 99 auf 74 s; σ ändert sich in der achten Stelle.
+`curved_layered_near_params()` enthält seit v0.63 beides; `CurvedNearParams{}` ist unverändert. Es bleibt das Band der Breite d
+um die Kanten übereinanderliegender Elemente (etwa h/d äußere Blätter); dafür wäre eine zu den Kanten hin gradierte äußere
+Regel nötig.
+
+**Prüfung** (`test_curved_layered`, Teil 5): Einträge über eine Schicht d = 0,02 (d/h = 0,07) mit der Voreinstellung gegen die
+Referenz 1,3·10⁻⁶ je Paar; Nahfeldpunkte mit polar 10 × 8: 1,4·10⁻⁷ (adaptiv 6,1·10⁻⁶ in Höhe 0,3).

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <stdexcept>
 
+#include "cbem/geometry/sauter_schwab.hpp"
 #include "cbem/kernel/dirac_kernel.hpp"
 #include "cbem/kernel/triangle_integrals.hpp"
 
@@ -79,6 +80,7 @@ CurvedKernelEntries::CurvedKernelEntries(const QuadraticMesh& mesh, cplx k, Entr
                 for (int k = 0; k < 3; ++k) s += S_[t][a * 3 + k] * q7_.lam[p][k];
                 psiw_[t * q7_.q + p][a] = q7_.weights(t)[p] * s;
             }
+    if (np_.polar_radial > 0) { gauss_legendre01(np_.polar_radial, pr_x_, pr_w_); gauss_legendre01(np_.polar_angular, pa_x_, pa_w_); }
     if (prm_.cache_near) build_near_cache();
 }
 
@@ -361,7 +363,44 @@ void CurvedKernelEntries::inner_subtracted(const Vec3& x, std::size_t j, std::ar
         const CurvedComp c = comps7(Ig[b] / (4 * pi), T.n, -ik * Ii[b] / (4 * pi), 1.0);
         for (int q = 0; q < kCurvedComps; ++q) out[b][q] += c[q];
     }
-    correction(x, j, T, kRef, 0.5, 0, out);
+    if (np_.polar_radial > 0 && norm(x - gX(j, T.lam)) < np_.polar_below * m_.flat.hmax[j]) correction_polar(x, j, T, out);
+    else correction(x, j, T, kRef, 0.5, 0, out);
+}
+
+void CurvedKernelEntries::correction_polar(const Vec3& x, std::size_t j, const Tangent& T, std::array<CurvedComp, 3>& out) const {
+    const real hx = norm(x - gX(j, T.lam));                          // Abstand vom Fusspunkt
+    const real P[2] = {T.lam[1], T.lam[2]};                          // Fusspunkt in (u, v)
+    auto phys = [&](real du, real dv) { return norm(T.Xu * du + T.Xv * dv); };   // Laenge im Tangentialmass
+    static const real V[3][2] = {{0, 0}, {1, 0}, {0, 1}};
+    for (int e = 0; e < 3; ++e) {
+        const real* A = V[e]; const real* B = V[(e + 1) % 3];
+        const real a2 = std::abs((A[0] - P[0]) * (B[1] - A[1]) - (A[1] - P[1]) * (B[0] - A[0]));   // 2 x Flaeche des Teildreiecks
+        if (a2 < 1e-14) continue;                                     // Fusspunkt auf dieser Kante
+        // Lotfusspunkt F des Fusspunkts auf der Kante AB (im Tangentialmass), Teilung in [F, A] und [F, B]
+        const Vec3 ab = T.Xu * (B[0] - A[0]) + T.Xv * (B[1] - A[1]), ap = T.Xu * (P[0] - A[0]) + T.Xv * (P[1] - A[1]);
+        const real tf = std::max(0.0, std::min(1.0, dot(ap, ab) / dot(ab, ab)));
+        const real F[2] = {A[0] + tf * (B[0] - A[0]), A[1] + tf * (B[1] - A[1])};
+        const real hp = phys(F[0] - P[0], F[1] - P[1]);              // Lotabstand
+        for (const real* E : {A, B}) {
+            const real len = phys(E[0] - F[0], E[1] - F[1]);
+            if (len < 1e-14 * phys(B[0] - A[0], B[1] - A[1])) continue;
+            const real b2 = std::abs((F[0] - P[0]) * (E[1] - F[1]) - (F[1] - P[1]) * (E[0] - F[0]));   // 2 x Flaeche (P, F, E)
+            if (b2 < 1e-16) continue;
+            const real ds = std::max(hp / len, 1e-14), ms = std::asinh(1.0 / ds);
+            for (std::size_t q = 0; q < pa_x_.size(); ++q) {
+                const real s = ds * std::sinh(ms * pa_x_[q]), dsw = ds * ms * std::cosh(ms * pa_x_[q]) * pa_w_[q];
+                const real D0 = F[0] + s * (E[0] - F[0]) - P[0], D1 = F[1] + s * (E[1] - F[1]) - P[1];   // Strahl zur Kante
+                const real L = phys(D0, D1);
+                const real delta = std::max(hx / L, 1e-14), mu = std::asinh(1.0 / delta);
+                for (std::size_t r = 0; r < pr_x_.size(); ++r) {
+                    const real t = pr_x_[r];
+                    const real rho = delta * std::sinh(mu * t), drho = delta * mu * std::cosh(mu * t);
+                    const real u = P[0] + rho * D0, v = P[1] + rho * D1;
+                    correction_point(x, j, T, {1 - u - v, u, v}, dsw * pr_w_[r] * drho * rho * b2, out);
+                }
+            }
+        }
+    }
 }
 
 void CurvedKernelEntries::correction(const Vec3& x, std::size_t j, const Tangent& T, const Tri& tri, real aref, int depth,

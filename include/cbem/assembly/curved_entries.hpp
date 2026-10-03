@@ -62,6 +62,17 @@ struct CurvedNearParams {
     // Abstaende dann zur gekruemmten Flaeche statt zum Sehnendreieck minus Woelbung (die Woelbung ist bei duennen Schichten so
     // gross wie d).
     bool adapt_to_boundary = false;
+    // Korrektur in Polarkoordinaten um den Fusspunkt (v0.63; 0 = adaptiv wie bisher): das Referenzdreieck wird am Fusspunkt in
+    // drei Teildreiecke zerlegt und jedes am Lotfusspunkt auf seiner Gegenkante noch einmal geteilt; je Teil Gauss mit
+    // polar_angular Punkten entlang der Kante (sinh-gestaucht mit der Skala Lotabstand / Kantenlaenge) und polar_radial Punkten
+    // radial nach rho = delta sinh(mu t) (delta = Abstand des Punktes von der Flaeche durch die Laenge des Strahls), also auf der
+    // Skala des Abstands zum Fusspunkt hin gestaucht. Unabhaengig vom Abstand; die adaptive Korrektur braucht dagegen etwa 14
+    // Blaetter mehr je Halbierung des Abstands. Polar nur fuer Punkte naeher als polar_below * h_max am Element (weiter weg genuegt
+    // adaptiv ein Blatt). Duenne Schichten mit 8 x 6 unter 0,3 h: 1,8- bis 3,6-mal schneller bei gleichem Fehler. Nahfeldpunkte
+    // bis 0,001 ueber Mitte, Kanten und Ecken mit 10 x 8: 1,4e-7 (adaptiv bis 0,1 ueber dem Element 3e-7, in Abstaenden der
+    // Elementgroesse mit einem Blatt 6e-6; docs/results_curved.md).
+    int polar_radial = 0, polar_angular = 0;
+    real polar_below = 1e300;
 };
 
 class CurvedKernelEntries {
@@ -104,6 +115,7 @@ private:
     CurvedQuadrature q7_;
     PairRule ss_[4];
     std::vector<std::array<real, 9>> S_;
+    std::vector<real> pr_x_, pr_w_, pa_x_, pa_w_;   // Gauss-Knoten auf [0, 1] fuer correction_polar
     std::vector<std::array<real, 3>> psiw_;   // w psi_a an den Punkten von q7_ je Element (block_far)
     // Geometrie je Element als Polynom in u = lambda_1, v = lambda_2 (v0.51): X = A + B u + C v + D u^2 + E u v + F v^2,
     // inline ausgewertet (QuadraticMesh::X/jacobian sammeln die Knoten je Aufruf ueber die Konnektivitaet)
@@ -136,6 +148,7 @@ private:
     void inner_subtracted(const Vec3& x, std::size_t j, std::array<CurvedComp, 3>& acc) const;
     void correction(const Vec3& x, std::size_t j, const Tangent& T, const std::array<std::array<real, 3>, 3>& tri, real aref, int depth,
                     std::array<CurvedComp, 3>& acc) const;
+    void correction_polar(const Vec3& x, std::size_t j, const Tangent& T, std::array<CurvedComp, 3>& acc) const;
     void correction_point(const Vec3& x, std::size_t j, const Tangent& T, const std::array<real, 3>& l, real w,
                           std::array<CurvedComp, 3>& acc) const;
     void outer(std::size_t i, std::size_t j, const std::array<std::array<real, 3>, 3>& tri, real aref, int depth, CurvedBlock& K) const;

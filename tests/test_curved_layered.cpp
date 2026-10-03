@@ -1,7 +1,7 @@
 // Geschichtete Koerper auf gekruemmten Elementen (v0.62): Parallelflaeche quadratischer Netze, Rueckfuehrung auf
 // CurvedScatteringProblem ohne Schicht (ein und zwei Koerper), Goldkern mit Glasschale (dick, duenn, Doppelschale) gegen
 // Aden-Kerker (tools/mie_coated.py), optisches Theorem, chirale Schale gegen tools/mie_chiral_layered.py und
-// Spiegelsymmetrie, Nahquadratur mit Randabstand gegen die Voreinstellung.
+// Spiegelsymmetrie, Nahquadratur ueber eine duenne Schicht und im Nahfeld gegen eine verschaerfte Referenz (v0.63).
 #include <cmath>
 #include <cstdio>
 
@@ -88,22 +88,45 @@ int main() {
         CHECK(std::abs(a - c) < 1e-8 * a, "Spiegelsymmetrie verletzt");
         CHECK(std::abs((a - b) / (ref[0] - ref[1]) - 1) < 0.01, "Zirkulardichroismus der Schale: %.4f statt %.4f", a - b, ref[0] - ref[1]);
     }
-    // 5. Nahquadratur ueber eine duenne Schicht (d = 0,05, d/h = 0,16): Randabstand gegen die Voreinstellung, Element 0 der
-    //    Schale gegen alle nahen Elemente des Kerns
+    // 5. Nahquadratur gegen eine verschaerfte Referenz (adaptiv, Kriterien 0,6/0,6, Gauss 6 x 6), Fehler je Paar bzw. Punkt
+    //    bezogen auf dessen groessten Eintrag: (a) ueber eine Schicht d = 0,02 (d/h = 0,07) mit curved_layered_near_params
+    //    (Randabstand, aeusseres Kriterium 3, polare Korrektur), Element 0 der Schale gegen alle nahen Elemente des Kerns;
+    //    (b) Nahfeld: point_integrals 0,001 ... 0,3 ueber Mitte, Kanten und Ecke von Element 0, polare Korrektur 10 x 8 (der
+    //        groesste adaptive Fehler liegt in Hoehe 0,3, etwa eine Elementgroesse, wo adaptiv ein Blatt genuegt)
     {
-        const QuadraticMesh m = merge_quadratic({quadratic_icosphere(4, 1.05), q4});
-        const std::size_t N = q4.size();
         EntryParams ep; ep.cache_near = false;
-        const CurvedKernelEntries E0(m, cplx(0.75), ep), E1(m, cplx(0.75), ep, curved_layered_near_params());
-        real e = 0, s = 0; int np = 0;
+        CurvedNearParams ref; ref.subtract_outer_ratio = 0.6; ref.correction_ratio = 0.6; ref.outer_rule = 6; ref.correction_rule = 6;
+        auto rel = [](const auto& A, const auto& B) {
+            real e = 0, s = 0;
+            for (std::size_t q = 0; q < A.size(); ++q) for (int c = 0; c < kCurvedComps; ++c) { e = std::max(e, std::abs(A[q][c] - B[q][c])); s = std::max(s, std::abs(B[q][c])); }
+            return e / s;
+        };
+        const QuadraticMesh m = merge_quadratic({quadratic_icosphere(4, 1.02), q4});
+        const std::size_t N = q4.size();
+        CurvedNearParams rl = ref; rl.adapt_to_boundary = true;
+        const CurvedKernelEntries E(m, cplx(0.75), ep, curved_layered_near_params()), R(m, cplx(0.75), ep, rl);
+        real ea = 0; int np = 0;
         for (std::size_t j = N; j < 2 * N; ++j) {
-            if (!E0.is_near(0, j)) continue;
-            ++np;
-            const CurvedBlock A = E0.lambda_near(0, j), B = E1.lambda_near(0, j);
-            for (int q = 0; q < 9; ++q) for (int c = 0; c < kCurvedComps; ++c) { e = std::max(e, std::abs(A[q][c] - B[q][c])); s = std::max(s, std::abs(A[q][c])); }
+            if (!E.is_near(0, j)) continue;
+            ++np; ea = std::max(ea, rel(E.lambda_near(0, j), R.lambda_near(0, j)));
         }
-        std::printf("  Nahquadratur mit Randabstand, %d Paare ueber die Schicht: Abweichung %.1e\n", np, e / s);
-        CHECK(np > 20 && e < 1e-6 * s, "Randabstand aendert die Eintraege: %.2e", e / s);
+        std::printf("  Nahquadratur ueber die Schicht (%d Paare): Fehler je Paar %.1e\n", np, ea);
+        CHECK(np > 20 && ea < 3e-6, "Nahquadratur ueber die Schicht: Fehler %.2e", ea);
+        CurvedNearParams pol; pol.polar_radial = 10; pol.polar_angular = 8;
+        const CurvedKernelEntries Ed(q4, cplx(0.75), ep), Ep(q4, cplx(0.75), ep, pol), Er(q4, cplx(0.75), ep, ref);
+        real ed = 0, ep_ = 0, hw = 0; int lw = 0, li = 0;
+        for (const std::array<real, 3>& l : {std::array<real, 3>{1.0 / 3, 1.0 / 3, 1.0 / 3}, {0.48, 0.48, 0.04}, {0.495, 0.495, 0.01}, {0.9, 0.05, 0.05}}) {
+            for (real h : {0.001, 0.003, 0.01, 0.03, 0.1, 0.3}) {
+                const Vec3 x = q4.X(0, l) * (1 + h);
+                const auto r = Er.point_integrals(x, 0);
+                const real a = rel(Ed.point_integrals(x, 0), r);
+                if (a > ed) { ed = a; hw = h; lw = li; }
+                ep_ = std::max(ep_, rel(Ep.point_integrals(x, 0), r));
+            }
+            ++li;
+        }
+        std::printf("  Nahfeld 0,001 ... 0,3 ueber dem Element: adaptiv %.1e (Punkt %d, Hoehe %.3f), polar 10 x 8 %.1e\n", ed, lw, hw, ep_);
+        CHECK(ep_ < 1e-6 && ep_ < ed, "polare Korrektur im Nahfeld: Fehler %.2e (adaptiv %.2e)", ep_, ed);
     }
     REPORT();
 }

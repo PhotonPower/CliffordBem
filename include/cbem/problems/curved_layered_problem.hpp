@@ -13,7 +13,7 @@
 // Aden-Kerker, 2 x 1280 Elemente: sigma_ext auf 2e-6 (d = 0,2) bis 2,5e-5 (d = 0,01 ... 0,05), die Wirkung der Schicht direkt
 // gegen die Rechnung ohne Schicht auf 2e-4 (konstante Dichten: 0,3-0,9 % bzw. 1-2 % gegen eine neutrale Vergleichsrechnung;
 // docs/results_curved.md). Der Aufbau waechst mit abnehmendem d (Band der Breite d um die Kanten uebereinanderliegender
-// Elemente): 17 s (d = 0,2) bis 440 s (d = 0,01) mit 12 Threads.
+// Elemente): 17 s (d = 0,2) bis 160 s (d = 0,01) mit 12 Threads (v0.63; v0.62: 440 s).
 #include <memory>
 #include <vector>
 
@@ -43,8 +43,16 @@ std::vector<int> add_layered_body(CurvedLayeredGeometry& g, const std::vector<Qu
 std::vector<int> add_coated_body(CurvedLayeredGeometry& g, const QuadraticMesh& surface, const Medium& core,
                                  const std::vector<Coating>& coatings, bool outward = true, int parent = 0);
 
-// Nahquadratur fuer geschichtete Koerper: Randabstand und Abstaende zur gekruemmten Flaeche
-inline CurvedNearParams curved_layered_near_params() { CurvedNearParams np; np.adapt_to_boundary = true; return np; }
+// Nahquadratur fuer geschichtete Koerper: Randabstand und Abstaende zur gekruemmten Flaeche (v0.62); seit v0.63 aeusseres
+// Kriterium 3 statt 1,5 (das Innenintegral ist ueber einer Schicht tangential sehr glatt) und die Korrektur in Polarkoordinaten
+// (8 x 6) fuer Punkte naeher als 0,3 h. Eintraege gegen eine verschaerfte Referenz weiter auf 1,0-1,3e-6 je Paar; Aufbau bei
+// d = 0,01: 2 x 320 Elemente 80 s statt 288 s, 2 x 1280 Elemente 161 s statt 427 s (docs/results_curved.md)
+inline CurvedNearParams curved_layered_near_params() {
+    CurvedNearParams np;
+    np.adapt_to_boundary = true; np.subtract_outer_ratio = 3.0;
+    np.polar_radial = 8; np.polar_angular = 6; np.polar_below = 0.3;
+    return np;
+}
 
 class CurvedLayeredTransmissionOperator {
 public:
