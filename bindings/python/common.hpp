@@ -168,7 +168,7 @@ public:
             std::string s = cname + "(";
             for (std::size_t i = 0; i < names->size(); ++i) {
                 if (i) s += ", ";
-                s += (*names)[i] + "=" + py::repr(self.attr((*names)[i].c_str())).cast<std::string>();
+                s += (*names)[i] + "=" + py::repr(self.attr((*names)[i].c_str())).template cast<std::string>();
             }
             return s + ")";
         });
